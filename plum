@@ -2379,4 +2379,3 @@ sub print_ctcp {
   $tmp .= $rest || '';
   return ($tmp, $ctmp);
 }
-
