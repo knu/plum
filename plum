@@ -1784,18 +1784,16 @@ sub s_proc {
         $nickindex[$userno]++;
         if ($nickindex[$userno] < &'array($nicklist[$userno])) {
           $nick = (&'array($nicklist[$userno]))[$nickindex[$userno]];
-        } else {
-          $nickindex[$userno] = 0;
+        } elsif ($nickindex[$userno] == &'array($nicklist[$userno])) {
           if ($nicklist[$userno]) {
             $nick = (&'array($nicklist[$userno]))[0];
           } else {
             $nick = $params[1];
           }
-          if ($nick =~ /\d+$/) {
-            $nick++;
-          } else {
-            $nick = substr($nick, 0, 8) . '0';
-          }
+          $nick = substr($nick, 0, 8) . '0';
+        } else {
+          $nick = $params[1];
+          $nick++;
         }
         &s_out($sno, '', 'NICK', $nick);
       }
