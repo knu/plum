@@ -5,7 +5,7 @@
 package plum;
 
 $NAME = 'plum';
-$VERSION = '3.1.0b9';
+$VERSION = '3.1.0b10';
 
 $NIL = "\r";
 $NOTRAILING = &'list('004', '215', '221', '324', '341', '367', 'MODE');
@@ -735,7 +735,7 @@ sub 'close {
   substr($sockethandle, $no, 1) = ' ';
 }
 
-sub 'reuse {
+sub 'recycle {
   local($no) = @_;
   close($'socket[$no]) if fileno($'socket[$no]);
   vec($'rin, $'fileno[$no], 1) = 0;
@@ -1802,7 +1802,7 @@ sub s_proc {
     }
   } else {
     $status[$userno] = 0;
-    &'reuse($sno);
+    &'recycle($sno);
     &s_clear($userno);
   }
 }
@@ -1865,7 +1865,7 @@ sub server_close {
   &clear_variable($sno);
   if ($default[$'userno[$sno]] == $sno) {
     $status[$'userno[$sno]] = 0;
-    &'reuse($sno);
+    &'recycle($sno);
     $lastnick[$'userno[$sno]] = $'nick[$'userno[$sno]];
   }
   &'alarm(-$INTERVAL);
