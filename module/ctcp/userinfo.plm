@@ -1,0 +1,63 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1997-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package ctcp_userinfo;
+
+$_ = 'ctcp_userinfo';
+
+sub initialize {
+  $CLIENTINFO = 'USERINFO';
+}
+
+sub cpss_userinfo {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick, $info);
+  $nick = &'prefix($prefix);
+  $info = &'property($'userno[$serverno], 'info');
+  if ($info) {
+    &'s_print($serverno, '', 'NOTICE', $nick, "\cA" . join(' ', $cmd, $info) . "\cA");
+  }
+  return ($prefix, $cmd, @params);
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>ctcp/userinfo.plm</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+ctcp/userinfo.plm - CTCP USERINFOに反応してユーザ情報を送る
+
+
+<HR><H3>説明</H3>
+
+CTCP USERINFOが送られてきたとき、それに反応してユーザ情報を送ります。
+
+
+<HR><H3>プロパティ</H3>
+
+<DL>
+<DT>  ctcp.userinfo.info ユーザ情報
+</DT>
+<DD>    ユーザ情報を設定します。
+        文字数や使用できる文字の制限はありません。
+</DD>
+</DL>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
++ ctcp/userinfo.plm
+ctcp.userinfo.info: ないしょ
+</PRE>
+
+CTCP USERINFOが送られてきたときに、「ないしょ」というユーザ情報を送ります。
+
+</BODY></HTML>

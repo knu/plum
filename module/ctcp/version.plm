@@ -1,0 +1,55 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1997-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package ctcp_version;
+
+$_ = 'ctcp_version';
+
+sub initialize {
+  $CLIENTINFO = 'VERSION';
+}
+
+sub cpss_version {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($userno, $nick, $name, $ver);
+  $userno = $'userno[$serverno];
+  $nick = &'prefix($prefix);
+  foreach $module (&'array($'modulelist[$userno])) {
+    eval "\$name = \$${module}\'NAME;";
+    next unless defined($name);
+    eval "\$ver = \$${module}\'VERSION;";
+    next unless defined($ver);
+  &'s_print($serverno, '', 'NOTICE', $nick, "\cA" . join(' ', $cmd, $name, $ver, 'perl', sprintf('%1.3f', $]), ':') . "\cA");
+  }
+  return ($prefix, $cmd, @params);
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>ctcp/version.plm</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+ctcp/version.plm - CTCP VERSIONに反応してバージョン情報を送る
+
+
+<HR><H3>説明</H3>
+
+CTCP VERSIONが送られてきたとき、それに反応してバージョン情報を送ります。
+
+<HR><H3>プロパティ</H3>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
++ ctcp/version.plm
+</PRE>
+
+</BODY></HTML>

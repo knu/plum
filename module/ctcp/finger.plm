@@ -1,0 +1,65 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1998-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package ctcp_finger;
+
+$_ = 'ctcp_finger';
+
+sub initialize {
+  $CLIENTINFO = 'FINGER';
+}
+
+sub cpss_finger {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($userno, $nick, $host, $addr);
+  $userno = $'userno[$serverno];
+  $nick = &'prefix($prefix);
+  foreach $cno (&'array($'clientlist)) {
+    next unless $'server[$cno] == $serverno;
+    $host = (&'peername($cno))[2];
+    if (!$host) {
+      $addr = (&'peername($cno))[1];
+      if (length($addr) == 4) {
+        $host = join('.', unpack('C4', $addr));
+      } elsif (length($addr) == 16) {
+        $host = join(':', unpack('H4 H4 H4 H4 H4 H4 H4 H4', $addr));
+      }
+    }
+    &'s_print($serverno, '', 'NOTICE', $nick, "\cA" . join(' ', $cmd, "$'nick[$cno] is <$'user[$cno]\@$host>") . "\cA");
+  }
+  return ($prefix, $cmd, $params);
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>ctcp/finger.plm</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+ctcp/finger.plm - CTCP FINGERに反応してクライアントの情報を送る
+
+
+<HR><H3>説明</H3>
+
+CTCP FINGERが送られてきたとき、
+接続されているクライアントの情報を送り返します。
+クライアントの情報はニックネーム、接続時のユーザ名と
+接続元のホスト名です。
+
+
+<HR><H3>プロパティ</H3>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
++ ctcp/finger.plm
+</PRE>
+
+</BODY></HTML>

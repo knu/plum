@@ -1,0 +1,54 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1997-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package ctcp_ping;
+
+$_ = 'ctcp_ping';
+
+sub initialize {
+  $CLIENTINFO = 'PING';
+}
+
+sub cpss_ping {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick);
+  $nick = &'prefix($prefix);
+  if ($params[1]) {
+    &'s_print($serverno, '', 'NOTICE', $nick, "\cA" . join(' ', $cmd, $params[1]) . "\cA");
+  } else {
+    &'s_print($serverno, '', 'NOTICE', $nick, "\cA" . join(' ', $cmd) . "\cA");
+  }
+  return ($prefix, $cmd, @params);
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>ctcp/ping.plm</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+ctcp/ping.plm - CTCP PINGに反応して受け取ったメッセージを送る
+
+
+<HR><H3>説明</H3>
+
+CTCP PINGが送られてきたとき、
+それに反応して受け取ったメッセージを送り返します。
+
+
+<HR><H3>プロパティ</H3>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
++ ctcp/ping.plm
+</PRE>
+
+</BODY></HTML>

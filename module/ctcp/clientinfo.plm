@@ -1,0 +1,55 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1997-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package ctcp_clientinfo;
+
+$_ = 'ctcp_clientinfo';
+
+sub initialize {
+  $CLIENTINFO = 'CLIENTINFO';
+}
+
+sub cpss_clientinfo {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($userno, $nick, $var, $list);
+  $userno = $'userno[$serverno];
+  $nick = &'prefix($prefix);
+  foreach $module (&'array($'modulelist[$userno])) {
+    eval "\$var = \$${module}\'CLIENTINFO;";
+    $list = &'add($list, split(/\s+/, $var)) if defined($var);
+  }
+  &'s_print($serverno, '', 'NOTICE', $nick, "\cA" . join(' ', $cmd, &'array($list)) . "\cA");
+  return ($prefix, $cmd, @params);
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>ctcp/clientinfo.plm</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+ctcp/clientinfo.plm - CTCP CLIENTINFOに反応してクライアント情報を送る
+
+
+<HR><H3>説明</H3>
+
+CTCP CLIENTINFOが送られてきたとき、
+それに反応してクライアント情報を送り返します。
+
+
+<HR><H3>プロパティ</H3>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
++ ctcp/clientinfo.plm
+</PRE>
+
+</BODY></HTML>

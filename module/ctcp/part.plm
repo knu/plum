@@ -1,0 +1,105 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1997-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package ctcp_part;
+
+$_ = 'ctcp_part';
+
+sub initialize {
+  $CLIENTINFO = 'PART';
+}
+
+sub cpss_part {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($userno, $regex, $nick, $chan);
+  $nick = &'prefix($prefix);
+  $userno = $'userno[$serverno];
+  if ($params[1]) {
+    $chan = &'real((split(/\s+/, $params[1]))[0]);
+    if (&check_mask($userno, $prefix, $chan)) {
+      &'s_print($serverno, '', 'PART', $chan, $nick);
+      return ();
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub check_mask {
+  local($userno, $prefix, $chan) = @_;
+  local($user, $chlist, $list);
+  foreach $mask (&'property($userno, 'mask')) {
+    ($user, $chlist) = split(/\s+/, $mask);
+    $list = '';
+    foreach $vchan (split(/\,/, $chlist || '')) {
+      $list = &'add($list, &'real($vchan));
+    }
+    if (&'channel($chan)) {
+      next unless (!$list || &'exist($list, $chan));
+    } else {
+      next unless (!$list || &'exist($list, '*'));
+    }
+    if ($user =~ /^\-/) {
+      $regex = &'regex(substr($user, 1));
+      return 0 if $prefix =~ /$regex/i;
+    }
+    if ($user =~ /^\+/) {
+      $regex = &'regex(substr($user, 1));
+    } else {
+      $regex = &'regex($user);
+    }
+    return 1 if $prefix =~ /$regex/i;
+  }
+  return 0;
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>ctcp/part.plm</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+ctcp/part.plm - CTCP PARTに反応してチャンネルを抜ける
+
+
+<HR><H3>説明</H3>
+
+CTCP PARTが送られてきたとき、
+それに反応して指定されたチャンネルを抜けます。
+
+
+<HR><H3>プロパティ</H3>
+
+<DL>
+<DT>  ctcp.part.mask* ユーザマスク [(チャンネル名)]
+</DT>
+<DD>    CTCP PARTが送られてきたとき、送り主およびチャンネルが
+        ここで指定されたものにマッチしたら、そのチャンネルを抜けます。
+</DD>
+</DL>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
++ ctcp/part.plm
+ctcp.part.mask: *!*@* #まどか
+</PRE>
+
+「#まどか」を抜けるようにCTCP PARTが送られてきた場合、
+「#まどか」から抜けます。
+
+<PRE>
++ ctcp/part.plm
+ctcp.part.mask: *!*@*.jp
+</PRE>
+
+CTCP PARTが送られてきたとき、それを送った人が「*!*@*.jp」にマッチしたら、
+そのチャンネルを抜けます。
+
+</BODY></HTML>

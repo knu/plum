@@ -1,0 +1,47 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1997-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package ctcp_comment;
+
+$_ = 'ctcp_comment';
+
+sub initialize {
+  $CLIENTINFO = 'COMMENT';
+}
+
+sub cpss_comment {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  return ();
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>ctcp/comment.plm</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+ctcp/comment.plm - CTCP COMMENTに反応してメッセージを受け取る
+
+
+<HR><H3>説明</H3>
+
+CTCP COMMENTが送られてきたとき、
+それに反応してコメントを受け取ります。
+
+
+<HR><H3>プロパティ</H3>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
++ ctcp/comment.plm
+</PRE>
+
+</BODY></HTML>
