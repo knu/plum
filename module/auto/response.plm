@@ -62,15 +62,15 @@ sub get_response {
 
 sub match_response {
   local($value, @list) = @_;
-  local($var, $arg, $pat);
+  local($var, $arg);
   foreach $line (@list) {
     ($var, $arg) = split(/\s+/, $line, 2);
     next unless "\L$var\E" eq 'pattern';
     if (&'exist($'kanjilist, 'sjis')) {
       $value = &'euc_sjis($arg);
-      $pat = &'euc_sjis($arg);
+      $arg = &'euc_sjis($arg);
     }
-    return 1 if $value =~ /$pat/;
+    return 1 if $value =~ /$arg/;
   }
   return 0;
 }
