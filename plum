@@ -83,7 +83,7 @@ srand();
 
 &init(@ARGV);
 
-exit unless @'username;
+exit unless @'username > 1;
 
 print $NAME, ' ', $VERSION, "\n";
 
@@ -793,10 +793,12 @@ sub addrinfo {
     } else {
       ($port, $addr) = (unpack($SOCKADDR, $sin))[1, 2];
     }
-    $host = (gethostbyaddr($addr, $AF_INET || $PF_INET || 2))[0];
+    if ($addr ne "\0" x length($addr)) {
+      $host = (gethostbyaddr($addr, $AF_INET || $PF_INET || 2))[0];
+    }
   } elsif (defined(&unpack_sockaddr_in6)) {
     ($port, $addr) = &unpack_sockaddr_in6($sin);
-    if ($AF_INET6 || $PF_INET6) {
+    if (($AF_INET6 || $PF_INET6) && $addr ne "\0" x length($addr)) {
       $host = (gethostbyaddr($addr, $AF_INET6 || $PF_INET6))[0];
     }
   } else {
