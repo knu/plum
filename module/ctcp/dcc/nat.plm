@@ -1,0 +1,137 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1998-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package ctcp_dcc_nat;
+
+$_ = 'ctcp_dcc_nat';
+
+sub initialize {
+}
+
+sub cpcs_dcc {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  local($userno, @args, $ip, $from, $to, $peer, $host, $addr);
+  $userno = $'userno[$clientno];
+  @args = split(/\s+/, $params[1]);
+  $ip = &'address($args[2]);
+  foreach $map (&'property($userno, 'mapping')) {
+    ($from, $to) = split(/\s+/, $map);
+    next unless $to;
+    next unless $ip eq &'address($from);
+    $addr = &'address($to);
+    if (length($addr) == 4) {
+      $args[2] = unpack('N', $addr);
+    } elsif (length($addr) == 16) {
+      $args[2] = join(':', unpack('H4' x 8, $addr));
+    }
+    $params[1] = join(' ', @args);
+    return ($prefix, $cmd, @params);
+  }
+  if (&check_private($userno, $ip)) {
+    $peer = (&'peername($clientno))[1];
+    if (&check_private($userno, $peer)) {
+      $host = (split(/\@/, &'user($'server[$clientno]), 2))[1];
+      $addr = &'address($host);
+      if ($addr) {
+        if (length($addr) == 4) {
+          $args[2] = unpack('N', $addr);
+        } elsif (length($addr) == 16) {
+          $args[2] = join(':', unpack('H4' x 8, $addr));
+        }
+        $params[1] = join(' ', @args);
+      }
+    } else {
+      if (length($peer) == 4) {
+        $args[2] = unpack('N', $peer);
+      } elsif (length($peer) == 16) {
+        $args[2] = join(':', unpack('H4' x 8, $peer));
+      }
+      $params[1] = join(' ', @args);
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub check_private {
+  local($userno, $ip) = @_;
+  local($start, $end, $addr);
+  foreach $private (&'property($userno, 'private')) {
+    ($start, $end) = split(/\s+/, $private);
+    next unless $end;
+    $addr = &'address($start);
+    next unless length($ip) == length($addr);
+    next unless $ip ge $addr;
+    $addr = &'address($end);
+    next unless length($ip) == length($addr);
+    next unless $ip le $addr;
+    return 1;
+  }
+  return 0;
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>ctcp/dcc/nat.plm</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+ctcp/dcc/nat.plm - NATを経由してDCCを利用する
+
+
+<HR><H3>説明</H3>
+
+NATを使用している場合に、NATの内側からDCCの送信が行えるようにします。
+プライベートなIPアドレスとグローバルなIPアドレスの対応があらかじめ
+わかっている場合はplumをどこで実行しても構いませんが、
+ダイアルアップルータなどを使用していてIPアドレスの対応が
+わからない場合は、plumをNATのすぐ外側で実行するか、
+plumをNATの内側で実行して直接サーバに接続する必要があります。
+このモジュールでDCCが送信できるようになるのはNATの場合だけで、
+IP masqueradeの場合はこのモジュールを使ってもDCCは送信できません。
+
+
+<HR><H3>プロパティ</H3>
+
+<DL>
+<DT>  ctcp.dcc.nat.mapping* プライベートIP グローバルIP
+</DT>
+<DD>    それぞれのマシンに対応するIPアドレスのマッピングを指定します。
+        プライベートIPから送られてきたDCCをグローバルIPに変換して
+        送信先の相手に送ります。
+</DD>
+<DT>  ctcp.dcc.nat.private* 先頭アドレス 終了アドレス
+</DT>
+<DD>    プライベートなIPアドレスの範囲を指定します。
+        送ろうとするDCCがこの範囲内のものからであれば、
+        IPアドレスを変換します。
+</DD>
+</DL>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
++ ctcp/dcc/nat.plm
+ctcp.dcc.nat.mapping: 192.168.1.1 133.6.108.1
+ctcp.dcc.nat.mapping: 192.168.1.2 133.6.108.2
+</PRE>
+
+「192.168.1.1」から送られてきたDCCを「133.6.108.1」から送ったように
+見せかけて送信先の相手に送ります。また「192.168.1.2」から送られてきた
+DCCを「133.6.108.2」から送られてきたように見せかけます。
+
+<PRE>
++ ctcp/dcc/nat.plm
+ctcp.dcc.nat.private: 192.168.0.0 192.168.255.255
+</PRE>
+
+「192.168.0.0」から「192.168.255.255」の間から送られてきたDCCを
+グローバルなIPアドレスに変換して送信先の相手に送ります。
+
+</BODY></HTML>
