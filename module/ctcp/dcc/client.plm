@@ -1,0 +1,58 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1998-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package ctcp_dcc_client;
+
+$_ = 'ctcp_dcc_client';
+
+sub initialize {
+  $CLIENTINFO = 'DCC';
+}
+
+sub cpss_dcc {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($flag);
+  $flag = 0;
+  foreach $cno (&'array($'clientlist)) {
+    next unless $'server[$cno] == $serverno;
+    $flag = 1;
+    &'c_print($cno, $prefix, 'PRIVMSG', $params[0], "\cA" . join(' ', $cmd, $params[1]) . "\cA");
+  }
+  return () if $flag;
+  return ($prefix, $cmd, @params);
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>ctcp_dcc_client</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+ctcp/dcc/client.plm - CTCP DCCをクライアントに送る
+
+
+<HR><H3>説明</H3>
+
+CTCP DCCコマンドが送られてきたときに、plumにクライアントが接続されていれば
+受け取ったCTCP DCCコマンドを直接クライアントに送ります。
+CTCP DCCを処理するようなモジュールを組み込んでいる場合でも、
+このモジュールを組み込んでおけば、クライアントが接続されているときは
+それらのモジュールに処理をさせないようにすることができます。
+
+
+<HR><H3>プロパティ</H3>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
++ ctcp/dcc/client.plm
+</PRE>
+
+</BODY></HTML>
