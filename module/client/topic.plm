@@ -1,0 +1,74 @@
+# $Id$
+# copyright (c)2000 Kotoko Sakai <saki@madoka.org>
+
+package client_topic;
+
+$_ = 'client_topic';
+
+sub initialize {
+  $LIMIT = 80;
+}
+
+sub sp_topic {
+  local($sno, $prefix, $cmd, @params) = @_;
+  $params[1] = &check_topic($sno, $params[1]);
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_topic {
+  local($sno, $prefix, $cmd, @params) = @_;
+  $params[1] = &check_topic($sno, $params[1]);
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_332 {
+  local($sno, $prefix, $cmd, @params) = @_;
+  if (&'exist($'channellist[$sno], $params[1])) {
+    $params[2] = &check_topic($sno, $params[2]);
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub check_topic {
+  local($sno, $topic) = @_;
+  local($userno, $limit, $limit2, $limit3, $topic_s);
+  local($jis0, $jis1, $jis2, $jis3, $offset);
+  $userno = $'userno[$sno];
+  $limit = &'property($userno, 'limit');
+  $limit = $LIMIT unless defined($limit);
+  $topic = &'euc_jis($topic);
+  if (length($topic) > $limit) {
+    $topic_s = substr($topic, 0, $limit);
+    $jis0 = rindex($topic_s, "\e(B");
+    $jis1 = rindex($topic_s, "\e\$B");
+    $jis2 = rindex($topic_s, "\e\(I");
+    $jis3 = rindex($topic_s, "\e\$(D");
+    $limit2 = $limit - 9;
+    $limit3 = $limit - 10;
+    if ($jis0 > $jis1 && $jis0 > $jis2 && $jis0 > $jis3) {
+      $jis0 = rindex($topic, "\e");
+      $topic = substr($topic, 0, $jis0);
+    } elsif ( $jis1 > $limit2 || $jis2 > $limit2 || $jis3 > $limit3) {
+      $jis0 = rindex($topic_s, "\e");
+      $topic = substr($topic, 0, $jis0);
+    } else {
+      if ($jis1 > $jis2 || $jis1 > $jis3) {
+        $offset = $jis1 + 3 + (int(($limit - $jis1 - 6) / 2) * 2);
+        $topic = substr($topic, 0, $offset);
+        $topic .= "\e(B";
+      } elsif ($jis2 > $jis1 || $jis2 > $jis3) {
+        $offset = $jis2 + 3 + (int(($limit - $jis2 - 6) / 2) * 2);
+        $topic = substr($topic, 0, $offset);
+        $topic .= "\e(B";
+      } elsif ($jis3 > $jis1 || $jis3 > $jis2) {
+        $offset = $jis3 + 4 + (int(($limit - $jis3 - 7) / 2) * 2);
+        $topic = substr($topic, 0, $offset);
+        $topic .= "\e(B";
+      } else {
+        $topic = substr($topic, 0, $limit);
+      }
+    }
+  }
+  $topic = &'jis_euc($topic);
+  return $topic;
+}
