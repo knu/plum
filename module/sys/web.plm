@@ -1,5 +1,6 @@
 # $Id$
 # copyright (c)1998-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+# special thanks to tokoko <tokoko@cc.panchu.ac>
 
 package sys_web;
 
@@ -11,7 +12,7 @@ sub initialize {
   $METHOD = 'get';
   $HEADER = '%H:%M';
   $LINE = 50;
-  $KANJI = 'jis,sjis';
+  $KANJI = 'sjis,jis';
 }
 
 sub main_loop {
@@ -152,9 +153,9 @@ sub sp_notice {
   if ($params[1]) {
     foreach $chan (split(/\,/, $params[0])) {
       if (&'channel($chan)) {
-        &writelog($serverno, $chan, ">$'nick[$serverno]< $params[1]");
+        &writelog($serverno, $chan, ">$'nick[$serverno]< $msg");
       } else {
-        &writelog($serverno, '', ">$chan< $params[1]");
+        &writelog($serverno, '', ">$chan< $msg");
       }
     }
   }
@@ -181,13 +182,14 @@ sub ss_notice {
 
 sub ss_part {
   local($serverno, $prefix, $cmd, @params) = @_;
-  local($nick, $vchan);
+  local($nick, $vchan, $msg);
   $nick = &'prefix($prefix);
   $vchan = &'alias($params[0]);
+  $msg = $params[1] || '';
   if ($nick eq $'nick[$serverno]) {
-    &writelog($serverno, '', "$nick has left channel $vchan ($params[1])");
+    &writelog($serverno, '', "$nick has left channel $vchan ($msg)");
   }
-  &writelog($serverno, $params[0], "$nick has left channel $vchan ($params[1])");
+  &writelog($serverno, $params[0], "$nick has left channel $vchan ($msg)");
   if ($nick eq $'nick[$serverno]) {
     delete $nameslist{$serverno, $params[0]};
   } else {
@@ -198,13 +200,13 @@ sub ss_part {
 
 sub sp_privmsg {
   local($serverno, $prefix, $cmd, @params) = @_;
-  local($chan);
+  local($chan, $msg);
   if ($params[1]) {
     foreach $chan (split(/\,/, $params[0])) {
       if (&'channel($chan)) {
-        &writelog($serverno, $chan, ">$'nick[$serverno]< $params[1]");
+        &writelog($serverno, $chan, ">$'nick[$serverno]< $msg");
       } else {
-        &writelog($serverno, '', ">$chan< $params[1]");
+        &writelog($serverno, '', ">$chan< $msg");
       }
     }
   }
@@ -670,7 +672,7 @@ sub top {
   print $socket "\r\n";
   print $socket '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Frameset//EN">', "\r\n";
   print $socket '<HTML><HEAD>', "\r\n";
-  print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=EUC-JP">', "\r\n";
+  print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">', "\r\n";
   print $socket '<TITLE>plum webchat interface</TITLE>', "\r\n";
   print $socket '</HEAD>', "\r\n";
   print $socket '<FRAMESET ROWS="80%,20%">', "\r\n";
@@ -704,11 +706,11 @@ sub channel {
   print $socket "\r\n";
   print $socket '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">', "\r\n";
   print $socket '<HTML><HEAD>', "\r\n";
-  print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=EUC-JP">', "\r\n";
+  print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">', "\r\n";
   print $socket '<TITLE>channel frame</TITLE></HEAD><BODY>', "\r\n";
   print $socket '<A HREF="message" TARGET="message">*PRIVATE*</A><BR>', "\r\n";
   foreach $chan (&'array($'channellist[$sno])) {
-    $vchan = &'alias($chan);
+    $vchan = &'euc_jis(&'alias($chan));
     print $socket '<A HREF="message?channel=', &encode($vchan), '" TARGET="message">', $vchan, '</A><BR>', "\r\n";
   }
   print $socket '</BODY></HTML>', "\r\n";
@@ -716,13 +718,13 @@ sub channel {
 
 sub message {
   local($cno, $query) = @_;
-  local($socket, %param, $sno, $userno, $var, $val, $chan, $vchan, @list, $str);
+  local($socket, %param, $sno, $userno, $var, $val, $chan, $vchan, $msg, $str);
   $sno = &server($userno[$cno]);
   $userno = $'userno[$sno];
   if ($query) {
     foreach $param (split(/\&/, $query)) {
       ($var, $val) = split(/\=/, $param, 2);
-      $param{$var} = &decode($val);
+      $param{$var} = &kanji_euc($userno, &decode($val));
     }
     if ($param{'channel'}) {
       $chan = &'real($param{'channel'});
@@ -738,18 +740,21 @@ sub message {
   print $socket "\r\n";
   print $socket '<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">', "\r\n";
   print $socket '<HTML><HEAD>', "\r\n";
-  print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=EUC-JP">', "\r\n";
+  print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">', "\r\n";
   print $socket '<TITLE>message frame</TITLE></HEAD><BODY><CODE>', "\r\n";
   if ($chan) {
     $str = '*** ' . $vchan . ' = ' . join(' ', reverse(&'array($'nameslist{$sno, $chan})));
-    print $socket '', &quote($str), '<BR>', "\r\n";
+    print $socket '', &'euc_jis(&quote($str)), '<BR>', "\r\n";
     if ($'topic{$sno, $chan}) {
       $str = '*** Topic for ' . $vchan . ':' . $'topic{$sno, $chan};
-      print $socket '', &quote($str), '<BR>', "\r\n";
+      print $socket '', &'euc_jis(&quote($str)), '<BR>', "\r\n";
     }
+  } else {
+    $chan = '';
   }
-  @list = &'array($message{$userno, $chan});
-  print $socket join("\r\n", @list), "\r\n";
+  foreach $msg (&'array($message{$userno, $chan})) {
+    print $socket '', &'euc_jis($msg), "\n";
+  }
   print $socket '</CODE></BODY></HTML>', "\r\n";
 }
 
@@ -760,7 +765,7 @@ sub input {
   if ($query) {
     foreach $param (split(/\&/, $query)) {
       ($var, $val) = split(/\=/, $param, 2);
-      $param{$var} = &decode($val);
+      $param{$var} = &kanji_euc($userno[$cno], &decode($val));
     }
   }
   if ($param{'command'}) {
@@ -784,11 +789,10 @@ sub input {
 
 sub send {
   local($cno, $method, %param) = @_;
-  local($socket, $msg, @msg);
+  local($socket, @msg);
   $socket = $'socket[$cno];
-  $msg = &kanji_euc($userno[$cno], $param{'message'} || '');
-  if ($msg) {
-    @msg = &'parse($msg);
+  if ($param{'message'}) {
+    @msg = &'parse($param{'message'});
     &'s_print(&server($userno[$cno]), @msg);
     print $socket 'HTTP/1.0 204 No Content', "\r\n";
     print $socket "\r\n";
@@ -798,7 +802,7 @@ sub send {
     print $socket "\r\n";
     print $socket '<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">', "\r\n";
     print $socket '<HTML><HEAD>', "\r\n";
-    print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=EUC-JP">', "\r\n";
+    print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">', "\r\n";
     print $socket '<TITLE>input frame</TITLE></HEAD><BODY>', "\r\n";
     print $socket '', &links($cno, '*'), "\r\n";
     print $socket '<HR>', "\r\n";
@@ -813,11 +817,10 @@ sub send {
 
 sub send_join {
   local($cno, $method, %param) = @_;
-  local($socket, $chan);
+  local($socket);
   $socket = $'socket[$cno];
-  $chan = &kanji_euc($userno[$cno], $param{'channel'} || '');
-  if ($chan) {
-    &'s_print(&server($userno[$cno]), '', 'JOIN', &'real($chan));
+  if ($param{'channel'}) {
+    &'s_print(&server($userno[$cno]), '', 'JOIN', &'real($param{'channel'}));
     print $socket 'HTTP/1.0 204 No Content', "\r\n";
     print $socket "\r\n";
   } else {
@@ -826,7 +829,7 @@ sub send_join {
     print $socket "\r\n";
     print $socket '<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">', "\r\n";
     print $socket '<HTML><HEAD>', "\r\n";
-    print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=EUC-JP">', "\r\n";
+    print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">', "\r\n";
     print $socket '<TITLE>input join frame</TITLE></HEAD><BODY>', "\r\n";
     print $socket '', &links($cno, 'join'), "\r\n";
     print $socket '<HR>', "\r\n";
@@ -841,12 +844,11 @@ sub send_join {
 
 sub send_part {
   local($cno, $method, %param) = @_;
-  local($socket, $chan, $msg);
+  local($socket, $name);
   $socket = $'socket[$cno];
-  $chan = &kanji_euc($userno[$cno], $param{'channel'} || '');
-  $msg = &kanji_euc($userno[$cno], $param{'message'} || '');
-  if ($chan) {
-    &'s_print(&server($userno[$cno]), '', 'PART', &'real($chan), $msg);
+  if ($param{'channel'}) {
+print "sending part from $param{'channel'}\n";
+    &'s_print(&server($userno[$cno]), '', 'PART', &'real($param{'channel'}), $param{'message'} || '');
     print $socket 'HTTP/1.0 204 No Content', "\r\n";
     print $socket "\r\n";
   } else {
@@ -855,14 +857,15 @@ sub send_part {
     print $socket "\r\n";
     print $socket '<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">', "\r\n";
     print $socket '<HTML><HEAD>', "\r\n";
-    print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=EUC-JP">', "\r\n";
+    print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">', "\r\n";
     print $socket '<TITLE>input part frame</TITLE></HEAD><BODY>', "\r\n";
     print $socket '', &links($cno, 'part'), "\r\n";
     print $socket '<HR>', "\r\n";
     print $socket '<FORM ACTION="input" METHOD="', $method, '">', "\r\n";
     print $socket '<SELECT NAME="channel">', "\r\n";
     foreach $chan (&'array($'channellist[&server($userno[$cno])])) {
-      print $socket '<OPTION VALUE="', $chan, '">', $chan, "\r\n";
+      $name = &'euc_jis($chan);
+      print $socket '<OPTION VALUE="', $name, '">', $name, "\r\n";
     }
     print $socket '</SELECT>', "\r\n";
     print $socket '<INPUT TYPE="text" NAME="message" SIZE="60">', "\r\n";
@@ -875,18 +878,17 @@ sub send_part {
 
 sub send_privmsg {
   local($cno, $method, %param) = @_;
-  local($socket, $chan, $msg);
+  local($socket, $name);
   $socket = $'socket[$cno];
-  $chan = &kanji_euc($userno[$cno], $param{'channel'} || '');
-  $msg = &kanji_euc($userno[$cno], $param{'message'} || '');
-  $nick = $param{'nickname'} || '';
   if (defined($param{'message'})) {
-    if ($nick) {
-      &privmsg(&server($userno[$cno]), $nick, $msg);
-    } elsif ($chan eq '*PRIVATE*') {
-      &privmsg(&server($userno[$cno]), $'nick[&server($userno[$cno])], $msg);
-    } elsif ($chan ne '*PRIVATE*') {
-      &privmsg(&server($userno[$cno]), &'real($chan), $msg);
+    if ($param{'nickname'}) {
+      &privmsg(&server($userno[$cno]), $param{'nickname'}, $param{'message'});
+    } elsif ($param{'channel'}) {
+      if ($param{'channel'} eq '*PRIVATE*') {
+        &privmsg(&server($userno[$cno]), $'nick[&server($userno[$cno])], $param{'message'});
+      } else {
+        &privmsg(&server($userno[$cno]), &'real($param{'channel'}), $param{'message'});
+      }
     }
     print $socket 'HTTP/1.0 204 No Content', "\r\n";
     print $socket "\r\n";
@@ -896,7 +898,7 @@ sub send_privmsg {
     print $socket "\r\n";
     print $socket '<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">', "\r\n";
     print $socket '<HTML><HEAD>', "\r\n";
-    print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=EUC-JP">', "\r\n";
+    print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">', "\r\n";
     print $socket '<TITLE>input privmsg frame</TITLE></HEAD><BODY>', "\r\n";
     print $socket '', &links($cno, 'privmsg'), "\r\n";
     print $socket '<HR>', "\r\n";
@@ -904,7 +906,8 @@ sub send_privmsg {
     print $socket '<SELECT NAME="channel">', "\r\n";
     print $socket '<OPTION VALUE="*PRIVATE*">*PRIVATE*', "\r\n";
     foreach $chan (&'array($'channellist[&server($userno[$cno])])) {
-      print $socket '<OPTION VALUE="', $chan, '">', $chan, "\r\n";
+      $name = &'euc_jis($chan);
+      print $socket '<OPTION VALUE="', $name, '">', $name, "\r\n";
     }
     print $socket '</SELECT>', "\r\n";
     print $socket '<INPUT TYPE="text" NAME="nickname" SIZE="20">', "\r\n";
@@ -918,12 +921,10 @@ sub send_privmsg {
 
 sub send_topic {
   local($cno, $method, %param) = @_;
-  local($socket, $chan, $msg);
+  local($socket, $name);
   $socket = $'socket[$cno];
-  $chan = &kanji_euc($userno[$cno], $param{'channel'} || '');
-  $msg = &kanji_euc($userno[$cno], $param{'message'} || '');
-  if ($chan) {
-    &'s_print(&server($userno[$cno]), '', 'TOPIC', &'real($chan), $msg);
+  if ($params{'channel'}) {
+    &'s_print(&server($userno[$cno]), '', 'TOPIC', &'real($params{'channel'}), $params{'message'} || '');
     print $socket 'HTTP/1.0 204 No Content', "\r\n";
     print $socket "\r\n";
   } else {
@@ -932,14 +933,15 @@ sub send_topic {
     print $socket "\r\n";
     print $socket '<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">', "\r\n";
     print $socket '<HTML><HEAD>', "\r\n";
-    print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=EUC-JP">', "\r\n";
+    print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">', "\r\n";
     print $socket '<TITLE>input topic frame</TITLE></HEAD><BODY>', "\r\n";
     print $socket '', &links($cno, 'topic'), "\r\n";
     print $socket '<HR>', "\r\n";
     print $socket '<FORM ACTION="input" METHOD="', $method, '">', "\r\n";
     print $socket '<SELECT NAME="channel">', "\r\n";
     foreach $chan (&'array($'channellist[&server($userno[$cno])])) {
-      print $socket '<OPTION VALUE="', $chan, '">', $chan, "\r\n";
+      $name = &'euc_jis($chan);
+      print $socket '<OPTION VALUE="', $name, '">', $name, "\r\n";
     }
     print $socket '</SELECT>', "\r\n";
     print $socket '<INPUT TYPE="text" NAME="message" SIZE="60">', "\r\n";
@@ -952,11 +954,10 @@ sub send_topic {
 
 sub send_nick {
   local($cno, $method, %param) = @_;
-  local($socket, $nick);
+  local($socket);
   $socket = $'socket[$cno];
-  $nick = $param{'nickname'} || '';
-  if ($nick) {
-    &'s_print(&server($userno[$cno]), '', 'nick', $nick);
+  if ($param{'nickname'}) {
+    &'s_print(&server($userno[$cno]), '', 'NICK', $param{'nickname'});
     print $socket 'HTTP/1.0 204 No Content', "\r\n";
     print $socket "\r\n";
   } else {
@@ -965,7 +966,7 @@ sub send_nick {
     print $socket "\r\n";
     print $socket '<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">', "\r\n";
     print $socket '<HTML><HEAD>', "\r\n";
-    print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=EUC-JP">', "\r\n";
+    print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">', "\r\n";
     print $socket '<TITLE>input nick frame</TITLE></HEAD><BODY>', "\r\n";
     print $socket '', &links($cno, 'nick'), "\r\n";
     print $socket '<HR>', "\r\n";
@@ -980,13 +981,10 @@ sub send_nick {
 
 sub send_kick {
   local($cno, $method, %param) = @_;
-  local($socket, $chan, $nick, $msg);
+  local($socket, $name);
   $socket = $'socket[$cno];
-  $chan = &kanji_euc($userno[$cno], $param{'channel'} || '');
-  $msg = &kanji_euc($userno[$cno], $param{'message'} || '');
-  $nick = $param{'nickname'} || '';
-  if ($chan && $nick) {
-    &'s_print(&server($userno[$cno]), '', 'KICK', &'real($chan), $nick, $msg);
+  if ($param{'channel'} && param{'nickname'}) {
+    &'s_print(&server($userno[$cno]), '', 'KICK', &'real($param{'channel'}), $param{'nickname'}, $param{'message'} || '');
     print $socket 'HTTP/1.0 204 No Content', "\r\n";
     print $socket "\r\n";
   } else {
@@ -995,14 +993,15 @@ sub send_kick {
     print $socket "\r\n";
     print $socket '<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">', "\r\n";
     print $socket '<HTML><HEAD>', "\r\n";
-    print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=EUC-JP">', "\r\n";
+    print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">', "\r\n";
     print $socket '<TITLE>input kick frame</TITLE></HEAD><BODY>', "\r\n";
     print $socket '', &links($cno, 'kick'), "\r\n";
     print $socket '<HR>', "\r\n";
     print $socket '<FORM ACTION="input" METHOD="', $method, '">', "\r\n";
     print $socket '<SELECT NAME="channel">', "\r\n";
     foreach $chan (&'array($'channellist[&server($userno[$cno])])) {
-      print $socket '<OPTION VALUE="', $chan, '">', $chan, "\r\n";
+      $name = &'euc_jis($chan);
+      print $socket '<OPTION VALUE="', $name, '">', $name, "\r\n";
     }
     print $socket '</SELECT>', "\r\n";
     print $socket '<INPUT TYPE="text" NAME="nickname" SIZE="20">', "\r\n";
@@ -1016,12 +1015,10 @@ sub send_kick {
 
 sub send_mode {
   local($cno, $method, %param) = @_;
-  local($socket, $chan, $mode);
+  local($socket, $name);
   $socket = $'socket[$cno];
-  $chan = &kanji_euc($userno[$cno], $param{'channel'} || '');
-  $mode = $param{'mode'} || '';
-  if ($chan && $mode) {
-    &'s_print(&server($userno[$cno]), '', 'MODE', &'real($chan), $mode);
+  if ($param{'channel'} && $param{'mode'}) {
+    &'s_print(&server($userno[$cno]), '', 'MODE', &'real($param{'channel'}), $param{'mode'});
     print $socket 'HTTP/1.0 204 No Content', "\r\n";
     print $socket "\r\n";
   } else {
@@ -1030,14 +1027,15 @@ sub send_mode {
     print $socket "\r\n";
     print $socket '<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">', "\r\n";
     print $socket '<HTML><HEAD>', "\r\n";
-    print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=EUC-JP">', "\r\n";
+    print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">', "\r\n";
     print $socket '<TITLE>input mode frame</TITLE></HEAD><BODY>', "\r\n";
     print $socket '', &links($cno, 'mode'), "\r\n";
     print $socket '<HR>', "\r\n";
     print $socket '<FORM ACTION="input" METHOD="', $method, '">', "\r\n";
     print $socket '<SELECT NAME="channel">', "\r\n";
     foreach $chan (&'array($'channellist[&server($userno[$cno])])) {
-      print $socket '<OPTION VALUE="', $chan, '">', $chan, "\r\n";
+      $name = &'euc_jis($chan);
+      print $socket '<OPTION VALUE="', $name, '">', $name, "\r\n";
     }
     print $socket '</SELECT>', "\r\n";
     print $socket '<INPUT TYPE="text" NAME="mode" SIZE="60">', "\r\n";
@@ -1050,12 +1048,10 @@ sub send_mode {
 
 sub send_invite {
   local($cno, $method, %param) = @_;
-  local($socket, $chan, $nick);
+  local($socket, $name);
   $socket = $'socket[$cno];
-  $chan = &kanji_euc($userno[$cno], $param{'channel'} || '');
-  $nick = $param{'nickname'} || '';
-  if ($chan && $nick) {
-    &'s_print(&server($userno[$cno]), '', 'INVITE', &'real($chan), $nick);
+  if ($param{'channel'} && $param{'nickname'}) {
+    &'s_print(&server($userno[$cno]), '', 'INVITE', $param{'nickname'}, &'real($param{'channel'}));
     print $socket 'HTTP/1.0 204 No Content', "\r\n";
     print $socket "\r\n";
   } else {
@@ -1064,14 +1060,15 @@ sub send_invite {
     print $socket "\r\n";
     print $socket '<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">', "\r\n";
     print $socket '<HTML><HEAD>', "\r\n";
-    print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=EUC-JP">', "\r\n";
+    print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">', "\r\n";
     print $socket '<TITLE>input invite frame</TITLE></HEAD><BODY>', "\r\n";
     print $socket '', &links($cno, 'invite'), "\r\n";
     print $socket '<HR>', "\r\n";
     print $socket '<FORM ACTION="input" METHOD="', $method, '">', "\r\n";
     print $socket '<SELECT NAME="channel">', "\r\n";
     foreach $chan (&'array($'channellist[&server($userno[$cno])])) {
-      print $socket '<OPTION VALUE="', $chan, '">', $chan, "\r\n";
+      $name = &'euc_jis($chan);
+      print $socket '<OPTION VALUE="', $name, '">', $name, "\r\n";
     }
     print $socket '</SELECT>', "\r\n";
     print $socket '<INPUT TYPE="text" NAME="nickname" SIZE="20">', "\r\n";
@@ -1084,11 +1081,10 @@ sub send_invite {
 
 sub send_away {
   local($cno, $method, %param) = @_;
-  local($socket, $msg);
+  local($socket);
   $socket = $'socket[$cno];
-  $msg = &kanji_euc($userno[$cno], $param{'message'} || '');
   if (defined($param{'message'})) {
-    &'s_print(&server($userno[$cno]), '', 'AWAY', $msg);
+    &'s_print(&server($userno[$cno]), '', 'AWAY', $param{'message'});
     print $socket 'HTTP/1.0 204 No Content', "\r\n";
     print $socket "\r\n";
   } else {
@@ -1097,7 +1093,7 @@ sub send_away {
     print $socket "\r\n";
     print $socket '<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">', "\r\n";
     print $socket '<HTML><HEAD>', "\r\n";
-    print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=EUC-JP">', "\r\n";
+    print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">', "\r\n";
     print $socket '<TITLE>input away frame</TITLE></HEAD><BODY>', "\r\n";
     print $socket '', &links($cno, 'away'), "\r\n";
     print $socket '<HR>', "\r\n";
@@ -1114,9 +1110,8 @@ sub send_whois {
   local($cno, $method, %param) = @_;
   local($socket, $nick);
   $socket = $'socket[$cno];
-  $nick = $param{'nickname'} || '';
-  if ($nick) {
-    &'s_print(&server($userno[$cno]), '', 'WHOIS', $nick);
+  if ($param{'nickname'}) {
+    &'s_print(&server($userno[$cno]), '', 'WHOIS', $param{'nickname'});
     print $socket 'HTTP/1.0 204 No Content', "\r\n";
     print $socket "\r\n";
   } else {
@@ -1125,7 +1120,7 @@ sub send_whois {
     print $socket "\r\n";
     print $socket '<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">', "\r\n";
     print $socket '<HTML><HEAD>', "\r\n";
-    print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=EUC-JP">', "\r\n";
+    print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">', "\r\n";
     print $socket '<TITLE>input whois frame</TITLE></HEAD><BODY>', "\r\n";
     print $socket '', &links($cno, 'whois'), "\r\n";
     print $socket '<HR>', "\r\n";
@@ -1228,8 +1223,8 @@ sub base64 {
 sub kanji_euc {
   local($userno, $line) = @_;
   local($code);
-  if (&'property($userno, 'kanji')) {
-    foreach $kanji (&'property($userno, 'kanji')) {
+  if (&'property($userno, 'input')) {
+    foreach $kanji (&'property($userno, 'input')) {
       foreach $code (split(/\,/, "\L$kanji\E")) {
         if ($code eq 'euc') {
           $line = &'euc_euc($line);
@@ -1253,4 +1248,3 @@ sub kanji_euc {
   }
   return $line;
 }
-
