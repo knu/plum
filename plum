@@ -1,0 +1,2382 @@
+#!/bin/perl -w
+# $Id$
+# Copyright (c)1997-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package plum;
+
+$NAME = 'plum';
+$VERSION = '3.1.0b7';
+
+$NIL = "\r";
+$NOTRAILING = &'list('004', '215', '221', '324', '341', '367', 'MODE');
+
+$ALIAS = '*.jp';
+$EOL = "\r\n";
+
+$INTERVAL = 60;
+$PORT = 6667;
+$BUFFER = 2048;
+$LISTEN = 16;
+
+$SOCKADDR = 'S n a4 x8';
+
+$PROTO = (getprotobyname('tcp'))[2];
+
+if ($] < 5) {
+  foreach $inc (@INC) {
+    if (-r "$inc/sys/socket.ph") {
+      eval 'require "sys/socket.ph"';
+      $SOCKET = "$inc/sys/socket.ph" unless $@;
+      last;
+    }
+    if (-r "$inc/socket.ph") {
+      eval 'require "socket.ph"';
+      $SOCKET = "$inc/socket.ph" unless $@;
+      last;
+    }
+  }
+} else {
+  eval 'use Socket';
+  $SOCKET = 'Socket.pm' unless $@;
+}
+
+$PF_INET = eval '&PF_INET';
+$AF_INET = eval '&AF_INET';
+$PF_INET6 = eval '&PF_INET6';
+$AF_INET6 = eval '&AF_INET6';
+$SOCK_STREAM = eval '&SOCK_STREAM';
+$INADDR_ANY = eval '&INADDR_ANY';
+$IN6ADDR_ANY = eval '&in6addr_any';
+$SOMAXCONN = eval '&SOMAXCONN';
+$SOL_SOCKET = eval '&SOL_SOCKET';
+$SO_REUSEADDR = eval '&SO_REUSEADDR';
+
+$KANJI = &'add($KANJI, 'euc') if "\241\241\242\242" !~ /\241\242/;
+$KANJI = &'add($KANJI, 'sjis') if "\201\201\202\202" !~ /\201\202/;
+
+$SIG{'HUP'} = 'IGNORE' if &'exist(&'list(keys(%SIG)), 'HUP');
+$SIG{'PIPE'} = 'IGNORE' if &'exist(&'list(keys(%SIG)), 'PIPE');
+
+if ($0 =~ /^(.*)[\\\/][^\\\/]*$/) {
+  unshift(@INC, "$1/module");
+} else {
+  unshift(@INC, './module');
+}
+
+select((select(STDOUT), $| = 1)[0]);
+select((select(STDERR), $| = 1)[0]);
+
+$'rin = '';
+$'win = '';
+$'rout = '';
+$'wout = '';
+
+$'kanjilist = $KANJI;
+$'kanjilist = '' unless $'kanjilist;
+
+$sockethandle = '*';
+
+@alarm = ();
+$alarm = 0;
+
+srand();
+
+&init(@ARGV);
+
+exit unless @'username;
+
+print $NAME, ' ', $VERSION, "\n";
+
+&main;
+
+sub main {
+  local($i, $time, $next, $timeout, $nfound, $timeleft);
+  &'alarm(-1);
+  while (1) {
+    if (@alarm && $alarm) {
+      if ($alarm[0] < $alarm) {
+        $next = $alarm[0];
+      } else {
+        $next = $alarm;
+      }
+    } elsif (@alarm) {
+      $next = $alarm[0];
+    } elsif ($alarm) {
+      $next = $alarm;
+    } else {
+      $next = 0;
+    }
+    $time = time();
+    if (!$next) {
+      $timeout = undef;
+    } elsif ($time < $next) {
+      $timeout = $next - $time;
+    } else {
+      $timeout = 0;
+    }
+    ($nfound, $timeleft) = select($'rout = $'rin, $'wout = $'win, undef, $timeout);
+    $time = time();
+    $alarm = 0;
+    while (@alarm && $alarm[0] < $time) {
+      shift(@alarm);
+    }
+    for ($i = 1; $i < length($sockethandle); $i++) {
+      next if substr($sockethandle, $i, 1) eq ' ';
+      $'access[$i] = $time if vec($'rout, $'fileno[$i], 1);
+    }
+    for ($i = 0; $i < @'username; $i++) {
+      &loop_event($i, 'main_loop', $i);
+    }
+    foreach $cno (&'array($'clientlist)) {
+      &c_write($cno) if vec($'wout, $'fileno[$cno], 1);
+      &c_read($cno) if vec($'rout, $'fileno[$cno], 1);
+    }
+    foreach $sno (&'array($'serverlist)) {
+      &s_write($sno) if vec($'wout, $'fileno[$sno], 1);
+      &s_read($sno) if vec($'rout, $'fileno[$sno], 1);
+    }
+  }
+}
+
+sub 'alarm {
+  local($wait) = @_;
+  local($time, $i);
+  if (!$wait) {
+    $time = 0;
+  } elsif ($wait > 0) {
+    $time = time() + $wait;
+    for ($i = 0; $i < @alarm; $i++) {
+      last if $alarm[$i] > $time;
+    }
+    splice(@alarm, $i, 0, $time);
+  } else {
+    $time = time() - $wait;
+    if (!$alarm || $alarm > $time) {
+      $alarm = $time;
+    }
+  }
+  return $time;
+}
+
+sub init {
+  local(@args) = @_;
+  local($line, $i, $userno, @key, $user, @lib);
+  if (defined(fileno('\'DATA'))) {
+    while (defined($line = <'DATA>)) {
+      $line =~ tr/\r\n//d;
+      if ($line =~ /^\@(\w+)\s+\d+\-\d+\s+(\S+)$/) {
+        $builtin{$2} = $1;
+      }
+    }
+  }
+  if (-r "$NAME.conf") {
+    push(@'username, '');
+    &'load('', "$NAME.conf");
+  }
+  for ($i = 0; $i < @args; $i++) {
+    if (index($args[$i], '+') == 0) {
+      @lib = split(/\+/, substr($args[$i], 1));
+      foreach $lib (@lib) {
+        if (-r "$NAME-$lib.conf") {
+          for ($userno = 0; $userno < @'username; $userno++) {
+            $'userlist[$userno] = &'add($'userlist[$userno], $lib);
+            &'merge($userno, "$NAME-$lib.conf");
+          }
+        }
+      }
+    } elsif (substr($args[$i], 0, 1) eq '-') {
+    } else {
+      ($user, @lib) = split(/\+/, $args[$i]);
+      if (-r "$NAME-$user.conf") {
+        if (&userno($user) == -1) {
+          push(@'username, $user);
+          &'load($user, "$NAME-$user.conf");
+          $userno = @'username - 1;
+          foreach $lib (@lib) {
+            $'userlist[$userno] = &'add($'userlist[$userno], $lib);
+            &'merge($userno, "$NAME-$lib.conf") if -r "$NAME-$lib.conf";
+          }
+        }
+      }
+    }
+  }
+  for ($userno = 0; $userno < @'username; $userno++) {
+    &enable($userno, &'list($NAME), $'modulelist[$userno]);
+  }
+}
+
+sub 'reload {
+  local($userno) = @_;
+  local($old, $file, $list, $new);
+  $old = $'modulelist[$userno];
+  ($file, $list) = &'shift($'filename[$userno]);
+  &'load($'username[$userno], $file);
+  foreach $file (&'array($list)) {
+    &'merge($userno, $file);
+  }
+  $new = $'modulelist[$userno];
+  &enable($userno, $old, $new);
+  &disable($userno, $old, $new);
+}
+
+sub 'load {
+  local($user, $file) = @_;
+  local($userno, $no);
+  $userno = &userno($user);
+  $no = $userno . $;;
+  foreach $key (keys(%property)) {
+    next unless index($key, $no) == 0;
+    delete $property{$key};
+  }
+  $'filename[$userno] = '';
+  $'modulelist[$userno] = &'list($NAME);
+  &'merge($userno, $file);
+}
+
+sub 'merge {
+  local($userno, $file) = @_;
+  local($line, $pkg, $dir, $name, $sub, $var, $arg, @key);
+  if (open(CONF, $file)) {
+    $'filename[$userno] = &'add($'filename[$userno], $file);
+    while (defined($line = <CONF>)) {
+      $line =~ s/^\s+//;
+      next if $line =~ /^[\#\;]/;
+      $line =~ s/\s+$//;
+      next unless $line;
+      if ($line =~ /^\+\s*(.+)/) {
+        if (!($pkg = $'package{$1})) {
+          $pkg = &'import($1);
+        }
+        $'modulelist[$userno] = &'add($'modulelist[$userno], $pkg);
+      } elsif ($line =~ /^\-\s*(.+)/) {
+        if ($pkg = $'package{$1}) {
+          $'modulelist[$userno] = &'remove($'modulelist[$userno], $pkg);
+        }
+      } elsif ((($var, $arg) = split(/\s*\:\s*/, $line, 2)) == 2) {
+        $arg = &kanji_euc($userno, $arg);
+        @key = split(/\./, $var);
+        $property{$userno, @key} = &'add($property{$userno, @key}, $arg);
+      }
+    }
+    close(CONF);
+  }
+}
+
+sub 'import {
+  local($name) = @_;
+  local($pkg, $path, $sub);
+  if ($pkg = $'package{$name}) {
+    if ($path = $'filename{$pkg}) {
+      delete $INC{$path};
+    }
+  }
+  ($pkg, $path) = &require($name);
+  $'package{$name} = $pkg;
+  $'filename{$pkg} = $path;
+  $sub = $pkg . '\'initialize';
+  &$sub;
+  return $pkg;
+}
+
+sub require {
+  local($name) = @_;
+  local($pkg, $file);
+  if ($builtin{$name}) {
+    return ($builtin{$name}, '');
+  }
+  foreach $dir (&'property($userno, 'directory'), @INC) {
+    $file = &'expand("$dir/$name");
+    next unless -f $file;
+    $_ = $NAME;
+    require $file;
+    return ($_, $file);
+  }
+  $file = &'expand($name);
+  $_ = $NAME;
+  require $file;
+  return ($_, $file);
+}
+
+sub 'property {
+  local($userno, $name) = @_;
+  local(@pkg, $list);
+  @pkg = split(/\_/, (caller())[0]);
+  $list = $property{$userno, @pkg, $name};
+  if (defined($list)) {
+    if (wantarray) {
+      return &'array($list);
+    } else {
+      return (&'array($list))[0];
+    }
+  } else {
+    if (wantarray) {
+      return ();
+    } else {
+      return undef;
+    }
+  }
+}
+
+sub userno {
+  local($user) = @_;
+  local($i);
+  for ($i= 0; $i< @'username; $i++) {
+    if ($user eq $'username[$i]) {
+      return $i;
+    }
+  }
+  return -1;
+}
+
+sub kanji_euc {
+  local($userno, $line) = @_;
+  local($code);
+  $code = '';
+  foreach $kanji (&'property($userno, 'kanji')) {
+    $code = &'add($code, split(/\,/, "\L$kanji\E"));
+  }
+  foreach $code (&'array($code)) {
+    if ($code eq 'euc') {
+      $line = &'euc_euc($line);
+    } elsif ($code eq 'jis') {
+      $line = &'jis_euc($line);
+    } elsif ($code eq 'sjis') {
+      $line = &'sjis_euc($line);
+    }
+  }
+  return $line;
+}
+
+sub enable {
+  local($userno, $old, $new) = @_;
+  local(@list, $event, $sub);
+  foreach $module (&'array($new)) {
+    if (!&'exist($old, $module)) {
+      $sub = $module . '\'module_enable';
+      if ($] < 5) {
+        &$sub($userno) if eval "defined(&$sub)";
+      } else {
+        &$sub($userno) if defined(&$sub);
+      }
+    } else {
+      $sub = $module . '\'property_change';
+      if ($] < 5) {
+        &$sub($userno) if eval "defined(&$sub)";
+      } else {
+        &$sub($userno) if defined(&$sub);
+      }
+    }
+  }
+}
+
+sub disable {
+  local($userno, $old, $new) = @_;
+  local($sub);
+  foreach $module (&'array($old)) {
+    if (!&'exist($new, $module)) {
+      $sub = $module . '\'module_disable';
+      if ($] < 5) {
+        &$sub($userno) if eval "defined(&$sub)";
+      } else {
+        &$sub($userno) if defined(&$sub);
+      }
+    }
+  }
+}
+
+sub c_read {
+  local($cno) = @_;
+  local($tmp, $next, $rest, $prefix, $cmd, @params);
+  $tmp = '';
+  if (sysread($'socket[$cno], $tmp, $BUFFER)) {
+    $rbuf[$cno] .= $tmp;
+    while ((($next, $rest) = split(/[\r\n]+/, $rbuf[$cno], 2)) == 2) {
+      $rbuf[$cno] = $rest;
+      next unless $next;
+      $next = &read_event($'userno[$cno], 'client_read', $cno, $next);
+      next unless $next;
+      ($prefix, $cmd, @params) = &'parse($next);
+      ($prefix, $cmd, @params) = &scan_event($'userno[$cno], "cs_\L$cmd\E", $cno, $prefix, $cmd, @params);
+      next unless $cmd;
+      &'s_print($'server[$cno], $prefix, $cmd, @params) if $'server[$cno];
+    }
+  } else {
+    &'c_close($cno);
+  }
+}
+
+sub c_write {
+  local($cno) = @_;
+  local($socket, $next);
+  $socket = $'socket[$cno];
+  while ($wbuf{$cno}) {
+    ($next, $wbuf{$cno}) = &'shift($wbuf{$cno});
+    next unless $next;
+    $next = &write_event($'userno[$cno], 'client_write', $cno, $next);
+    next unless $next;
+    print $socket $next, $EOL if fileno($socket);
+  }
+  vec($'win, $'fileno[$cno], 1) = 0;
+}
+
+sub 'c_print {
+  local($cno, $prefix, $cmd, @params) = @_;
+  ($prefix, $cmd, @params) = &print_event($'userno[$cno], "cp_\L$cmd\E", $cno, $prefix, $cmd, @params);
+  return unless $cmd;
+  $wbuf{$cno} = &'append($wbuf{$cno}, &'build($prefix, $cmd, @params));
+  vec($'win, $'fileno[$cno], 1) = 1;
+}
+
+sub 'c_flush {
+  local($cno) = @_;
+  while (vec($'win, $'fileno[$cno], 1)) {
+    &c_write($cno);
+  }
+}
+
+sub 'c_open {
+  local($cno, $userno, $prefix, $sno, $buf) = @_;
+  ($'nick[$cno], $'user[$cno], $'address[$cno]) = &'prefix($prefix);
+  $'server[$cno] = $sno;
+  $'userno[$cno] = $userno;
+  $rbuf[$cno] = $buf || '';
+  $'clientlist = &'add($'clientlist, $cno);
+  vec($'rout, $'fileno[$cno], 1) = 0;
+  if (&'exist($'serverlist, $sno)) {
+    $'servername[$cno] = $'servername[$sno];
+  } else {
+    $'servername[$cno] = $NAME;
+  }
+  &open_event($userno, 'client_open', $cno);
+}
+
+sub 'c_close {
+  local($cno) = @_;
+  local($buf);
+  $sequence[$cno] = '';
+  delete $wbuf{$cno};
+  $'clientlist = &'remove($'clientlist, $cno);
+  &close_event($'userno[$cno], 'client_close', $cno);
+  $'nick[$cno] = '';
+  $'user[$cno] = '';
+  $'address[$cno] = '';
+  $'server[$cno] = 0;
+  $buf = $rbuf[$cno];
+  $rbuf[$cno] = '';
+  return $buf;
+}
+
+sub s_read {
+  local($sno) = @_;
+  local($tmp, $next, $rest, $prefix, $cmd, @params);
+  $tmp = '';
+  if (sysread($'socket[$sno], $tmp, $BUFFER)) {
+    $rbuf[$sno] .= $tmp;
+    while ((($next, $rest) = split(/[\r\n]+/, $rbuf[$sno], 2)) == 2) {
+      $rbuf[$sno] = $rest || '';
+      next unless $next;
+      $next = &read_event($'userno[$sno], 'server_read', $sno, $next);
+      next unless $next;
+      ($prefix, $cmd, @params) = &'parse($next);
+      ($prefix, $cmd, @params) = &scan_event($'userno[$sno], "ss_\L$cmd\E", $sno, $prefix, $cmd, @params);
+      next unless $cmd;
+      foreach $cno (&'array($'clientlist)) {
+        next unless $'server[$cno] == $sno;
+        &'c_print($cno, $prefix, $cmd, @params);
+      }
+    }
+  } else {
+    &'s_close($sno);
+  }
+}
+
+sub s_write {
+  local($sno) = @_;
+  local($socket, $time, $cmd, $key, $next);
+  $socket = $'socket[$sno];
+  $time = time();
+  $timer[$sno] = $time if ($timer[$sno] || 0) < $time;
+  while ($sequence[$sno]) {
+    if ($timer[$sno] > $time + 10) {
+      return;
+    } else {
+      ($cmd, $sequence[$sno]) = &'shift($sequence[$sno]);
+      $key = "$sno$;$cmd";
+      ($next, $wbuf{$key}) = &'shift($wbuf{$key});
+      $sequence[$sno] = &'add($sequence[$sno], $cmd) if $wbuf{$key};
+      next unless $next;
+      $next = &write_event($'userno[$sno], 'server_write', $sno, $next);
+      next unless $next;
+      print $socket $next, $EOL if fileno($socket);
+      $timer[$sno] += 2;
+    }
+  }
+  $sequence[$sno] = '';
+  vec($'win, $'fileno[$sno], 1) = 0;
+}
+
+sub 's_print {
+  local($sno, $prefix, $cmd, @params) = @_;
+  local($key);
+  return unless &'exist($'serverlist, $sno);
+  ($prefix, $cmd, @params) = &print_event($'userno[$sno], "sp_\L$cmd\E", $sno, $prefix, $cmd, @params);
+  return unless $cmd;
+  $key = "$sno$;\U$cmd\E";
+  $wbuf{$key} = &'append($wbuf{$key}, &'build($prefix, $cmd, @params));
+  $sequence[$sno] = &'add($sequence[$sno], "\U$cmd\E");
+  vec($'win, $'fileno[$sno], 1) = 1;
+}
+
+sub 's_flush {
+  local($sno) = @_;
+  while (vec($'win, $'fileno[$sno], 1)) {
+    &s_write($sno);
+  }
+}
+
+sub 's_open {
+  local($sno, $userno, $prefix, $name, $buf) = @_;
+  ($'nick[$sno], $'user[$sno], $'address[$sno]) = &'prefix($prefix);
+  $'userno[$sno] = $userno;
+  $'servername[$sno] = $name;
+  $rbuf[$sno] = $buf || '';
+  $'serverlist = &'add($'serverlist, $sno);
+  vec($'rout, $'fileno[$sno], 1) = 0;
+  &open_event($userno, 'server_open', $sno);
+}
+
+sub 's_close {
+  local($sno) = @_;
+  local($no, $buf);
+  $sequence[$sno] = '';
+  $no = $sno . $;;
+  foreach $key (keys(%wbuf)) {
+    next unless index($key, $no) == 0;
+    delete $wbuf{$key};
+  }
+  $'serverlist = &'remove($'serverlist, $sno);
+  &close_event($'userno[$sno], 'server_close', $sno);
+  $'nick[$sno] = '';
+  $'user[$sno] = '';
+  $'address[$sno] = '';
+  $'servername[$sno] = '';
+  $buf = $rbuf[$sno];
+  $rbuf[$sno] = '';
+  return $buf;
+}
+
+sub open_event {
+  local($userno, $event, $no) = @_;
+  foreach $sub (&sub_list($userno, $event)) {
+    &$sub($no);
+  }
+}
+
+sub close_event {
+  local($userno, $event, $no) = @_;
+  foreach $sub (reverse(&sub_list($userno, $event))) {
+    &$sub($no);
+  }
+}
+
+sub read_event {
+  local($userno, $event, $no, $msg) = @_;
+  foreach $sub (&sub_list($userno, $event)) {
+    $msg = &$sub($no, $msg);
+    return '' unless $msg;
+  }
+  return $msg;
+}
+
+sub write_event {
+  local($userno, $event, $no, $msg) = @_;
+  foreach $sub (reverse(&sub_list($userno, $event))) {
+    $msg = &$sub($no, $msg);
+    return '' unless $msg;
+  }
+  return $msg;
+}
+
+sub scan_event {
+  local($userno, $event, $no, $prefix, $cmd, @params) = @_;
+  foreach $sub (&sub_list($userno, $event)) {
+    ($prefix, $cmd, @params) = &$sub($no, $prefix, $cmd, @params);
+    return () unless $cmd;
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub print_event {
+  local($userno, $event, $no, $prefix, $cmd, @params) = @_;
+  foreach $sub (reverse(&sub_list($userno, $event))) {
+    ($prefix, $cmd, @params) = &$sub($no, $prefix, $cmd, @params);
+    return () unless $cmd;
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub loop_event {
+  local($userno, $event, $no) = @_;
+  foreach $sub (&sub_list($userno, $event)) {
+    &$sub($no);
+  }
+}
+
+sub sub_list {
+  local($userno, $event) = @_;
+  local(@list, $name, $sub);
+  @list = ();
+  $name = '\'' . $event;
+  if ($] < 5) {
+    foreach $module (&'array($'modulelist[$userno])) {
+      $sub = $module . $name;
+      push(@list, $sub) if eval "defined(&$sub)";
+    }
+  } else {
+    foreach $module (&'array($'modulelist[$userno])) {
+      $sub = $module . $name;
+      push(@list, $sub) if defined(&$sub);
+    }
+  }
+  return @list;
+}
+
+sub 'socket {
+  local($prefix) = @_;
+  local($no);
+  $no = index($sockethandle . ' ', ' ');
+  substr($sockethandle, $no, 1) = $prefix;
+  $'socket[$no] = $prefix . $no;
+  $'fileno[$no] = 0;
+  return $no;
+}
+
+sub 'connect {
+  local($no, $host, $port) = @_;
+  local($addr, $family, $sin);
+  $addr = &'address($host) || return 0;
+  if (length($addr) == 4) {
+    $family = $PF_INET || $AF_INET || 2;
+    if (defined(&pack_sockaddr_in)) {
+      $sin = &pack_sockaddr_in($port, $addr);
+    } else {
+      $sin = pack($SOCKADDR, $AF_INET || $PF_INET || 2, $port, $addr);
+    }
+  } elsif (length($addr) == 16) {
+    $family = $PF_INET6 || $AF_INET6 || return 0;
+    if (defined(&pack_sockaddr_in6)) {
+      $sin = &pack_sockaddr_in6($port, $addr);
+    } else {
+      return 0;
+    }
+  } else {
+    return 0;
+  }
+  socket($'socket[$no], $family, $SOCK_STREAM || 1, $PROTO || 6) || return 0;
+  connect($'socket[$no], $sin) || return 0;
+  &setup($no);
+  return 1;
+}
+
+sub 'listen {
+  local($no, $port, $count) = @_;
+  local($addr, $sin);
+  socket($'socket[$no], $PF_INET || $AF_INET || 2, $SOCK_STREAM || 1, $PROTO || 6) || return 0;
+  if (defined($SOL_SOCKET) && defined($SO_REUSEADDR)) {
+    setsockopt($'socket[$no], $SOL_SOCKET, $SO_REUSEADDR, pack('l', 1));
+  }
+  $addr = $INADDR_ANY || "\0" x 4;
+  if (defined(&pack_sockaddr_in)) {
+    $sin = &pack_sockaddr_in($port, $addr);
+  } else {
+    $sin = pack($SOCKADDR, $AF_INET || $PF_INET || 2, $port, $addr);
+  }
+  bind($'socket[$no], $sin) || return 0;
+  listen($'socket[$no], $count || $SOMAXCONN || $LISTEN) || return 0;
+  &setup($no);
+  return 1;
+}
+
+sub 'listen6 {
+  local($no, $port, $count) = @_;
+  local($addr, $sin);
+  return 0 unless ($PF_INET6 || $AF_INET6);
+  socket($'socket[$no], $PF_INET6 || $AF_INET6, $SOCK_STREAM || 1, $PROTO || 6) || return 0;
+  if (defined($SOL_SOCKET) && defined($SO_REUSEADDR)) {
+    setsockopt($'socket[$no], $SOL_SOCKET, $SO_REUSEADDR, pack('l', 1));
+  }
+  $addr = $IN6ADDR_ANY || "\0" x 16;
+  if (defined(&pack_sockaddr_in6)) {
+    $sin = &pack_sockaddr_in6($port, $addr);
+  } else {
+    return 0;
+  }
+  bind($'socket[$no], $sin) || return 0;
+  listen($'socket[$no], $count || $SOMAXCONN || $LISTEN) || return 0;
+  &setup($no);
+  return 1;
+}
+
+sub 'accept {
+  local($no, $lno) = @_;
+  accept($'socket[$no], $'socket[$lno]) || return 0;
+  &setup($no);
+  return 1;
+}
+
+sub 'close {
+  local($no) = @_;
+  close($'socket[$no]) if fileno($'socket[$no]);
+  vec($'rin, $'fileno[$no], 1) = 0;
+  $'socket[$no] = '';
+  $'access[$no] = 0;
+  $'fileno[$no] = 0;
+  substr($sockethandle, $no, 1) = ' ';
+}
+
+sub 'reuse {
+  local($no) = @_;
+  close($'socket[$no]) if fileno($'socket[$no]);
+  vec($'rin, $'fileno[$no], 1) = 0;
+  $'fileno[$no] = 0;
+}
+
+sub 'sockname {
+  local($no) = @_;
+  return &addrinfo(getsockname($'socket[$no]));
+}
+
+sub 'peername {
+  local($no) = @_;
+  return &addrinfo(getpeername($'socket[$no]));
+}
+
+sub 'address {
+  local($host) = @_;
+  local($sin, $addr);
+  if (defined(&getaddrinfo)) {
+    $sin = (&getaddrinfo($host, ''))[3];
+    $addr = (&addrinfo($sin))[1];
+    return $addr if $addr;
+  }
+  if (defined(&inet_pton)) {
+    if (defined($AF_INET6) || defined($PF_INET6)) {
+      $addr = &inet_pton($AF_INET6 || $PF_INET6, $host);
+      return $addr if $addr;
+    }
+    $addr = &inet_pton($AF_INET || $PF_INET || 2, $host);
+    return $addr if $addr;
+  }
+  if (defined(&inet_aton)) {
+    $addr = &inet_aton($host);
+    return $addr if $addr;
+  }
+  if ($host =~ /^\d+$/) {
+    $addr = pack('N', $host);
+  } elsif ($host =~ /^(\d*)(\.(\d*)(\.(\d*))?)?\.(\d*)$/) {
+    $addr = pack('C4', $1 || 0, $3 || 0, $5 || 0, $6 || 0);
+  } else {
+    $addr = (gethostbyname($host))[4];
+  }
+  return $addr;
+}
+
+sub addrinfo {
+  local($sin) = @_;
+  local($port, $addr, $host);
+  if (!defined($sin) || length($sin) < 16) {
+    return ();
+  } elsif (length($sin) == 16) {
+    if (defined(&unpack_sockaddr_in)) {
+      ($port, $addr) = &unpack_sockaddr_in($sin);
+    } else {
+      ($port, $addr) = (unpack($SOCKADDR, $sin))[1, 2];
+    }
+    $host = (gethostbyaddr($addr, $AF_INET || $PF_INET || 2))[0];
+  } elsif (defined(&unpack_sockaddr_in6)) {
+    ($port, $addr) = &unpack_sockaddr_in6($sin);
+    if ($AF_INET6 || $PF_INET6) {
+      $host = (gethostbyaddr($addr, $AF_INET6 || $PF_INET6))[0];
+    }
+  } else {
+    return ();
+  }
+  return ($port, $addr, $host);
+}
+
+sub setup {
+  local($no) = @_;
+  binmode($'socket[$no]);
+  $'fileno[$no] = fileno($'socket[$no]);
+  vec($'rin, $'fileno[$no], 1) = 1;
+  select((select($'socket[$no]), $| = 1)[0]);
+  $'access[$no] = time();
+}
+
+sub 'match {
+  local($no, @list) = @_;
+  local($port, $addr, $host, $net, $len, $bit, $src, $str);
+  ($port, $addr, $host) = &'peername($no);
+  if ($addr) {
+    foreach $item (@list) {
+      ($net, $len) = split(/\//, $item);
+      if ($len) {
+        $bit = unpack('B*', $addr);
+        $src = unpack('B*', &'address($net));
+        return 1 if substr($bit, 0, $len) eq substr($src, 0, $len);
+      } else {
+        $str = &'regex($net);
+        if ($host) {
+          return 1 if $host =~ /$str/i;
+        }
+        if (length($addr) == 4) {
+          $host = join('.', unpack('C4', $addr));
+        } elsif (length($addr) == 16) {
+          $host = join(':', unpack('H4' x 8, $addr));
+        }
+        return 1 if $host =~ /$str/i;
+      }
+    }
+  }
+  return 0;
+}
+
+sub 'user {
+  local($no, $nick, $user, $host) = @_;
+  local($userno, $unick, $uuser, $uhost, $addr, @addr);
+  return 'unknown' unless $no;
+  $userno = $'userno[$no];
+  $unick = $nick || $'nick[$no] || '';
+  $uuser = $user || $'user[$no] || '';
+  $uhost = $host || $'address[$no] || '';
+  if (!$uhost) {
+    if ($no && $'socket[$no] && fileno($'socket[$no])) {
+      ($addr, $uhost) = (&'peername($no))[1, 2];
+      if (!$uhost) {
+        if ($addr && length($addr) == 4) {
+          $uhost = join('.', unpack('C4', $addr));
+        } elsif ($addr && length($addr) == 16) {
+          $uhost = join(':', unpack('H4' x 8, $addr));
+        } else {
+          $uhost = 'unknown';
+        }
+      }
+    } else {
+      $uhost = 'unknown';
+    }
+  }
+  return "$unick\!$uuser\@$uhost";
+}
+
+sub 'parse {
+  local($line) = @_;
+  local($arg, $rest, @params);
+  @params = ();
+  $line =~ s/^\s*//;
+  if ($line =~ /^\:(.*)$/) {
+    ($arg, $rest) = (split(/\s+/, $1, 2), '');
+  } else {
+    ($arg, $rest) = ('', $line);
+  }
+  while ($line) {
+    push(@params, $arg);
+    if ($rest =~ /^\:(.*)$/) {
+      push(@params, $1);
+      last;
+    }
+    $line = $rest;
+    ($arg, $rest) = (split(/\s+/, $line, 2), '');
+  }
+  return @params;
+}
+
+sub 'build {
+  local($prefix, $cmd, @params) = @_;
+  local($trailing);
+  return '' unless $cmd;
+  if (@params) {
+    $trailing = pop(@params) || '';
+    if (&'exist($NOTRAILING, "\U$cmd\E")) {
+      push(@params, $trailing . ' ');
+    } else {
+      push(@params, ':' . $trailing);
+    }
+  } else {
+    @params = ();
+  }
+  unshift(@params, $cmd);
+  unshift(@params, ':' . $prefix) if $prefix;
+  return join(' ', @params);
+}
+
+sub 'prefix {
+  local($prefix) = @_;
+  local($idx, $rest, $nick, $user, $host);
+  if (wantarray) {
+    if (($idx = index($prefix, '@')) != -1) {
+      $host = substr($prefix, $idx + 1);
+      $rest = substr($prefix, 0, $idx);
+    } else {
+      $host = '';
+      $rest = $prefix;
+    }
+    if (($idx = index($rest, '!')) != -1) {
+      $nick = substr($rest, 0, $idx);
+      $user = substr($rest, $idx + 1);
+    } else {
+      $nick = $rest;
+      $user = '';
+    }
+    return ($nick, $user, $host);
+  } else {
+    if (($idx = index($prefix, '!')) != -1) {
+      return substr($prefix, 0, $idx);
+    } else {
+      return $prefix;
+    }
+  }
+}
+
+sub 'euc_euc {
+  local($euc) = @_;
+  return $euc;
+}
+
+sub 'euc_jis {
+  local($euc) = @_;
+  local($jis, $kanji, $c, $n, $i);
+  $kanji = 0;
+  $jis = '';
+  $euc = &'euc_euc($euc);
+  for ($i = 0; $i < length($euc); $i++) {
+    $c = substr($euc, $i, 1);
+    $n = ord($c);
+    if ($n >= 0241) {
+      if ($kanji != 1) {
+        $jis .= "\e\$B";
+        $kanji = 1;
+      }
+      $jis .= pack('C', $n & 0177);
+      $i++;
+      $jis .= pack('C', ord(substr($euc, $i, 1)) & 0177);
+    } elsif ($n == 0216) {
+      if ($kanji != 2) {
+        $jis .= "\e(I";
+        $kanji = 2;
+      }
+      $i++;
+      $jis .= pack('C', ord(substr($euc, $i, 1)) & 0177);
+    } elsif ($n == 0217) {
+      if ($kanji != 3) {
+        $jis .= "\e\$(D";
+        $kanji = 3;
+      }
+      $i++;
+      $jis .= pack('C', ord(substr($euc, $i, 1)) & 0177);
+      $i++;
+      $jis .= pack('C', ord(substr($euc, $i, 1)) & 0177);
+    } else {
+      if ($kanji) {
+        $jis .= "\e\(B";
+        $kanji = 0;
+      }
+      $jis .= $c;
+    }
+  }
+  $jis .= "\e\(B" if $kanji;
+  return $jis;
+}
+
+sub 'euc_sjis {
+  local($euc) = @_;
+  local($sjis, $c, $n1, $n2, $i);
+  $sjis = '';
+  $euc = &'euc_euc($euc);
+  for ($i = 0; $i < length($euc); $i++) {
+    $c = substr($euc, $i, 1);
+    $n1 = ord($c);
+    if ($n1 >= 0241) {
+      $i++;
+      $n2 = ord(substr($euc, $i, 1));
+      if (($n1 & 01) == 0) {
+        $n2 -= 03;
+      } else {
+        $n2 -= 0141;
+      }
+      $n2++ if $n2 >= 0177;
+      $n1 = ((($n1 - 0241) >> 1) + 0241) ^ 040;
+      $sjis .= pack('CC', $n1, $n2);
+    } elsif ($n1 == 0216) {
+      $i++;
+      $sjis .= substr($euc, $i, 1);
+    } elsif ($n1 == 0217) {
+      $i += 2;
+      $sjis .= "\201\254";
+    } else {
+      $sjis .= $c;
+    }
+  }
+  return $sjis;
+}
+
+sub 'jis_euc {
+  local($jis) = @_;
+  local($euc, $kanji, $i);
+  $kanji = 0;
+  $euc = '';
+  $jis = &'jis_jis($jis);
+  for ($i = 0; $i < length($jis); $i++) {
+    if (substr($jis, $i, 3) eq "\e\(B") {
+      $kanji = 0;
+      $i += 2;
+      next;
+    } elsif (substr($jis, $i, 3) eq "\e\$B") {
+      $kanji = 1;
+      $i += 2;
+      next;
+    } elsif (substr($jis, $i, 3) eq "\e\(I") {
+      $kanji = 2;
+      $i += 2;
+      next;
+    } elsif (substr($jis, $i, 4) eq "\e\$(D") {
+      $kanji = 3;
+      $i += 3;
+      next;
+    }
+    if ($kanji == 0) {
+      $euc .= substr($jis, $i, 1);
+    } elsif ($kanji == 1) {
+      $euc .= pack('C', ord(substr($jis, $i, 1)) | 0200);
+      $i++;
+      $euc .= pack('C', ord(substr($jis, $i, 1)) | 0200);
+    } elsif ($kanji == 2) {
+      $euc .= "\216" . pack('C', ord(substr($jis, $i, 1)) | 0200);
+    } elsif ($kanji == 3) {
+      $euc .= "\217" . pack('C', ord(substr($jis, $i, 1)) | 0200);
+      $i++;
+      $euc .= pack('C', ord(substr($jis, $i, 1)) | 0200);
+    }
+  }
+  return $euc;
+}
+
+sub 'jis_jis {
+  local($jis) = @_;
+  local($ret, $kanji, $last, $seq, $c, $i);
+  $kanji = 0;
+  $last = 0;
+  $ret = '';
+  for ($i = 0; $i < length($jis); $i++) {
+    $c = substr($jis, $i, 1);
+    $seq = substr($jis, $i, 3);
+    if ($seq eq "\e\$\@" || $seq eq "\e\$B") {
+      $ret .= "\e\$B";
+      $kanji = 1;
+      $i += 2;
+      next;
+    } elsif ($seq eq "\e(J" || $seq eq "\e(B") {
+      $ret .= "\e(B";
+      $kanji = 0;
+      $i += 2;
+      next;
+    } elsif ($seq eq "\e(I") {
+      $ret .= "\e(I";
+      $kanji = 2;
+      $i += 2;
+      next;
+    } elsif ($c eq "\cN") {
+      if ($kanji != 2) {
+        $last = $kanji;
+        $ret .= "\e(I";
+        $kanji = 2;
+      }
+      next;
+    } elsif ($c eq "\cO") {
+      if ($kanji != 2) {
+        if ($last) {
+          $ret .= "\e\$B";
+        } else {
+          $ret .= "\e(B";
+        }
+        $kanji = $last;
+      }
+      next;
+    } elsif (substr($jis, $i, 6) eq "\e&\@\e\$B") {
+      $ret .= "\e\$B";
+      $kanji = 1;
+      $i += 5;
+      next;
+    } elsif (substr($jis, $i, 4) eq "\e\$(D") {
+      $ret .= "\e\$(D";
+      $kanji = 3;
+      $i += 3;
+      next;
+    }
+    if ($kanji == 0) {
+      $ret .= $c;
+    } elsif ($kanji == 1) {
+      $ret .= substr($jis, $i, 2);
+      $i++;
+    } elsif ($kanji == 2) {
+      $ret .= $c;
+    } elsif ($kanji == 3) {
+      $ret .= substr($jis, $i, 2);
+      $i++;
+    }
+  }
+  $ret .= "\e(B" if $kanji;
+  return $ret;
+}
+
+sub 'jis_sjis {
+  local($jis) = @_;
+  local($sjis, $kanji, $n1, $n2, $i);
+  $kanji = 0;
+  $sjis = '';
+  $jis = &'jis_jis($jis);
+  for ($i = 0; $i < length($jis); $i++) {
+    if (substr($jis, $i, 3) eq "\e\(B") {
+      $kanji = 0;
+      $i += 2;
+      next;
+    } elsif (substr($jis, $i, 3) eq "\e\$B") {
+      $kanji = 1;
+      $i += 2;
+      next;
+    } elsif (substr($jis, $i, 3) eq "\e\(I") {
+      $kanji = 2;
+      $i += 2;
+      next;
+    } elsif (substr($jis, $i, 4) eq "\e\$(D") {
+      $kanji = 3;
+      $i += 3;
+      next;
+    }
+    if ($kanji == 0) {
+      $sjis .= substr($jis, $i, 1);
+    } elsif ($kanji == 1) {
+      $n1 = ord(substr($jis, $i, 1));
+      $i++;
+      $n2 = ord(substr($jis, $i, 1));
+      if (($n1 & 01) == 0) {
+        $n2 += 0175;
+      } else {
+        $n2 += 037;
+      }
+      $n2++ if $n2 >= 0177;
+      $n1 = ((($n1 - 041) >> 1) + 0241) ^ 040;
+      $sjis .= pack('CC', $n1, $n2);
+    } elsif ($kanji == 2) {
+      $sjis .= pack('C', ord(substr($jis, $i, 1)) | 0200);
+    } elsif ($kanji == 3) {
+      $i++;
+      $sjis .= "\201\254";
+    }
+  }
+  return $sjis;
+}
+
+sub 'sjis_euc {
+  local($sjis) = @_;
+  local($euc, $c, $n1, $n2, $i);
+  $euc = '';
+  $sjis = &'sjis_sjis($sjis);
+  for ($i = 0; $i < length($sjis); $i++) {
+    $c = substr($sjis, $i, 1);
+    $n1 = ord($c);
+    if ($n1 >= 0240 && $n1 <= 0337) {
+      $euc .= "\216$c";
+    } elsif ($n1 >= 0201) {
+      $i++;
+      $n2 = ord(substr($sjis, $i, 1));
+      $n2-- if $n2 > 0177;
+      if ($n2 >= 0236) {
+        $n1 = ((($n1 ^ 040) - 0241) << 1) + 0242;
+        $n2 += 03;
+      } else {
+        $n1 = ((($n1 ^ 040) - 0241) << 1) + 0241;
+        $n2 += 0141;
+      }
+      $euc .= pack('CC', $n1, $n2);
+    } else {
+      $euc .= $c;
+    }
+  }
+  return $euc;
+}
+
+sub 'sjis_jis {
+  local($sjis) = @_;
+  local($jis, $kanji, $c, $n1, $n2, $i);
+  $kanji = 0;
+  $jis = '';
+  $sjis = &'sjis_sjis($sjis);
+  for ($i = 0; $i < length($sjis); $i++) {
+    $c = substr($sjis, $i, 1);
+    $n1 = ord($c);
+    if ($n1 >= 0240 && $n1 <= 0337) {
+      if ($kanji != 2) {
+        $jis .= "\e(I";
+        $kanji = 2;
+      }
+      $jis .= pack('C', $n1 & 0177);
+    } elsif ($n1 >= 0201) {
+      if ($kanji != 1) {
+        $jis .= "\e\$B";
+        $kanji = 1;
+      }
+      $i++;
+      $n2 = ord(substr($sjis, $i, 1));
+      $n2-- if $n2 > 0177;
+      if ($n2 >= 0236) {
+        $n1 = ((($n1 ^ 040) - 0241) << 1) + 042;
+        $n2 -= 0175;
+      } else {
+        $n1 = ((($n1 ^ 040) - 0241) << 1) + 041;
+        $n2 -= 037;
+      }
+      $jis .= pack('CC', $n1, $n2);
+    } else {
+      if ($kanji) {
+        $jis .= "\e\(B";
+        $kanji = 0;
+      }
+      $jis .= $c;
+    }
+  }
+  $jis .= "\e\(B" if $kanji;
+  return $jis;
+}
+
+sub 'sjis_sjis {
+  local($sjis) = @_;
+  return $sjis;
+}
+
+sub 'add {
+  local($list, @items) = @_;
+  $list = '' unless $list;
+  foreach $item (@items) {
+    next if &'exist($list, $item);
+    $list .= $NIL . $item;
+  }
+  return $list;
+}
+
+sub 'append {
+  local($list, @items) = @_;
+  $list = '' unless $list;
+  foreach $item (@items) {
+    $list .= $NIL . $item;
+  }
+  return $list;
+}
+
+sub 'remove {
+  local($list, @items) = @_;
+  local($idx);
+  $list = '' unless $list;
+  $list .= $NIL;
+  foreach $item (@items) {
+    $idx = index("\L$list\E", "$NIL\L$item\E$NIL");
+    next if $idx == -1;
+    substr($list, $idx, length("$NIL$item$NIL")) = $NIL;
+  }
+  return substr($list, 0, length($list) - 1);
+}
+
+sub 'change {
+  local($list, @items) = @_;
+  local($old, $new, $idx);
+  return '' unless $list;
+  $list .= $NIL;
+  while (@items > 1) {
+    $old = shift(@items);
+    $new = shift(@items);
+    $idx = index("\L$list\E", "$NIL\L$old\E$NIL");
+    next if $idx == -1;
+    substr($list, $idx, length("$NIL$old$NIL")) = "$NIL$new$NIL";
+  }
+  return substr($list, 0, length($list) - 1);
+}
+
+sub 'exist {
+  local($list, @items) = @_;
+  return 0 unless $list;
+  $list .= $NIL;
+  foreach $item (@items) {
+    return 1 if index("\L$list\E", "$NIL\L$item\E$NIL") != -1;
+  }
+  return 0;
+}
+
+sub 'list {
+  local(@array) = @_;
+  return join($NIL, '', @array);
+}
+
+sub 'array {
+  local($list) = @_;
+  return () unless $list;
+  $list = substr($list, 1);
+  return split(/$NIL/, $list, -1);
+}
+
+sub 'shift {
+  local($list) = @_;
+  local($idx);
+  return ('', '') unless $list;
+  $idx = index($list, $NIL, 1);
+  if ($idx == -1) {
+    return (substr($list, 1), '');
+  } else {
+    return (substr($list, 1, $idx - 1), substr($list, $idx));
+  }
+}
+
+sub 'real {
+  local($name) = @_;
+  if ($name =~ /^\%(.*)$/) {
+    return "\#$1\:$ALIAS";
+  } else {
+    return $name;
+  }
+}
+
+sub 'alias {
+  local($name) = @_;
+  if ($name =~ /^\#(.*)\:(.*)$/ && "\L$2\E" eq "\L$ALIAS\E") {
+    return '%' . $1;
+  } else {
+    return $name;
+  }
+}
+
+sub 'channel {
+  local($name) = @_;
+  if ($name && $name =~ /^[\#\&\+\!]/) {
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
+sub 'regex {
+  local($mask) = @_;
+  $mask =~ s/(\W)/\\$1/g;
+  $mask =~ s/\\\?/\./g;
+  $mask =~ s/\\\*/\.\*/g;
+  return "\^$mask\$";
+}
+
+sub 'expand {
+  local($name) = @_;
+  local($user, $rest, $home);
+  if ($name =~ /^\~([^\/]*)\/(.*)$/) {
+    ($user, $rest) = ($1, $2);
+    if ($user) {
+      $home = eval '(getpwnam($user))[7]' || '.';
+    } else {
+      $home = $ENV{'HOME'} || eval '(getpwuid($<))[7]' || '.';
+    }
+    return "$home/$rest";
+  } else {
+    return $name;
+  }
+}
+
+sub 'timelocal {
+  local(@local) = @_;
+  local($now, @base, $year, $day, $time);
+  $now = time();
+  @base = localtime($now);
+  $day = ($local[5] - $base[5]) * 365;
+  $year = $local[5] + 1900;
+  $day += int($year / 4) - int($year / 100) + int($year / 400) + &days($local[3], $local[4], $local[5]);
+  $year = $base[5] + 1900;
+  $day -= int($year / 4) - int($year / 100) + int($year / 400) + &days($base[3], $base[4], $base[5]);
+  $time = $now + $day * 86400 + ($local[2] - $base[2]) * 3600 + ($local[1] - $base[1]) * 60 + $local[0] - $base[0];
+  return $time;
+}
+
+sub days {
+  local(@time) = @_;
+  local($day, $year);
+  $day = (0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334)[$time[1]];
+  $day += $time[0] - 1;
+  $year = $time[2] + 1900;
+  if ($time[1] < 2 && $year % 4 == 0 && ($year % 100 != 0 || $year % 400 == 0)) {
+    $day -= 1;
+  }
+  return $day;
+}
+
+sub 'date {
+  local($format, $time) = @_;
+  local(@time, $char, $str, $i, $number);
+  $time = time() unless $time;
+  @time = localtime($time);
+  $str = '';
+  for ($i = 0; $i < length($format); $i++) {
+    $char = substr($format, $i, 1);
+    if ($char eq '%') {
+      $i++;
+      if ($i < length($format)) {
+        $char = substr($format, $i, 1);
+        if ($char eq '+' || $char eq '-') {
+          $i++;
+          $number = $char;
+          while ($i < length($format)) {
+            $char = substr($format, $i, 1);
+            last if index('0123456789.', $char) == -1;
+            $number .= $char;
+            $i++;
+          }
+        } else {
+          $number = 0;
+        }
+        if ($char eq '%') {
+          $str .= $char;
+        } elsif ($char eq 'a') {
+          $str .= ('Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat')[$time[6]];
+        } elsif ($char eq 'b') {
+          $str .= ('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec')[$time[4]];
+        } elsif ($char eq 'd') {
+          $str .= sprintf('%02d', $time[3]);
+        } elsif ($char eq 'H') {
+          $str .= sprintf('%02d', $time[2]);
+        } elsif ($char eq 'I') {
+          $str .= sprintf('%02d', $time[2] % 12 + 1);
+        } elsif ($char eq 'j') {
+          $str .= sprintf('%3d', $time[7]);
+        } elsif ($char eq 'k') {
+          $str .= sprintf('%2d', $time[2]);
+        } elsif ($char eq 'l') {
+          $str .= sprintf('%2d', $time[2] % 12 + 1);
+        } elsif ($char eq 'M') {
+          $str .= sprintf('%02d', $time[1]);
+        } elsif ($char eq 'm') {
+          $str .= sprintf('%02d', $time[4] + 1);
+        } elsif ($char eq 'O') {
+          @time = localtime($time + $number * 3600);
+        } elsif ($char eq 'o') {
+          @time = localtime($time + $number);
+        } elsif ($char eq 'p') {
+          if ($time[2] < 12) {
+            $str .= 'AM';
+          } else {
+            $str .= 'PM';
+          }
+        } elsif ($char eq 'S') {
+          $str .= sprintf('%02d', $time[0]);
+        } elsif ($char eq 'w') {
+          $str .= sprintf('%d', $time[6]);
+        } elsif ($char eq 'Y') {
+          $str .= sprintf('%d', $time[5] + 1900);
+        } elsif ($char eq 'y') {
+          $str .= sprintf('%02d', $time[5] % 100);
+        }
+      } else {
+        $str .= $char;
+      }
+    } else {
+      $str .= $char;
+    }
+  }
+  return $str;
+}
+
+sub 'format {
+  local($text, %data) = @_;
+  local($ret, $idx, $end, $ret, $str);
+  $ret = '';
+  while (($idx = index($text, '#(')) != -1) {
+    $end = index($text, ')', $idx + 2);
+    last if $end == -1;
+    $ret .= substr($text, 0, $idx);
+    foreach $item (split(/\|/, substr($text, $idx + 2, $end - $idx - 2))) {
+      $str = &replace($item, %data);
+      next unless defined($str);
+      $ret .= $str;
+      last;
+    }
+    $text = substr($text, $end + 1);
+  }
+  $ret .= $text;
+  return $ret;
+}
+
+sub replace {
+  local($item, %data) = @_;
+  local($list, $text, @data);
+  ($list, $text) = split(/\;/, $item, 2);
+  if ($list) {
+    foreach $key (split(/\,/, $list)) {
+      if (!defined($data{$key})) {
+        return undef;
+      }
+      push(@data, $data{$key});
+    }
+    if ($text) {
+      return sprintf($text, @data);
+    } else {
+      return join('', @data);
+    }
+  } else {
+    return $text;
+  }
+}
+
+sub property_change {
+  local($userno) = @_;
+  local($sno, $list, $mask, $pass, $host, $port, $lno);
+  if (!$default[$userno]) {
+    $sno = &'socket('S');
+    $default[$userno] = $sno;
+    $status[$userno] = 0;
+    &s_clear($userno);
+  }
+  $serverlist[$userno] = &'list(&'property($userno, 'server'));
+  $serverindex[$userno] = 0;
+  $nicklist[$userno] = '';
+  foreach $nick (&'property($userno, 'nick')) {
+    $nicklist[$userno] = &'add($nicklist[$userno], split(/\,/, $nick));
+  }
+  $nickindex[$userno] = 0;
+  $list = '';
+  foreach $client (&'property($userno, 'client')) {
+    ($mask, $pass) = split(/\s+/, $client);
+    ($host, $port) = split(/\;/, $mask);
+    $list = &'add($list, $port || $PORT);
+  }
+  foreach $lno (&'array($listenlist), &'array($listenwaitlist)) {
+    $list = &'remove($list, $port[$lno]);
+  }
+  foreach $port (&'array($list)) {
+    $lno = &'socket('L');
+    $port[$lno] = $port;
+    $listenwaitlist = &'add($listenwaitlist, $lno);
+  }
+}
+
+sub main_loop {
+  local($userno) = @_;
+  local($tmp, $next, $rest);
+  foreach $cno (&'array($clientlist)) {
+    &c_proc($cno) if vec($'rout, $'fileno[$cno], 1);
+  }
+  foreach $lno (&'array($listenlist)) {
+    &l_proc($lno) if vec($'rout, $'fileno[$lno], 1);
+  }
+  foreach $lno (&'array($listenwaitlist)) {
+    &l_init($lno);
+  }
+  if ($status[$userno] == 0) {
+    &s_init($userno);
+  } elsif ($status[$userno] == 1) {
+    &s_proc($userno) if vec($'rout, $'fileno[$default[$userno]], 1);
+  }
+}
+
+sub c_proc {
+  local($cno) = @_;
+  local($socket, $tmp, $next, $rest, $prefix, $cmd, @params);
+  $socket = $'socket[$cno];
+  $tmp = '';
+  if (sysread($socket, $tmp, $BUFFER)) {
+    $bufr[$cno] .= $tmp;
+    while ((($next, $rest) = split(/[\r\n]+/, $bufr[$cno], 2)) == 2) {
+      $bufr[$cno] = $rest;
+      next unless $next;
+      ($prefix, $cmd, @params) = &'parse($next);
+      if ($cmd) {
+        $cmd = "\U$cmd\E";
+        if ($cmd eq 'NICK') {
+          $nick[$cno] = $params[0];
+          &c_check($cno) if $user[$cno];
+        } elsif ($cmd eq 'USER') {
+          if (defined(@params) && @params >= 4) {
+            $user[$cno] = $params[0];
+            &c_check($cno) if $nick[$cno];
+          } else {
+            print $socket '', &'build($NAME, '461', 'Not enough parameters'), $EOL;
+          }
+        } elsif ($cmd eq 'PASS') {
+          $pass[$cno] = $params[0];
+        } elsif ($cmd eq 'QUIT') {
+          $params[0] = 'I Quit' unless $params[0];
+          print $socket '', &'build('', 'ERROR', 'Closing Link: ' . &'user($cno, $nick[$cno], $user[$cno]) . " ($params[0])"), $EOL;
+          $clientlist = &'remove($clientlist, $cno);
+          &c_clear($cno);
+          &'close($cno);
+        } else {
+          print $socket '', &'build($NAME, '451', '*', 'You have not registered'), $EOL;
+        }
+      }
+    }
+  } else {
+    $clientlist = &'remove($clientlist, $cno);
+    &c_clear($cno);
+    &'close($cno);
+  }
+}
+
+sub c_check {
+  local($cno) = @_;
+  local($socket, @ary, $i, $userno, $pass, $sno);
+  $socket = $'socket[$cno];
+  @ary = &'array($auth[$cno]);
+  for ($i = 0; $i < @ary; $i += 2) {
+    $userno = $ary[$i];
+    $pass = $ary[$i + 1];
+    next if ($pass && $pass ne $pass[$cno]);
+    if ($default[$userno]) {
+      $sno = $default[$userno];
+    } else {
+      $sno = 0;
+    }
+    print $socket '', &'build($'servername[$sno] || $NAME, '001', $nick[$cno], 'Welcome to the Internet Relay Network ' . &'user($cno, $nick[$cno], $user[$cno])), $EOL;
+    &'c_open($cno, $userno, &'user($cno, $nick[$cno], $user[$cno]), $sno, $bufr[$cno]);
+    $clientlist = &'remove($clientlist, $cno);
+    &c_clear($cno);
+    return;
+  }
+  print $socket '', &'build($NAME, '464', $nick[$cno], 'Password incorrect'), $EOL;
+  print $socket '', &'build('', 'ERROR', 'Closing Link: ' . &'user($cno, $nick[$cno], $user[$cno]) . ' (Bad Password)'), $EOL;
+  $clientlist = &'remove($clientlist, $cno);
+  &c_clear($cno);
+  &'close($cno);
+}
+
+sub c_clear {
+  local($cno) = @_;
+  $auth[$cno] = '';
+  $nick[$cno] = '';
+  $user[$cno] = '';
+  $pass[$cno] = '';
+  $bufr[$cno] = '';
+}
+
+sub l_proc {
+  local($lno) = @_;
+  local($cno, $port, $i, $host, $pass, $mac, $serv);
+  $cno = &'socket('C');
+  &c_clear($cno);
+  return unless &'accept($cno, $lno);
+  $port = (&'sockname($cno))[0];
+  for ($i = 0; $i < @'username; $i++) {
+    foreach $client (&'property($i, 'client')) {
+      ($host, $pass) = split(/\s+/, $client);
+      ($mac, $serv) = split(/\;/, $host);
+      next unless $port == ($serv || $PORT);
+      next unless &'match($cno, $mac);
+      $auth[$cno] = &'add($auth[$cno], $i, $pass || '');
+    }
+  }
+  if ($auth[$cno]) {
+    $clientlist = &'add($clientlist, $cno);
+  } else {
+    &'close($cno);
+  }
+}
+
+sub l_init {
+  local($lno) = @_;
+  if ($port[$lno] > 0) {
+    if (!&'listen($lno, $port[$lno])) {
+      &'alarm(-$INTERVAL);
+      return;
+    }
+  } else {
+    if (!&'listen6($lno, -$port[$lno])) {
+      &'alarm(-$INTERVAL);
+      return;
+    }
+  }
+  $listenwaitlist = &'remove($listenwaitlist, $lno);
+  $listenlist = &'add($listenlist, $lno);
+}
+
+sub s_init {
+  local($userno) = @_;
+  local($server, $host, $pass, $name, $list, @port, $socket, $nick, $user, $name);
+  return unless $serverlist[$userno];
+  $server = (&'array($serverlist[$userno]))[$serverindex[$userno]];
+  ($host, $pass) = split(/\s+/, $server);
+  ($name, $list) = split(/\;/, $host);
+  return unless $host;
+  @port = split(/\,/, $list || '');
+  if (&'connect($default[$userno], $name, $port[rand(@port)] || $PORT)) {
+    $status[$userno] = 1;
+    $bufr[$default[$userno]] = '';
+    $socket = $'socket[$default[$userno]];
+    print $socket '', &'build('', 'PASS', $pass), $EOL if $pass;
+    $nick = $lastnick[$userno] || (&'array($nicklist[$userno]))[$nickindex[$userno]] || eval 'getlogin()' || eval '(getpwuid($<))[0]';
+    $lastnick[$userno] = '';
+    print $socket '', &'build('', 'NICK', $nick), $EOL;
+    $user = &'property($userno, 'user') || eval 'getlogin()' || eval '(getpwuid($<))[0]' || $nick;
+    $name = &'property($userno, 'name') || eval '((split(/\,/, (getpwuid($<))[6]))[0])' || $user;
+    print $socket '', &'build('', 'USER', $user, '*', '*', $name), $EOL;
+  } else {
+    &'alarm(-$INTERVAL);
+    $serverindex[$userno] = ($serverindex[$userno] + 1) % &'array($serverlist[$userno]);
+  }
+}
+
+sub s_proc {
+  local($userno) = @_;
+  local($sno, $socket, $tmp, $next, $rest, $prefix, $cmd, @params, $nick, $user, $host, $no);
+  $sno = $default[$userno];
+  $socket = $'socket[$sno];
+  $tmp = '';
+  if (sysread($socket, $tmp, $BUFFER)) {
+    $bufr[$sno] .= $tmp;
+    while ((($next, $rest) = split(/[\r\n]+/, $bufr[$sno], 2)) == 2) {
+      $bufr[$sno] = $rest;
+      next unless $next;
+      ($prefix, $cmd, @params) = &'parse($next);
+      if ($cmd eq 'PING') {
+        print $socket '', &'build('', 'PONG', @params), $EOL;
+      } elsif ($cmd eq 'ERROR') {
+        $serverindex[$userno] = ($serverindex[$userno] + 1) % &'array($serverlist[$userno]);
+      } elsif ($cmd eq '001') {
+        ($nick, $user, $host) = &'prefix(substr($params[1], rindex($params[1], ' ') + 1));
+        &'s_open($sno, $userno, &'user($sno, $nick, $user, $host), $prefix, $bufr[$sno]);
+        $status[$userno] = 2;
+        $serverindex[$userno] = 0;
+        $nickindex[$userno] = 0;
+        &s_clear($userno);
+      } elsif ($cmd eq '432' || $cmd eq '433' || $cmd eq '437') {
+        if ($nicklist[$userno]) {
+          $nickindex[$userno] = ($nickindex[$userno] + 1) % &'array($nicklist[$userno]);
+          print $socket '', &'build('', 'NICK', (&'array($nicklist[$userno]))[$nickindex[$userno]]), $EOL;
+        } else {
+          if ($params[1] =~ /\d+$/) {
+            $nick = $params[1];
+            $nick++;
+          } else {
+            $nick = substr($params[1], 0, 8) . '0';
+          }
+          print $socket '', &'build('', 'NICK', $nick), $EOL;
+        }
+      }
+    }
+  } else {
+    $status[$userno] = 0;
+    &'reuse($sno);
+    &s_clear($userno);
+  }
+}
+
+sub s_clear {
+  local($userno) = @_;
+  $bufr[$default[$userno]] = '';
+}
+
+sub client_open {
+  local($cno) = @_;
+  local($sno);
+  $sno = $'server[$cno];
+  if (&'exist($'serverlist, $sno)) {
+    &'c_print($cno, &'user($cno), 'NICK', $'nick[$sno]) if $'nick[$cno] ne $'nick[$sno];
+    foreach $chan (&'array($'channellist[$sno])) {
+      &'c_print($cno, &'user($cno), 'JOIN', $chan);
+      &'c_print($cno, $'servername[$cno], '332', $'nick[$cno], $chan, $'topic{$sno, $chan}) if $'topic{$sno, $chan};
+      &'c_print($cno, $'servername[$cno], '353', $'nick[$cno], '=', $chan, join(' ', reverse(&'array($'nameslist{$sno, $chan}))));
+      &'c_print($cno, $'servername[$cno], '366', $'nick[$cno], $chan, 'End of /NAMES list.');
+    }
+  }
+}
+
+sub client_close {
+  local($cno) = @_;
+  &clear_variable($cno);
+  &'close($cno);
+}
+
+sub server_open {
+  local($sno) = @_;
+  foreach $cno (&'array($'clientlist)) {
+    next unless $'server[$cno] == $sno;
+    next unless $'nick[$cno] ne $'nick[$sno];
+    &'c_print($cno, &'user($cno), 'NICK', $'nick[$sno]);
+  }
+}
+
+sub server_close {
+  local($sno) = @_;
+  foreach $cno (&'array($'clientlist)) {
+    next unless $'server[$cno] == $sno;
+    &'c_print($cno, '', 'NOTICE', $'nick[$cno], "*** Server $'servername[$sno] closed the connection");
+    foreach $chan (&'array($'channellist[$sno])) {
+      &'c_print($cno, &'user($cno), 'PART', $chan);
+    }
+  }
+  &clear_variable($sno);
+  if ($default[$'userno[$sno]] == $sno) {
+    &'reuse($sno);
+    $lastnick[$'userno[$sno]] = $'nick[$'userno[$sno]];
+  }
+}
+
+sub clear_variable {
+  local($num) = @_;
+  local($no, $var);
+  $'channellist[$num] = '';
+  foreach $key (keys(%'nameslist)) {
+    ($no, $var) = split(/$;/, $key, 2);
+    next unless $no == $num;
+    delete $'nameslist{$key};
+  }
+  foreach $key (keys(%'channelmode)) {
+    ($no, $var) = split(/$;/, $key, 2);
+    next unless $no == $num;
+    delete $'channelmode{$key};
+  }
+  foreach $key (keys(%'usermode)) {
+    ($no, $var) = split(/$;/, $key, 2);
+    next unless $no == $num;
+    delete $'usermode{$key};
+  }
+  foreach $key (keys(%'topic)) {
+    ($no, $var) = split(/$;/, $key, 2);
+    next unless $no == $num;
+    delete $'topic{$key};
+  }
+}
+
+sub cs_exit {
+  local($cno, $prefix, $cmd, @params) = @_;
+  local($i, @list);
+  for ($i = 0; $i < @'username; $i++) {
+    @list = &sub_list($i, 'module_disable');
+    $'modulelist[$i] = '';
+    foreach $sub (@list) {
+      &$sub($i);
+    }
+  }
+  foreach $sno (&'array($'serverlist)) {
+    &'s_flush($sno);
+    &'s_print($sno, '', 'QUIT', $params[0] || $NAME);
+    &'s_flush($sno);
+    &'s_close($sno);
+    &'close($sno);
+  }
+  $params[0] = 'I Quit' unless $params[0];
+  foreach $cno (&'array($'clientlist)) {
+    &'c_print($cno, '', 'ERROR', 'Closing Link: ' . &'user($cno) . " ($params[0])");
+    &'c_flush($cno);
+    &'c_close($cno);
+    &'close($cno);
+  }
+  foreach $lno (&'array($listenlist)) {
+    &'close($lno);
+  }
+  exit(0);
+}
+
+sub cp_join {
+  local($cno, $prefix, $cmd, $chan) = @_;
+  local($userno, $nick, $name, $mode);
+  $nick = &'prefix($prefix);
+  ($name, $mode) = (split(/\cG/, $chan), '');
+  if ($nick eq $'nick[$cno]) {
+    $'channellist[$cno] = &'add($'channellist[$cno], $name);
+    $'nameslist{$cno, $name} = '';
+  } else {
+    if (index($mode, 'o') != -1) {
+      $'nameslist{$cno, $name} = &'add($'nameslist{$cno, $name}, "\@$nick");
+    } elsif (index($mode, 'v') != -1) {
+      $'nameslist{$cno, $name} = &'add($'nameslist{$cno, $name}, "+$nick");
+    } else {
+      $'nameslist{$cno, $name} = &'add($'nameslist{$cno, $name}, $nick);
+    }
+  }
+  return ($prefix, $cmd, $chan);
+}
+
+sub ss_join {
+  local($sno, $prefix, $cmd, $chan) = @_;
+  local($nick, $name, $mode);
+  $nick = &'prefix($prefix);
+  ($name, $mode) = (split(/\cG/, $chan), '');
+  if ($nick eq $'nick[$sno]) {
+    $'channellist[$sno] = &'add($'channellist[$sno], $name);
+    $'nameslist{$sno, $name} = '';
+  } else {
+    if (index($mode, 'o') != -1) {
+      $'nameslist{$sno, $name} = &'add($'nameslist{$sno, $name}, "\@$nick");
+    } elsif (index($mode, 'v') != -1) {
+      $'nameslist{$sno, $name} = &'add($'nameslist{$sno, $name}, "+$nick");
+    } else {
+      $'nameslist{$sno, $name} = &'add($'nameslist{$sno, $name}, $nick);
+    }
+  }
+  return ($prefix, $cmd, $chan);
+}
+
+sub cp_kick {
+  local($cno, $prefix, $cmd, @params) = @_;
+  if ($params[1] eq $'nick[$cno]) {
+    $'channellist[$cno] = &'remove($'channellist[$cno], $params[0]);
+    delete $'nameslist{$cno, $params[0]};
+  } else {
+    $'nameslist{$cno, $params[0]} = &'remove($'nameslist{$cno, $params[0]}, $params[1], "+$params[1]", "\@$params[1]");
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_kick {
+  local($sno, $prefix, $cmd, @params) = @_;
+  if ($params[1] eq $'nick[$sno]) {
+    $'channellist[$sno] = &'remove($'channellist[$sno], $params[0]);
+    delete $'nameslist{$sno, $params[0]};
+  } else {
+    $'nameslist{$sno, $params[0]} = &'remove($'nameslist{$sno, $params[0]}, $params[1], "+$params[1]", "\@$params[1]");
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub proc_mode {
+  local($no, @params) = @_;
+  local($chan, $mode, @modes, $char, $flag, $name, $i);
+  ($chan, $mode, @modes) = @params;
+  if (&'channel($chan)) {
+    for ($i = 0; $i < length($mode); $i++) {
+      $char = substr($mode, $i, 1);
+      if ($char eq '+' || $char eq '-') {
+        $flag = $char;
+      } elsif ($char eq 'b') {
+        shift(@modes);
+      } elsif ($char eq 'e') {
+        shift(@modes);
+      } elsif ($char eq 'I') {
+        shift(@modes);
+      } elsif ($char eq 'k') {
+        if ($flag eq '+') {
+          $'channelmode{$no, $chan, $char} = shift(@modes);
+        } else {
+          shift(@modes);
+          delete $'channelmode{$no, $chan, $char};
+        }
+      } elsif ($char eq 'l') {
+        if ($flag eq '+') {
+          $'channelmode{$no, $chan, $char} = shift(@modes);
+        } else {
+          delete $'channelmode{$no, $chan, $char};
+        }
+      } elsif ($char eq 'O') {
+        shift(@modes);
+      } elsif ($char eq 'o') {
+        $name = shift(@modes);
+        if ($flag eq '+') {
+          $'nameslist{$no, $chan} = &'change($'nameslist{$no, $chan}, $name, "\@$name", "+$name", "\@$name");
+        } elsif ($flag eq '-') {
+          $'nameslist{$no, $chan} = &'change($'nameslist{$no, $chan}, "\@$name", $name);
+        }
+      } elsif ($char eq 'v') {
+        $name = shift(@modes);
+        if ($flag eq '+') {
+          $'nameslist{$no, $chan} = &'change($'nameslist{$no, $chan}, $name, "+$name");
+        } elsif ($flag eq '-') {
+          $'nameslist{$no, $chan} = &'change($'nameslist{$no, $chan}, "+$name", $name);
+        }
+      } else {
+        if ($flag eq '+') {
+          $'channelmode{$no, $chan, $char} = 1;
+        } else {
+          delete $'channelmode{$no, $chan, $char};
+        }        
+      }
+    }
+  } else {
+    for ($i = 0; $i < length($mode); $i++) {
+      $char = substr($mode, $i, 1);
+      if ($char eq '+' || $char eq '-') {
+        $flag = $char;
+      } else {
+        if ($flag eq '+') {
+          $'usermode{$no, $char} = 1;
+        } else {
+          delete $'usermode{$no, $char};
+        }
+      }
+    }
+  }
+}
+
+sub cp_mode {
+  local($cno, $prefix, $cmd, @params) = @_;
+  &proc_mode($cno, @params);
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_mode {
+  local($sno, $prefix, $cmd, @params) = @_;
+  &proc_mode($sno, @params);
+  return ($prefix, $cmd, @params);
+}
+
+sub cp_nick {
+  local($cno, $prefix, $cmd, @params) = @_;
+  local($nick);
+  $nick = &'prefix($prefix);
+  if ($nick eq $'nick[$cno]) {
+    $'nick[$cno] = $params[0];
+  }
+  foreach $chan (&'array($'channellist[$cno])) {
+    $'nameslist{$cno, $chan} = &'change($'nameslist{$cno, $chan}, $nick, $params[0], "+$nick", "+$params[0]", "\@$nick", "\@$params[0]");
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub cs_nick {
+  local($cno, $prefix, $cmd, @params) = @_;
+  if (&'exist($'serverlist, $'server[$cno])) {
+    return ($prefix, $cmd, @params);
+  } elsif ($'nick[$cno] ne $params[0]) {
+    if ($params[0] =~ /[\w\[\]\\\{\}\|]+/) {
+      &'c_print($cno, &'user($cno), 'NICK', $params[0]);
+    }
+  }
+  return ();
+}
+
+sub ss_nick {
+  local($sno, $prefix, $cmd, @params) = @_;
+  local($userno, $nick);
+  $userno = $'userno[$sno];
+  $nick = &'prefix($prefix);
+  if ($nick eq $'nick[$sno]) {
+    $'nick[$sno] = $params[0];
+  }
+  foreach $chan (&'array($'channellist[$sno])) {
+    $'nameslist{$sno, $chan} = &'change($'nameslist{$sno, $chan}, $nick, $params[0], "+$nick", "+$params[0]", "\@$nick", "\@$params[0]");
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub cp_part {
+  local($cno, $prefix, $cmd, @params) = @_;
+  local($nick);
+  $nick = &'prefix($prefix);
+  if ($nick eq $'nick[$cno]) {
+    $'channellist[$cno] = &'remove($'channellist[$cno], $params[0]);
+    delete $'nameslist{$cno, $params[0]};
+  } else {
+    $'nameslist{$cno, $params[0]} = &'remove($'nameslist{$cno, $params[0]}, $nick, "+$nick", "\@$nick");
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_part {
+  local($sno, $prefix, $cmd, @params) = @_;
+  local($nick);
+  $nick = &'prefix($prefix);
+  if ($nick eq $'nick[$sno]) {
+    $'channellist[$sno] = &'remove($'channellist[$sno], $params[0]);
+    delete $'nameslist{$sno, $params[0]};
+  } else {
+    $'nameslist{$sno, $params[0]} = &'remove($'nameslist{$sno, $params[0]}, $nick, "+$nick", "\@$nick");
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub cs_pong {
+  local($cno, $prefix, $cmd, @params) = @_;
+  return ();
+}
+
+sub ss_ping {
+  local($sno, $prefix, $cmd, @params) = @_;
+  &'s_print($sno, '', 'PONG', @params);
+  return ($prefix, $cmd, @params);
+}
+
+sub cp_quit {
+  local($cno, $prefix, $cmd, @params) = @_;
+  local($nick);
+  $nick = &'prefix($prefix);
+  foreach $chan (&'array($'channellist[$cno])) {
+    $'nameslist{$cno, $chan} = &'remove($'nameslist{$cno, $chan}, $nick, "+$nick", "\@$nick");
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub cs_quit {
+  local($cno, $prefix, $cmd, @params) = @_;
+  $params[0] = 'I Quit' unless $params[0];
+  &'c_print($cno, '', 'ERROR', 'Closing Link: ' . &'user($cno) . " ($params[0])");
+  &'c_flush($cno);
+  &'c_close($cno);
+  &'close($cno);
+  return ();
+}
+
+sub ss_quit {
+  local($sno, $prefix, $cmd, @params) = @_;
+  local($nick);
+  $nick = &'prefix($prefix);
+  foreach $chan (&'array($'channellist[$sno])) {
+    $'nameslist{$sno, $chan} = &'remove($'nameslist{$sno, $chan}, $nick, "+$nick", "\@$nick");
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub cp_topic {
+  local($cno, $prefix, $cmd, @params) = @_;
+  $'topic{$cno, $params[0]} = $params[1];
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_topic {
+  local($sno, $prefix, $cmd, @params) = @_;
+  $'topic{$sno, $params[0]} = $params[1];
+  return ($prefix, $cmd, @params);
+}
+
+sub proc_324 {
+  local($no, @params) = @_;
+  local($nick, $chan, $mode, @modes, $char, $flag, $i);
+  ($nick, $chan, $mode, @modes) = @params;
+  for ($i = 0; $i < length($mode); $i++) {
+    $char = substr($mode, $i, 1);
+    if ($char eq '+' || $char eq '-') {
+      $flag = $char;
+    } elsif ($char eq 'k') {
+      if ($flag eq '+') {
+        $'channelmode{$no, $chan, $char} = shift(@modes);
+      } else {
+        shift(@modes);
+        delete $'channelmode{$no, $chan, $char};
+      }
+    } elsif ($char eq 'l') {
+      if ($flag eq '+') {
+        $'channelmode{$no, $chan, $char} = shift(@modes);
+      } else {
+        delete $'channelmode{$no, $chan, $char};
+      }
+    } else {
+      if ($flag eq '+') {
+        $'channelmode{$no, $chan, $char} = 1;
+      } else {
+        delete $'channelmode{$no, $chan, $char};
+      }        
+    }
+  }
+}
+
+sub cp_324 {
+  local($cno, $prefix, $cmd, @params) = @_;
+  &proc_324($cno, @params);
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_324 {
+  local($sno, $prefix, $cmd, @params) = @_;
+  &proc_324($sno, @params);
+  return ($prefix, $cmd, @params);
+}
+
+sub cp_332 {
+  local($cno, $prefix, $cmd, @params) = @_;
+  if (&'exist($'channellist[$cno], $params[1])) {
+    $'topic{$cno, $params[1]} = $params[2];
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_332 {
+  local($sno, $prefix, $cmd, @params) = @_;
+  if (&'exist($'channellist[$sno], $params[1])) {
+    $'topic{$sno, $params[1]} = $params[2];
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub cp_353 {
+  local($cno, $prefix, $cmd, @params) = @_;
+  local($key);
+  $key = "$cno$;$params[2]";
+  if (&'exist($'channellist[$cno], $params[2])) {
+    $'nameslist{$key} = &'add($'nameslist{$key}, reverse(split(/\s+/, $params[3])));
+    if ($params[1] eq '@') {
+      $'channelmode{$key, 's'} = 1;
+    } elsif ($params[1] eq '*') {
+      $'channelmode{$key, 'p'} = 1;
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_353 {
+  local($sno, $prefix, $cmd, @params) = @_;
+  local($key);
+  $key = "$sno$;$params[2]";
+  if (&'exist($'channellist[$sno], $params[2])) {
+    $'nameslist{$key} = &'add($'nameslist{$key}, reverse(split(/\s+/, $params[3])));
+    if ($params[1] eq '@') {
+      $'channelmode{$key, 's'} = 1;
+    } elsif ($params[1] eq '*') {
+      $'channelmode{$key, 'p'} = 1;
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub cs_privmsg {
+  local($cno, $prefix, $cmd, @params) = @_;
+  local($text, $ctcp);
+  if ($params[1]) {
+    ($text, $ctcp) = &scan_ctcp($cno, 'cpcs', $prefix, $cmd, @params);
+    return () unless ($tmp || $ctcp);
+    $params[1] = $text;
+    foreach $no (&'array($'clientlist)) {
+      next unless $cno != $no;
+      next unless $'server[$cno] == $'server[$no];
+      &'c_print($no, &'user($no), $cmd, @params);
+    }
+    $params[1] = $text . $ctcp;
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub cp_privmsg {
+  local($cno, $prefix, $cmd, @params) = @_;
+  local($text, $ctcp);
+  if ($params[1]) {
+    ($text, $ctcp) = &print_ctcp($cno, 'cpcp', $prefix, $cmd, @params);
+    return () unless ($text || $ctcp);
+    $params[1] = $text . $ctcp;
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_privmsg {
+  local($sno, $prefix, $cmd, @params) = @_;
+  local($text, $ctcp);
+  if ($params[1]) {
+    ($text, $ctcp) = &scan_ctcp($sno, 'cpss', $prefix, $cmd, @params);
+    return () unless ($text || $ctcp);
+    $params[1] = $text . $ctcp;
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub sp_privmsg {
+  local($sno, $prefix, $cmd, @params) = @_;
+  local($text, $ctcp);
+  if ($params[1]) {
+    ($text, $ctcp) = &print_ctcp($sno, 'cpsp', $prefix, $cmd, @params);
+    return () unless ($text || $ctcp);
+    $params[1] = $text . $ctcp;
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub cs_notice {
+  local($cno, $prefix, $cmd, @params) = @_;
+  local($text, $ctcp);
+  if ($params[1]) {
+    ($text, $ctcp) = &scan_ctcp($cno, 'cncs', $prefix, $cmd, @params);
+    return () unless ($tmp || $ctcp);
+    $params[1] = $text;
+    foreach $no (&'array($'clientlist)) {
+      next unless $cno != $no;
+      next unless $'server[$cno] == $'server[$no];
+      &'c_print($no, &'user($no), $cmd, @params);
+    }
+    $params[1] = $text . $ctcp;
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub cp_notice {
+  local($cno, $prefix, $cmd, @params) = @_;
+  local($text, $ctcp);
+  if ($params[1]) {
+    ($text, $ctcp) = &print_ctcp($cno, 'cncp', $prefix, $cmd, @params);
+    return () unless ($text || $ctcp);
+    $params[1] = $text . $ctcp;
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_notice {
+  local($sno, $prefix, $cmd, @params) = @_;
+  local($text, $ctcp);
+  if ($params[1]) {
+    ($text, $ctcp) = &scan_ctcp($sno, 'cnss', $prefix, $cmd, @params);
+     return () unless ($text || $ctcp);
+     $params[1] = $text . $ctcp;
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub sp_notice {
+  local($sno, $prefix, $cmd, @params) = @_;
+  local($text, $ctcp);
+  if ($params[1]) {
+    ($text, $ctcp) = &print_ctcp($sno, 'cnsp', $prefix, $cmd, @params);
+    return () unless ($text || $ctcp);
+    $params[1] = $text . $ctcp;
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub scan_ctcp {
+  local($no, $event, $prefix, $cmd, @params) = @_;
+  local($chan, $rest, $tmp, $ctmp, $list, $ctcp, $ccmd, @param);
+  $chan = $params[0];
+  $rest = $params[1];
+  $tmp = '';
+  $ctmp = '';
+  $list = '';
+  while ($rest =~ /^([^\cA]*)\cA([^\cA]*)\cA(.*)$/) {
+    $tmp .= $1;
+    $ctcp = $2;
+    $rest = $3;
+    next if &'exist($list, $ctcp);
+    $list = &'add($list, $ctcp);
+    ($ccmd, $param) = split(/\s+/, $ctcp, 2);
+    next unless $ccmd;
+    ($prefix, $ccmd, $chan, $param) = &scan_event($'userno[$no], "$event\_\L$ccmd\E", $no, $prefix, $ccmd, $chan, $param);
+    next unless $ccmd;
+    if ($param) {
+      $ctmp .= "\cA$ccmd $param\cA";
+    } else {
+      $ctmp .= "\cA$ccmd\cA";
+    }
+  }
+  $tmp .= $rest || '';
+  return ($tmp, $ctmp);
+}
+
+sub print_ctcp {
+  local($no, $event, $prefix, $cmd, @params) = @_;
+  local($chan, $rest, $tmp, $ctmp, $list, $ctcp, $ccmd, $param);
+  $chan = $params[0];
+  $rest = $params[1];
+  $tmp = '';
+  $ctmp = '';
+  $list = '';
+  while ($rest =~ /^([^\cA]*)\cA([^\cA]*)\cA(.*)$/) {
+    $tmp .= $1;
+    $ctcp = $2;
+    $rest = $3;
+    next if &'exist($list, $ctcp);
+    $list = &'add($list, $ctcp);
+    ($ccmd, $param) = split(/\s+/, $ctcp, 2);
+    next unless $ccmd;
+    ($prefix, $ccmd, $chan, $param) = &print_event($'userno[$no], "$event\_\L$ccmd\E", $no, $prefix, $ccmd, $chan, $param);
+    next unless $ccmd;
+    if ($param) {
+      $ctmp .= "\cA$ccmd $param\cA";
+    } else {
+      $ctmp .= "\cA$ccmd\cA";
+    }
+  }
+  $tmp .= $rest || '';
+  return ($tmp, $ctmp);
+}
+
