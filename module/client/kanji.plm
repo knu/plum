@@ -41,3 +41,44 @@ sub client_write {
   return $line;
 }
 
+__END__
+
+=head1 名前
+
+client/kanji.plm - クライアントとの入出力で漢字コードを変換する
+
+=head1 説明
+
+クライアントからjis以外で入力された漢字コードをjisに変換します。
+またクライアントに対して出力する漢字コードを指定したものにします。
+
+=head1 プロパティ
+
+=over 4
+
+=item client.kanji.input* ({jis|euc|sjis})
+
+クライアントからの入力が指定した漢字コードのものであれば、
+それをjisに変換します。eucとsjisは同時に指定できません。
+
+=item client.kanji.output {jis|euc|sjis}
+
+クライアントに出力する漢字コードを指定したものにします。
+
+=back
+
+=head1 設定例
+
+    + client/kanji.plm
+    client.kanji.input: euc
+
+クライアントからの入力がeucだったときに、それをjisに変換します。
+
+    + client/kanji.plm
+    client.kanji.input: sjis,jis
+    client.kanji.output: sjis
+
+クライアントからの入力がsjisだったときに、それをjisに変換します。
+またクライアントに対する出力をsjisにします。
+
+=cut

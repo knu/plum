@@ -21,3 +21,25 @@ sub cpss_ping {
   return ($prefix, $cmd, @params);
 }
 
+__END__
+
+=head1 名前
+
+ctcp/ping.plm - CTCP PINGに反応して受け取ったメッセージを送る
+
+=head1 説明
+
+CTCP PINGが送られてきたとき、
+それに反応して受け取ったメッセージを送り返します。
+
+=head1 プロパティ
+
+=over 4
+
+=back
+
+=head1 設定例
+
+    + ctcp/ping.plm
+
+=cut

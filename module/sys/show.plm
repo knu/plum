@@ -20,3 +20,26 @@ sub cs_show {
   return ();
 }
 
+__END__
+
+=head1 名前
+
+sys/show.plm - 任意のperlの文を実行して結果をクライアントに送る
+
+=head1 説明
+
+showというコマンドを追加します。
+showコマンドの引数は1つで、任意のperlの文を指定します。
+この文はplumによって実行され、その結果をNOTICEでクライアントに送ります。
+
+=head1 プロパティ
+
+=over 4
+
+=back
+
+=head1 設定例
+
+    + sys/show.plm
+
+=cut

@@ -30,3 +30,25 @@ sub initialize {
   exit(0);
 }
 
+__END__
+
+=head1 名前
+
+sys/dump.plm - plumが内部で使用する情報を表示する
+
+=head1 説明
+
+plumが内部で使用する各種の変数の情報などを表示します。
+このモジュールを組み込むと、plum自身の実行は行なわれません。
+
+=head1 プロパティ
+
+=over 4
+
+=back
+
+=head1 設定例
+
+    + sys/dump.plm
+
+=cut

@@ -73,3 +73,35 @@ sub check_mask {
   return 0;
 }
 
+__END__
+
+=head1 名前
+
+channel/join/kick.plm - チャンネルからキックされても入り直す
+
+=head1 説明
+
+チャンネルからキックされたときに、再びそのチャンネルに入ります。
+
+=head1 プロパティ
+
+=over 4
+
+=item channel.join.kick.mask* ユーザマスク [(チャンネル名)]
+
+キックした人がここで指定したものにマッチしたら、
+キックされたチャンネルに再び入ります。
+
+=back
+
+=head1 設定例
+
+    + channel/join/kick.plm
+    channel.join.kick.mask: -*!*@* #まどか:*.jp
+    channel.join.kick.mask: *!*@*
+
+「#まどか:*.jp」からキックされたときは何もしませんが、
+それ以外のチャンネルからキックされたときはそのチャンネルに
+再び入ります。
+
+=cut

@@ -186,3 +186,53 @@ sub check_mask {
   return 0;
 }
 
+__END__
+
+=head1 名前
+
+channel/mode/oper/set.plm - 特定の人をチャンネルオペレータにする
+
+=head1 説明
+
+チャンネルに入ってきた人が指定された人なら、
+その人をチャンネルオペレータにします。
+実際にはチャンネルに入ってきたときにすぐにチャンネルオペレータ
+にするわけではなく、一定時間待ってからチャンネルオペレータにします。
+
+=head1 プロパティ
+
+=over 4
+
+=item channel.mode.oper.set.delay 待ち時間
+
+チャンネルオペレータにするまでの待ち時間です。
+誰かがチャンネルに入ってくると、
+ここで指定されたの数だけ内部でカウントし、
+その後でその人をチャンネルオペレータにします。
+デフォルトでは20となっています。
+
+=item channel.mode.oper.set.mask* ユーザマスク [(チャンネル名)]
+
+チャンネルに入ってきた人がここで指定したものにマッチしたら、
+その人をチャンネルオペレータにします。
+
+=back
+
+=head1 設定例
+
+    + channel/mode/oper/set.plm
+    channel.mode.oper.set.mask: +pupu_j!*@*
+    channel.mode.oper.set.mask: +pupu_d!*@*
+
+チャンネルに入ってきた人が「pupu_j!*@*」か「pupu_d!*@*」に
+マッチした場合、その人をチャンネルオペレータにします。
+
+    + channel/mode/oper/set.plm
+    channel.mode.oper.set.delay: 0
+    channel.mode.oper.set.mask: -*!*@*.com
+    channel.mode.oper.set.mask: +*!*@* %まどか,#ぷらむ
+
+「%まどか」か「#ぷらむ」に入ってきた人が「*!*@*.com」にマッチ
+しなければ、その人をすぐにチャンネルオペレータにします。
+
+=cut

@@ -79,3 +79,46 @@ sub anothernick {
   &'s_print($serverno, '', 'NICK', $nickentry[0]);
 }
 
+__END__
+
+=head1 名前
+
+user/nick/client.plm - クライアントとの接続状態によってニックネームを変更する
+
+=head1 説明
+
+plumにクライアントが接続されているかどうかによって、
+ニックネームを変更します。
+
+=head1 プロパティ
+
+=over 4
+
+=item user.nick.client.stay* (ニックネーム)
+
+クライアントが接続されているときのニックネームを指定します。
+指定したニックネームがすでに使われていて、
+そのニックネームに変更できないときは、
+最初に指定したものから順番に変更します。
+
+=item user.nick.client.away* (ニックネーム)
+
+クライアントが接続されていないときのニックネームを指定します。
+指定したニックネームがすでに使われていて、
+そのニックネームに変更できないときは、
+最初に指定したものから順番に変更します。
+
+=back
+
+=head1 設定例
+
+    + user/nick/client.plm
+    user.nick.client.stay: pupu_j
+    user.nick.client.away: pupu_d,pupu_Zzz
+
+クライアントが接続されているときのニックネームを「pupu_j」に、
+クライアントが接続されていないときのニックネームを「pupu_d」にします。
+「pupu_d」というニックネームの人がすでに存在するときは、
+「pupu_Zzz」というニックネームを使います。
+
+=cut

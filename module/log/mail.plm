@@ -135,3 +135,61 @@ sub code_jis {
   return $line;
 }
 
+__END__
+
+=head1 名前
+
+log/mail.plm - ログファイルを指定したアドレスへメールで送信する
+
+=head1 説明
+
+ログファイルを指定したアドレスへメールで送信します。
+
+=head1 プロパティ
+
+=over 4
+
+=item log.mail.from アドレス
+
+送信元として使用するアドレスを指定します。
+メールの送信がエラーになったときは、ここで指定したアドレスへ
+エラーのメールが送られます。
+
+=item log.mail.smtpserver ホスト名[;ポート番号]
+
+使用するSMTPサーバを指定します。
+サーバに接続できないときや送信に失敗したときは何もしません。
+
+=item log.mail.directory ディレクトリ名
+
+ログファイルの存在するディレクトリを指定します。
+ディレクトリはplumを実行したディレクトリからの相対パスになります。
+UNIXなら「~/」や「~user」という指定もできます。
+
+=item log.mail.file* ファイル名[;({jis|euc|sjis})] (アドレス)
+
+送信するファイルとそれを送るアドレスを指定します。
+ファイル名に%で始まる文字があると、対応する日付に変換され、
+その名前が変わるたびにメールでファイルを送信します。
+
+=back
+
+=head1 設定例
+
+    + log/mail.plm
+    log.mail.from: plum@plum.or.jp
+    log.mail.smtpserver: mail.plum.or.jp;25
+    log.mail.file: log%m%d hogehoge@plum.gr.jp
+    log.mail.file: plum%m;euc hoehoe@plum.gr.jp,hogehoge@plum.or.jp
+
+「plum@plum.or.jp」を送信元として、ログをメールで送信します。
+このとき、SMTPサーバとして「mail.plum.or.jp」のポート「25」を
+使用します。送信するファイルは2つで、「hogehoge@plum.gr.jp」宛に
+「log%m%d」を、「hoehoe@plum.gr.jp」と「hogehoge@plum.or.jp」宛に
+「plum%m」を送信します。
+log%m%dとplum%mはそれぞれ日付が展開され、ファイルの日付が
+変わったときにメールで送信します。そのため、log%m%dは1日1回、
+plum%mは1月に1回送信されます。
+
+=cut
+

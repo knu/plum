@@ -25,3 +25,25 @@ sub cpss_dcc {
   return ($prefix, $cmd, @params);
 }
 
+__END__
+
+=head1 名前
+
+ctcp/dcc/cancel.plm - DCC CHATをキャンセルする
+
+=head1 説明
+
+DCC CHATのリクエストがきたときに、それをキャンセルします。
+DCC CHAT以外のDCCについては何もしません。
+
+=head1 プロパティ
+
+=over 4
+
+=back
+
+=head1 設定例
+
+    + ctcp/dcc/cancel.plm
+
+=cut

@@ -258,3 +258,70 @@ sub euc_code {
   return $line;
 }
 
+__END__
+
+=head1 名前
+
+log/daily.plm - メッセージをログに保存する
+
+=head1 説明
+
+ログを指定したファイルに保存します。
+
+=head1 プロパティ
+
+=over 4
+
+=item log.daily.directory ディレクトリ
+
+ログを作成するディレクトリを指定します。
+ディレクトリはplumを実行したディレクトリからの相対パスになります。
+UNIXなら「~/」や「~user」という指定もできます。
+
+=item log.daily.file ファイル名[;({jis|euc|sjis})]
+
+ログを保存するファイルを指定します。
+%ではじまる文字があると対応する日付に変換されます。
+デフォルトでは「log%m%d」です。
+ファイル名の後に保存する漢字コードを指定することができます。
+漢字コードを複数指定した場合は最初に指定した漢字コードで保存され、
+省略した場合は「jis」を指定したことと同じになります。
+また「euc」と「sjis」を同時に指定することはできません。
+
+=item log.daily.header へッダ
+
+ログに出力する時刻のフォーマットを指定します。
+%ではじまる文字があると対応する時間に変換されます。
+デフォルトでは「%H:%M」です。
+
+=item log.daily.mode ファイルモード
+
+ログのファイルモードをここで指定した値にします。
+
+=item log.daily.command ({invite|join|kick|mode|nick|notice|part|privmsg|quit|topic})
+
+保存するメッセージの種類を指定します。
+デフォルトでは「notice」以外のすべてです。
+
+=back
+
+=head1 設定例
+
+    + log/daily.plm
+    log.daily.file: log/log%y%m%d;euc
+
+ログを「log/log%y%m%d」に保存します。また、ログの漢字コードを
+eucにします。「%y」、「%m」、「%d」はそれぞれ現在の年、月、日に
+変換されます。
+
+    + log/daily.plm
+    log.daily.file: log%+1O%m%d
+    log.daily.command: privmsg,topic,join,part,kick,nick
+
+保存するログを「privmsg」、「topic」、「join」、「part」、「kick」、
+「nick」の6種類にします。
+ログのファイルはカレントディレクトリの「log%m%d」になります。
+「%m」、「%d」はそれぞれ現在の年、月、日に変換されます。
+ログファイルのファイル名は毎日23時に翌日の日付のものに変わります。
+
+=cut

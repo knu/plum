@@ -17,3 +17,24 @@ sub cpss_time {
   return ($prefix, $cmd, @params);
 }
 
+__END__
+
+=head1 名前
+
+ctcp/time.plm - CTCP TIMEに反応して現在時刻を送る
+
+=head1 説明
+
+CTCP TIMEが送られてきたとき、それに反応して現在時刻を送ります。
+
+=head1 プロパティ
+
+=over 4
+
+=back
+
+=head1 設定例
+
+    + ctcp/time.plm
+
+=cut

@@ -24,3 +24,24 @@ sub cpss_version {
   return ($prefix, $cmd, @params);
 }
 
+__END__
+
+=head1 名前
+
+ctcp/version.plm - CTCP VERSIONに反応してバージョン情報を送る
+
+=head1 説明
+
+CTCP VERSIONが送られてきたとき、それに反応してバージョン情報を送ります。
+
+=head1 プロパティ
+
+=over 4
+
+=back
+
+=head1 設定例
+
+    + ctcp/version.plm
+
+=cut

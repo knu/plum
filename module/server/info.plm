@@ -155,3 +155,26 @@ sub ss_375 {
   return ($prefix, $cmd, @params);
 }
 
+__END__
+
+=head1 名前
+
+server/info.plm - クライアントの接続時にサーバ情報を送る
+
+=head1 説明
+
+クライアントを接続したときに、現在接続しているサーバの情報を送ります。
+これらの情報はplumがサーバに接続した時や、
+ユーザが明示的に新しい情報を問い合わせたときに更新されます。
+
+=head1 プロパティ
+
+=over 4
+
+=back
+
+=head1 設定例
+
+    + server/info.plm
+
+=cut

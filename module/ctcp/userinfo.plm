@@ -20,3 +20,32 @@ sub cpss_userinfo {
   return ($prefix, $cmd, @params);
 }
 
+__END__
+
+=head1 名前
+
+ctcp/userinfo.plm - CTCP USERINFOに反応してユーザ情報を送る
+
+=head1 説明
+
+CTCP USERINFOが送られてきたとき、それに反応してユーザ情報を送ります。
+
+=head1 プロパティ
+
+=over 4
+
+=item ctcp.userinfo.info ユーザ情報
+
+ユーザ情報を設定します。文字数や使用できる文字の制限はありません。
+
+=back
+
+=head1 設定例
+
+    + ctcp/userinfo.plm
+    ctcp.userinfo.info: ないしょ
+
+CTCP USERINFOが送られてきたときに、「ないしょ」という
+ユーザ情報を送ります。
+
+=cut

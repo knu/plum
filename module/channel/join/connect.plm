@@ -104,3 +104,42 @@ sub ss_mode {
   return ($prefix, $cmd, @params);
 }
 
+__END__
+
+=head1 名前
+
+channel/join/connect.plm - サーバに接続したときに指定したチャンネルに入る
+
+=head1 説明
+
+サーバに接続したときに、指定したチャンネルに入ります。
+サーバとの接続が切れて再び接続し直したときは、
+指定したチャンネルとは関係なく、
+接続が切れる前に入っていたチャンネルに入ります。
+
+=head1 プロパティ
+
+=over 4
+
+=item channel.join.connect.channel* (チャンネル) (キー)
+
+サーバに接続したときに入るチャンネルを指定します。
+チャンネルのキーが指定されているときは、そのキーを使います。
+
+=back
+
+=head1 設定例
+
+    + channel/join/connect.plm
+    channel.join.connect.channel: #まどか mdk
+
+サーバに接続したときに、「#まどか」に「mdk」というキーで入ります。
+
+    + channel/join/connect.plm
+    channel.join.connect.channel: #まどか:*.jp,#ぷらむ:*.jp
+    channel.join.connect.channel: #ぷらむ
+
+サーバに接続したときに、「#まどか:*.jp」、「#ぷらむ:*.jp」、
+「#ぷらむ」の3つのチャンネルに入ります。
+
+=cut

@@ -1248,3 +1248,60 @@ sub kanji_euc {
   }
   return $line;
 }
+__END__
+
+=head1 名前
+
+sys/web.plm - WebブラウザなどでIRCを行うためのインターフェイス
+
+=head1 説明
+
+HTTPプロトコルを利用することで、WebブラウザなどからIRCを行います。
+フレームを用いて表示を分割しているので、フレームに対応した
+Webブラウザが必要です。
+
+=head1 プロパティ
+
+=over 4
+
+=item sys.web.method {post|get}
+
+フォームのデータを送信するときに使用するメソッドを指定します。
+デフォルトではgetになっています。
+
+=item sys.web.client* ホストマスク:ポート番号 ユーザ名:パスワード
+
+HTTPプロトコルによって通信を行うポート、
+接続可能なクライアントのマスクと、利用可能なユーザを指定します。
+
+=item sys.web.header へッダ
+
+ログの時刻のフォーマットを指定します。
+%ではじまる文字があると、対応する時間に変換されます。
+
+=item sys.web.line 行数
+
+メッセージのログを残す行数を指定します。デフォルトでは50行です。
+
+=item sys.web.kanji* ({euc|jis|sjis})
+
+フォームから入力された文字列の漢字コードを指定します。
+デフォルトではsjis,jisです。
+
+=back
+
+=head1 設定例
+
+    + sys/web.plm
+    sys.web.method: get
+    sys.web.client: *.jp:8080 userid:passwd
+    sys.web.header: %H:%M
+    sys.web.line: 50
+    sys.web.kanji: jis,sjis
+
+ポート番号8080でHTTPプロトコルを使用した通信を行います。
+ユーザIDとして「userid」、パスワードとして「passwd」を
+指定することで接続することができます。
+ただし接続可能なのは接続元のホストが「*.jp」にマッチする場合だけです。
+
+=cut

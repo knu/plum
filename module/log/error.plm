@@ -19,3 +19,24 @@ sub initialize {
   }
 }
 
+__END__
+
+=head1 名前
+
+log/error.plm - エラーをログとして保存する
+
+=head1 説明
+
+標準出力とエラー出力を「logerror」というファイルに保存します。
+
+=head1 プロパティ
+
+=over 4
+
+=back
+
+=head1 設定例
+
+    + log/error.plm
+
+=cut

@@ -27,3 +27,37 @@ sub ss_366 {
   return ($prefix, $cmd, @params);
 }
 
+__END__
+
+=head1 名前
+
+channel/mode/set.plm - チャンネルを作成したときにチャンネルモードを設定する
+
+=head1 説明
+
+自分がチャンネルに入る以前にはチャンネルが存在せず、
+自分がチャンネルに入ることによってチャンネルを作成したとき、
+そのチャンネルのチャンネルモードを設定します。
+
+=head1 プロパティ
+
+=over 4
+
+=item channel.mode.set.mode* (チャンネル名) モード
+
+チャンネルとそのチャンネルに設定するチャンネルモードを指定します。
+
+=back
+
+=head1 設定例
+
+    + channel/mode/set.plm
+    channel.mode.set.mode: #ぷらむ +nt
+    channel.mode.set.mode: #plum:*.jp,#plum +pmk plum
+
+チャンネル「#ぷらむ」を作成したときに、チャンネルモードとして
+「+nt」を設定します。
+また「#plum:*.jp」もしくは「#plum」を作成したときは、
+チャンネルモードとして「+pmk plum」を設定します。
+
+=cut

@@ -51,3 +51,26 @@ sub ss_quit {
   return ($prefix, $cmd, @params);
 }
 
+__END__
+
+=head1 名前
+
+channel/mode/oper/get.plm - チャンネルオペレータを復帰する
+
+=head1 説明
+
+チャンネルに自分しかいないにもかかわらず、自分がチャンネル
+オペレータではない場合、一度チャンネルを抜けて再び
+入り直すことによって、チャンネルオペレータになります。
+
+=head1 プロパティ
+
+=over 4
+
+=back
+
+=head1 設定例
+
+    + channel/mode/oper/get.plm
+
+=cut

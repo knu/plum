@@ -41,3 +41,39 @@ sub server_write {
   return $line;
 }
 
+__END__
+
+=head1 名前
+
+server/kanji.plm - サーバとの入出力で漢字コードを変換する
+
+=head1 説明
+
+サーバからJIS以外で入力された漢字コードをJISに変換します。
+またサーバに対して出力する漢字コードを指定したものにします。
+
+=head1 プロパティ
+
+=over 4
+
+=item server.kanji.input* ({jis|euc|sjis})
+
+サーバからの入力が指定した漢字コードのものであれば、
+それをjisに変換します。eucとsjisは同時に指定できません。
+
+=item server.kanji.output {jis|euc|sjis}
+
+サーバに出力する漢字コードを指定したものにします。
+
+=back
+
+=head1 設定例
+
+    + server/kanji.plm
+    server.kanji.input: sjis,jis
+    server.kanji.output: sjis
+
+サーバからの入力がsjisだったときに、それをjisに変換します。
+またサーバに対する出力をsjisにします。
+
+=cut

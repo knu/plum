@@ -34,3 +34,39 @@ sub cpss_dcc {
   return ($prefix, $cmd, @params);
 }
 
+__END__
+
+=head1 名前
+
+ctcp/dcc/forward.plm - CTCP DCCを指定したユーザに転送する
+
+=head1 説明
+
+CTCP DCCが送られてきたとき、それを指定したユーザに転送します。
+ただし転送するときに送り主が変わるため、転送されたCTCP DCCを
+キャンセルすることはできません。
+
+=head1 プロパティ
+
+=over 4
+
+=item ctcp.dcc.forward.nick* (ニックネーム)
+
+CTCP DCCを転送するニックネーム。前から順番に見ていき、
+同じチャンネルに指定したニックネームのユーザがいれば、
+そのユーザに転送します。指定したニックネームのユーザが
+いなければ転送は行いません。
+
+=back
+
+=head1 設定例
+
+    + ctcp/dcc/forward.plm
+    ctcp.dcc.forward.nick: pupu_j,pupu_d
+    ctcp.dcc.forward.nick: pupu_ppp
+
+CTCP DCCが送られてきたときに、pupu_j、pupu_d、pupu_pppの
+どれかのニックネームのユーザがいれば、そのユーザにCTCP DC
+Cを転送します。
+
+=cut

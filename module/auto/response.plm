@@ -237,3 +237,68 @@ sub euc_code {
   return $line;
 }
 
+__END__
+
+=head1 名前
+
+auto/response.plm - メッセージに反応して発言を行う
+
+=head1 説明
+
+ユーザの発言に反応して、それに対する発言を行います。
+反応とその発言はファイルに以下のようなフォーマットで記述します。
+
+    pattern: ^こんにち(は|わ)〜?$
+    rate: 100
+    response: こんにちは〜
+    response: #(name|nick|nick.now)さん、いらっしゃ〜い
+
+    pattern: (ねる|おやすみ)
+    rate: 50
+    response: #(name|nick|nick.now)さん、おやすみなさい
+    response: #(nick.now): だめ☆
+    response: えっ、もう寝ちゃうんですか〜?(;-;)
+
+それぞれのパターンは正規表現で、大文字小文字は区別します。
+また、rateに続くresponseの連続した行のうちから一行を選択して、
+rateパーセントの確率で発言を行います。
+
+=head1 プロパティ
+
+=over 4
+
+=item auto.response.file ファイル名[;({euc|jis|sjis})]
+
+反応する発言と、それに対する発言を記述するファイルです。
+ファイルの漢字コードがjis以外の場合は漢字コードを
+指定する必要があります。
+
+=item auto.response.alias ファイル名[;({euc|jis|sjis})]
+
+エイリアスを参照するファイルを指定します。
+このファイルの内容に従って、メッセージ中のフォーマットと、
+auto.response.formatを展開します。
+
+=item auto.response.format* フォーマット
+
+発言時のフォーマットを指定します。すべての発言に対して、
+このフォーマットで発言を行います。#(nick)のように書くことで、
+エイリアスの対応する値で置き換えます。エイリアス以外の値では、
+#(nick.now)でニックネーム、#(channel)でチャンネル、#(message)で
+発言しようとしているメッセージに置き換えます。
+デフォルトでは「#(message)」です。
+
+=back
+
+=head1 設定例
+
+    + auto/response.plm
+    auto.response.file: response.txt;euc
+    auto.response.alias: alias.txt
+
+反応を記述するファイルとして「response.txt」を、
+エイリアスを参照するファイルとして「alias.txt」を使用します。
+「response.txt」は漢字コードを「euc」で記述します。
+また「alias.txt」は漢字コードを「jis」で記述します。
+
+=cut

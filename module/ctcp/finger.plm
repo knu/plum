@@ -30,3 +30,27 @@ sub cpss_finger {
   return ($prefix, $cmd, $params);
 }
 
+__END__
+
+=head1 名前
+
+ctcp/finger.plm - CTCP FINGERに反応してクライアントの情報を送る
+
+=head1 説明
+
+CTCP FINGERが送られてきたとき、
+接続されているクライアントの情報を送り返します。
+クライアントの情報はニックネーム、接続時のユーザ名と
+接続元のホスト名です。
+
+=head1 プロパティ
+
+=over 4
+
+=back
+
+=head1 設定例
+
+    + ctcp/finger.plm
+
+=cut

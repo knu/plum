@@ -239,3 +239,26 @@ sub join_channel {
   &'c_print($cno, $'servername[$cno], '366', $'nick[$cno], $chan, 'End of /NAMES list.');
 }
 
+__END__
+
+=head1 名前
+
+channel/filter.plm - クライアントから見えるチャンネルを制限する
+
+=head1 説明
+
+クライアントを接続したときに、実際にはいくつかのチャンネルに
+入っていても、クライアントからはそれが見えないようにします。
+また、チャンネルを抜けようとしても、実際には抜けません。
+
+=head1 プロパティ
+
+=over 4
+
+=back
+
+=head1 設定例
+
++ channel/filter.plm
+
+=cut

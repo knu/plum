@@ -149,3 +149,29 @@ sub dcc_send {
   }
 }
 
+__END__
+
+=head1 名前
+
+ctcp/dcc/send.plm - DCC SENDでファイルを送信する
+
+=head1 説明
+
+このモジュールを入れると、SENDというコマンドが使えるようになり、
+このコマンドを使ってDCCでファイルを送信することができるようになります。
+SENDコマンドのパラメータはニックネームとファイル名で、
+以下のように使用します。
+
+    /SEND nick filename
+
+=head1 プロパティ
+
+=over 4
+
+=back
+
+=head1 設定例
+
+    + ctcp/dcc/send.plm
+
+=cut

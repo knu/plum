@@ -22,3 +22,25 @@ sub cpss_clientinfo {
   return ($prefix, $cmd, @params);
 }
 
+__END__
+
+=head1 名前
+
+ctcp/clientinfo.plm - CTCP CLIENTINFOに反応してクライアント情報を送る
+
+=head1 説明
+
+CTCP CLIENTINFOが送られてきたとき、
+それに反応してクライアント情報を送り返します。
+
+=head1 プロパティ
+
+=over 4
+
+=back
+
+=head1 設定例
+
+    + ctcp/clientinfo.plm
+
+=cut

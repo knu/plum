@@ -74,3 +74,48 @@ sub euc_code {
   return $line;
 }
 
+__END__
+
+=head1 名前
+
+log/client.plm - クライアントからの入力をログとして保存する
+
+=head1 説明
+
+クライアントから入力をすべてログに保存します。
+
+=head1 プロパティ
+
+=over 4
+
+=item log.client.directory ディレクトリ
+
+ログを保存するディレクトリを指定します。
+デフォルトではカレントディレクトリに保存します。
+
+=item log.client.file ファイル名
+
+ログのファイル名を指定します。
+%ではじまる文字があると、対応する日付に変換されます。
+デフォルトでは「logclient」というファイルに保存します。
+
+=item log.client.header へッダ
+
+ログに出力する時刻のフォーマットを指定します。
+%ではじまる文字があると、対応する時間に変換されます。
+
+=item log.client.mode ファイルモード
+
+ログのファイルモードを指定します。
+
+=back
+
+=head1 設定例
+
+    + log/client.plm
+    log.client.file: client%m%d
+
+クライアントからの入力を「client%m%d」に保存します。
+「%m」と「%d」はそれぞれ現在の月と日に変換されます。
+
+=cut

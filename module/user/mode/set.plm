@@ -16,3 +16,31 @@ sub server_open {
   &'s_print($serverno, '', 'MODE', $'nick[$serverno], $mode) if defined($mode);
 }
 
+__END__
+
+=head1 名前
+
+user/mode/set.plm - サーバに接続したときにユーザモードを設定する
+
+=head1 説明
+
+サーバに接続したときに、指定されたユーザモードを設定します。
+
+=head1 プロパティ
+
+=over 4
+
+=item user.mode.set.mode モード
+
+設定するユーザモードを指定します。
+
+=back
+
+=head1 設定例
+
+    + usr/mode/set.plm
+    user.mode.set.mode: +i
+
+サーバと接続したときに、ユーザモードとして「+i」を設定します。
+
+=cut

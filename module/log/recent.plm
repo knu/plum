@@ -228,3 +228,44 @@ sub writelog {
   $recent[$userno] = &'list(@log);
 }
 
+__END__
+
+=head1 名前
+
+log/recent.plm - クライアントを接続したときに最近のメッセージを送る
+
+=head1 説明
+
+最近のメッセージを指定した数だけ保存しておき、
+クライアントを接続したときに、それを送ります。
+
+=head1 プロパティ
+
+=over 4
+
+=item log.recent.header へッダ
+
+ログの時刻のフォーマットを指定します。
+%ではじまる文字があると、対応する時間に変換されます。
+
+=item log.recent.line 行数
+
+ログを残す行数を指定します。デフォルトでは50行です。
+
+=item log.recent.command ({invite|join|kick|mode|nick|notice|part|privmsg|quit|topic})
+
+保存するメッセージの種類を指定します。
+デフォルトでは「privmsg」だけです。
+
+=back
+
+=head1 設定例
+
+    log.recent.header: %H%M%S
+    log.recent.command: notice,privmsg,topic
+
+へッダを「%H%M%S」にし、ログの種類を「notice」、「privmsg」、「topic」
+の3種類にします。
+「%H」、「%M」、「%S」はそれぞれ現在の時、分、秒に変換されます。
+
+=cut

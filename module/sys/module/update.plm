@@ -45,3 +45,25 @@ sub main_loop {
   }
 }
 
+__END__
+
+=head1 名前
+
+sys/module/update.plm - モジュールが変更されると自動的に組み込み直す
+
+=head1 説明
+
+一定時間ごとに組み込んだモジュールが変更されていないかをチェックし、
+変更されていればそれを組み込み直します。
+
+=head1 プロパティ
+
+=over 4
+
+=back
+
+=head1 設定例
+
+    + sys/module/update.plm
+
+=cut

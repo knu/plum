@@ -16,3 +16,25 @@ sub sp_whois {
   return ($prefix, $cmd, @params);
 }
 
+__END__
+
+=head1 名前
+
+user/idle.plm - WHOISを実行したときにユーザのIDLE時間を表示する
+
+=head1 説明
+
+WHOISコマンドでユーザの情報を見るときに、そのユーザのIDLE時間が
+必ず表示されるようにします。
+
+=head1 プロパティ
+
+=over 4
+
+=back
+
+=head1 設定例
+
+    + user/idle.plm
+
+=cut

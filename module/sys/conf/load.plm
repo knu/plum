@@ -14,3 +14,28 @@ sub cs_load {
   return ();
 }
 
+__END__
+
+=head1 名前
+
+sys/conf/load.plm - plum.confを読み込み直す
+
+=head1 説明
+
+loadというコマンドを追加します。loadコマンドには引数はありません。
+このコマンドを実行すると、plum.confを読み込んで、
+モジュールとプロパティの再設定を行います。
+
+=over 4
+
+=head1 プロパティ
+
+=over 4
+
+=back
+
+=head1 設定例
+
+    + sys/conf/load.plm
+
+=cut

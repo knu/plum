@@ -46,3 +46,51 @@ sub check_mask {
   return 0;
 }
 
+__END__
+
+=head1 名前
+
+channel/join/invite.plm - 招待されたチャンネルに入る
+
+=head1 説明
+
+チャンネルに招待されたときに、そのチャンネルに入ります。
+
+=head1 プロパティ
+
+=over 4
+
+=item channel.join.invite.mask* ユーザマスク [(チャンネル名)]
+
+招待した人、およびチャンネルがここで指定された
+ものにマッチした場合、そのチャンネルに入ります。
+
+=back
+
+=head1 設定例
+
+    + channel/join/invite.plm
+    channel.join.invite.mask: *!*@* #まどか:*.jp
+    channel.join.invite.mask: *!*@* #ぷらむ
+
+招待されたチャンネルが「#まどか:*.jp」か「#ぷらむ」だった場合に、
+そのチャンネルに入ります。
+
+    + channel/join/invite.plm
+    channel.join.invite.mask: pupu_j!*@*.jp
+    channel.join.invite.mask: pupu_d!*@*.jp %まどか
+
+また、招待した人が「pupu_j!*@*.jp」にマッチした場合、
+そのチャンネルに入ります。また招待した人が「pupu_d!*@**.jp」
+にマッチし、チャンネルが「%まどか」だった場合、「%まどか」に
+入ります。
+
+    + channel/join/invite.plm
+    channel.join.invite.mask: -*!*@* #ぷらむ
+    channel.join.invite.mask: *!*@*
+
+招待されたチャンネルが「#ぷらむ」だった場合は、
+「#ぷらむ」には入りません。それ以外のチャンネルだった場合は、
+そのチャンネルに入ります。
+
+=cut

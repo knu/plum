@@ -74,3 +74,48 @@ sub euc_code {
   return $line;
 }
 
+__END__
+
+=head1 名前
+
+log/server.plm - サーバからの入力をログとして保存する
+
+=head1 説明
+
+サーバからの入力をすべてログに保存します。
+
+=head1 プロパティ
+
+=over 4
+
+=item log.server.directory ディレクトリ
+
+ログを保存するディレクトリを指定します。
+デフォルトではカレントディレクトリに保存します。
+
+=item log.server.file ファイル名
+
+ログのファイル名を指定します。
+%ではじまる文字があると、対応する日付に変換されます。
+デフォルトでは「logserver」というファイルに保存します。
+
+=item log.server.header へッダ
+
+ログに出力する時刻のフォーマットを指定します。
+%ではじまる文字があると、対応する時間に変換されます。
+
+=item log.server.mode ファイルモード
+
+ログのファイルモードを指定します。
+
+=back
+
+=head1 設定例
+
+    + log/server.plm
+    log.server.file: server%Y%m%d
+
+サーバからの入力を「server%m%d」に保存します。
+「%Y」、「%m」、「%d」はそれぞれ現在の年、月、日に変換されます。
+
+=cut

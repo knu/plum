@@ -47,3 +47,35 @@ sub server_open {
   &'s_print($serverno, '', 'AWAY', $msg);
 }
 
+__END__
+
+=head1 名前
+
+user/away/client.plm - クライアントとの接続状態によってAWAYを設定する
+
+=head1 説明
+
+plumにクライアントが接続されているかどうかによって、
+AWAYを設定したり取り消したりします。
+plumにクライアントが接続されていないときはAWAYを設定し、
+クライアントが接続されるとAWAYを取り消します。
+
+=head1 プロパティ
+
+=over 4
+
+=item user.away.client.set メッセージ
+
+クライアントが接続されていないときに、ここで指定したAMAYを設定します。
+
+=back
+
+=head1 設定例
+
+    + user/away/client.plm
+    user.away.client.set: いません
+
+クライアントが接続されていないときに、「いません」というAWAYを
+設定します。クライアントが接続されると、このAWAYは取り消されます。
+
+=cut

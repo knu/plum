@@ -14,3 +14,24 @@ sub initialize {
   }
 }
 
+__END__
+
+=head1 名前
+
+sys/background.plm - plumをバックグラウンドで実行する
+
+=head1 説明
+
+plumをバックグラウンドで実行します。UNIX以外では使用できません。
+
+=head1 プロパティ
+
+=over 4
+
+=back
+
+=head1 設定例
+
+    + sys/background.plm
+
+=cut
