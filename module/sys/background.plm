@@ -40,7 +40,7 @@ plumをバックグラウンドで実行します。UNIX以外では使用できません。
 <HR><H3>設定例</H3>
 
 <PRE>
-= sys/background.plm
++ sys/background.plm
 </PRE>
 
 </BODY></HTML>
