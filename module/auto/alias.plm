@@ -1,0 +1,594 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1998-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package auto_alias;
+
+$_ = 'auto_alias';
+
+sub initialize {
+}
+
+sub ss_privmsg {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($userno, $str, $action, $type, @arg);
+  $userno = $'userno[$serverno];
+  ($action, $type, @arg) = split(/\s+/, $params[1]);
+  if ($action) {
+    $type = '' unless $type;
+    foreach $str (&'property($userno, 'get')) {
+      next unless $str eq $action;
+      &get_alias($serverno, $prefix, $params[0], "\L$type\E", @arg);
+      return ($prefix, $cmd, @params);
+    }
+    foreach $str (&'property($userno, 'add')) {
+      next unless $str eq $action;
+      &add_alias($serverno, $prefix, $params[0], "\L$type\E", @arg);
+      return ($prefix, $cmd, @params);
+    }
+    foreach $str (&'property($userno, 'remove')) {
+      next unless $str eq $action;
+      &remove_alias($serverno, $prefix, $params[0], "\L$type\E", @arg);
+      return ($prefix, $cmd, @params);
+    }
+    foreach $str (&'property($userno, 'change')) {
+      next unless $str eq $action;
+      &change_alias($serverno, $prefix, $params[0], "\L$type\E", @arg);
+      return ($prefix, $cmd, @params);
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub privmsg {
+  local($serverno, $to, $msg) = @_;
+  &'s_print($serverno, '', 'PRIVMSG', $to, $msg);
+  foreach $cno (&'array($'clientlist)) {
+    next unless $'server[$cno] == $serverno;
+    &'c_print($cno, &'user($cno), 'PRIVMSG', $to, $msg);
+  }
+}
+
+sub get_alias {
+  local($serverno, $prefix, $chan, $type, $text) = @_;
+  local($userno, @data, $no, $to, $hidden, %alias);
+  $userno = $'userno[$serverno];
+  @data = &read_alias($userno);
+  $hidden = &property($userno, 'invisible');
+  if ($text) {
+    $no = &get_alias_index($type, $text, @data);
+    $hidden .= &property($userno, 'private');
+  } else {
+    $no = &get_alias_user_index($prefix, @data);
+  }
+  return if $no == -1;
+  $to = &'prefix($prefix);
+  %alias = &parse_list(&'array($data[$no]));
+  foreach $key (keys(%alias)) {
+    next if &'exist($hidden, $key);
+    foreach $line (&format_list($key, $alias{$key})) {
+      &privmsg($serverno, $to, $line);
+    }
+  }
+}
+
+sub add_alias {
+  local($serverno, $prefix, $chan, $type, @arg) = @_;
+  local($userno, $readonly, @data, $no, %alias, $scalar);
+  $userno = $'userno[$serverno];
+  $readonly = &property($userno, 'readonly');
+  return if &'exist($readonly, $type);
+  @data = &read_alias($userno);
+  $no = &get_alias_user_index($prefix, @data);
+  if ($no == -1) {
+    %alias = ('nick', &'list((&'prefix($prefix))[0]));
+    $no = @data;
+  } else {
+    %alias = &parse_list(&'array($data[$no]));
+  }
+  $scalar = &property($userno, 'scalar');
+  if (@arg) {
+    if (&'exist($scalar, $type)) {
+      $alias{$type} = &'list($arg[0]);
+    } else {
+      $alias{$type} = &'add($alias{$type}, @arg);
+    }
+  }
+  $data[$no] = &build_list(%alias);
+  &write_alias($userno, @data);
+}
+
+sub remove_alias {
+  local($serverno, $prefix, $chan, $type, @arg) = @_;
+  local($userno, $readonly, @data, $no, %alias, $scalar);
+  return unless $type;
+  $userno = $'userno[$serverno];
+  $readonly = &property($userno, 'readonly');
+  return if &'exist($readonly, $type);
+  @data = &read_alias($userno);
+  $no = &get_alias_user_index($prefix, @data);
+  if ($no == -1) {
+    %alias = ('nick', &'list((&'prefix($prefix))[0]));
+    $no = @data;
+  } else {
+    %alias = &parse_list(&'array($data[$no]));
+  }
+  $scalar = &property($userno, 'scalar');
+  if (&'exist($scalar, $type)) {
+    $alias{$type} = '';
+  } elsif (@arg) {
+    $alias{$type} = &'remove($alias{$type}, @arg);
+  }
+  $data[$no] = &build_list(%alias);
+  &write_alias($userno, @data);
+}
+
+sub change_alias {
+  local($serverno, $prefix, $chan, $type, @arg) = @_;
+  local($userno, $readonly, @data, $no, %alias, $scalar);
+  return unless @arg;
+  $userno = $'userno[$serverno];
+  $readonly = &property($userno, 'readonly');
+  return if &'exist($readonly, $type);
+  @data = &read_alias($userno);
+  $no = &get_alias_user_index($prefix, @data);
+  if ($no == -1) {
+    %alias = ('nick', &'list((&'prefix($prefix))[0]));
+    $no = @data;
+  } else {
+    %alias = &parse_list(&'array($data[$no]));
+  }
+  $scalar = &property($userno, 'scalar');
+  if (&'exist($scalar, $type)) {
+    $alias{$type} = &'list($arg[0]);
+  } else {
+    $alias{$type} = &'change($alias{$type}, @arg);
+  }
+  $data[$no] = &build_list(%alias);
+  &write_alias($userno, @data);
+}
+
+sub property {
+  local($userno, $name) = @_;
+  local($list);
+  $list = '';
+  foreach $line (&'property($userno, $name)) {
+    $list = &'add($list, split(/\,/, $line));
+  }
+  return $list;
+}
+
+sub format_list {
+  local($key, $value) = @_;
+  local(@list);
+  if ($key eq 'nick') {
+    return 'nick: ' . join(',', &'array($value));
+  } elsif ($key eq 'name') {
+    return 'name: ' . join(' ', &'array($value));
+  } else {
+    @list = ();
+    foreach $arg (&'array($value)) {
+      push(@list, $key . ': ' . $arg);
+    }
+    return @list;
+  }
+}
+
+sub get_alias_index {
+  local($type, $value, @data) = @_;
+  local($i, @list);
+  if ($type eq 'user') {
+    return &get_alias_user_index($value, @data);
+  } elsif ($type eq 'name') {
+    return &get_alias_name_index($value, @data);
+  } else {
+    for ($i = 0; $i < @data; $i++) {
+      @list = &'array($data[$i]);
+      if (&match_alias($type, $value, @list)) {
+        return $i;
+      }
+    }
+    return -1;
+  }
+}
+
+sub match_alias {
+  local($type, $value, @list) = @_;
+  local(%alias, $var, $arg);
+  %alias = &parse_list(@list);
+  foreach $key (keys(%alias)) {
+    next unless "\L$key\E" eq $type;
+    if (&'exist($alias{$key}, $value)) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
+sub get_alias_user_index {
+  local($from, @data) = @_;
+  local($i, @list);
+  for ($i = 0; $i < @data; $i++) {
+    @list = &'array($data[$i]);
+    if (&match_alias_user($from, @list)) {
+      return $i;
+    }
+  }
+  return -1;
+}
+
+sub match_alias_user {
+  local($from, @list) = @_;
+  local($var, $arg, $regex);
+  foreach $line (@list) {
+    ($var, $arg) = split(/\s+/, $line, 2);
+    next unless "\L$var\E" eq 'user';
+    $regex = &'regex($arg);
+    next unless $from =~ /$regex/i;
+    return 1;
+  }
+  return 0;
+}
+
+sub get_alias_name_index {
+  local($from, @data) = @_;
+  local($i, @list);
+  for ($i = 0; $i < @data; $i++) {
+    @list = &'array($data[$i]);
+    if (&match_alias_name($from, @list)) {
+      return $i;
+    }
+  }
+  return -1;
+}
+
+sub match_alias_name {
+  local($from, @list) = @_;
+  local($var, $arg);
+  foreach $line (@list) {
+    ($var, $arg) = split(/\s+/, $line, 2);
+    if ("\L$var\E" eq 'name') {
+      foreach $name (split(/\s+/, $arg)) {
+        next unless $from eq $name;
+        return 1;
+      }
+    }
+  }
+  return 0;
+}
+
+sub build_list {
+  local(%alias) = @_;
+  local($nick, $name, @user, @other);
+  $nick = '';
+  $name = '';
+  @user = ();
+  @other = ();
+  foreach $key (sort(keys(%alias))) {
+    if ($key eq 'nick') {
+      $nick = 'nick ' . join(',', &'array($alias{$key}));
+    } elsif ($key eq 'name') {
+      $name = 'name ' . join(' ', &'array($alias{$key}));
+    } elsif ($key eq 'user') {
+      foreach $arg (&'array($alias{$key})) {
+        push(@user, $key . ' ' . $arg);
+      }
+    } else {
+      foreach $arg (&'array($alias{$key})) {
+        push(@other, $key . ' ' . $arg);
+      }
+    }
+  }
+  if ($nick && $name) {
+    return &'list($nick, $name, @user, @other);
+  } elsif ($nick) {
+    return &'list($nick, @user, @other);
+  } else {
+    return '';
+  }
+}
+
+sub parse_list {
+  local(@list) = @_;
+  local(%alias, $var, $arg, $key);
+  %alias = ();
+  foreach $line (@list) {
+    ($var, $arg) = split(/\s+/, $line, 2);
+    $var = "\L$var\E";
+    if ($var eq 'nick') {
+      $alias{$var} = &'add($alias{$var}, split(/\,/, $arg));
+    } elsif ($var eq 'name') {
+      $alias{$var} = &'add($alias{$var}, split(/\s+/, $arg));
+    } else {
+      $alias{$var} = &'add($alias{$var}, $arg);
+    }
+  }
+  return %alias;
+}
+
+sub read_alias {
+  local($userno) = @_;
+  local($file);
+  $file = &'property($userno, 'file');
+  return &split_list('nick', &read_file($file));
+}
+
+sub split_list {
+  local($field, @list) = @_;
+  local($var, $arg, @array, @entry);
+  $field = "\L$field\E";
+  @array = ();
+  @entry = ();
+  foreach $line (@list) {
+    ($var, $arg) = split(/\s*\:\s*/, $line, 2);
+    if ($field eq "\L$var\E") {
+      push(@array, &'list(@entry)) if @entry;
+      @entry = ();
+    }
+    push(@entry, $var . ' ' . $arg);
+  }
+  push(@array, &'list(@entry)) if @entry;
+  return @array;
+}
+
+sub read_file {
+  local($file) = @_;
+  local($name, $code, $mtime, @data, $line);
+  ($name, $code) = &filename($file);
+  $mtime = (stat($name))[9];
+  if (defined($mtime)) {
+    $modify{$name} = -1 unless defined($modify{$name});
+    if ($modify{$name} != $mtime) {
+      if (open(TMP, $name)) {
+        @data = ();
+        while (defined($line = <TMP>)) {
+          $line =~ s/^\s+//;
+          next if $line =~ /^[\#\;]/;
+          $line =~ tr/\r\n//d;
+          next unless $line;
+          $line =~ s/\s+$//;
+          $line = &code_euc($line, $code) if $code;
+          push(@data, $line);
+        }
+        close(TMP);
+        $modify{$name} = $mtime;
+        $cache{$name} = &'list(@data);
+        return @data;
+      }
+    } else {
+      return &'array($cache{$name});
+    }
+  }
+  return ();
+}
+
+sub write_alias {
+  local($userno, @data) = @_;
+  local($file);
+  $file = &'property($userno, 'file');
+  &write_file($file, &merge_list(@data));
+}
+
+sub merge_list {
+  local(@list) = @_;
+  local(@data, @entry, $var, $arg);
+  @data = ();
+  foreach $list (@list) {
+    next unless $list;
+    @entry = &'array($list);
+    foreach $line (@entry) {
+      next unless $line;
+      ($var, $arg) = split(/\s+/, $line, 2);
+      next unless $arg;
+      push(@data, $var . ': ' . $arg);
+    }
+    push(@data, '');
+  }
+  return @data;
+}
+
+sub write_file {
+  local($file, @data) = @_;
+  local($name, $code, @list);
+  ($name, $code) = &filename($file);
+  @list = ();
+  if (open(TMP, ">$name")) {
+    foreach $line (@data) {
+      push(@list, $line) if $line;
+      $line = &euc_code($line, $code) if $code;
+      print TMP $line, "\n";
+    }
+    close(TMP);
+    $modify{$name} = (stat($name))[9];
+    $cache{$name} = &'list(@list);
+  }
+}
+
+sub filename {
+  local($file) = @_;
+  local($idx, $name, $code);
+  return ('', '') unless $file;
+  if (($idx = rindex($file, ';')) != -1) {
+    $name = substr($file, 0, $idx);
+    $code = substr($file, $idx + 1);
+  } else {
+    $name = $file;
+    $code = '';
+  }
+  return (&'expand($name), $code);
+}
+
+sub code_euc {
+  local($line, $list) = @_;
+  foreach $code (split(/\,/, "\L$list\E")) {
+    if ($code eq 'euc') {
+      $line = &'euc_euc($line);
+    } elsif ($code eq 'jis') {
+      $line = &'jis_euc($line);
+    } elsif ($code eq 'sjis') {
+      $line = &'sjis_euc($line);
+    }
+  }
+  return $line;
+}
+
+sub euc_code {
+  local($line, $list) = @_;
+  local($code);
+  $code = (split(/\,/, "\L$list\E"))[0];
+  if ($code eq 'euc') {
+    $line = &'euc_euc($line);
+  } elsif ($code eq 'jis') {
+    $line = &'euc_jis($line);
+  } elsif ($code eq 'sjis') {
+    $line = &'euc_sjis($line);
+  }
+  return $line;
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>auto/alias.plm</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+auto/alias.plm - ユーザエイリアス情報の管理
+
+
+<HR><H3>説明</H3>
+
+ユーザ名のエイリアスの追加、削除、確認を行います。
+エイリアスの追加、削除は自分の情報に対してしか行うことはできません。
+エイリアスは基本的にnick、name、userの3つのフィールドからなっており、
+それぞれニックネーム、名前、ユーザマスクを表します。
+実際にユーザを識別するためにはuserが使用されます。
+
+<BR><BR>
+
+また、エイリアスファイルの中では、データはユーザごとに
+nick、name、userの順番で保存されています。
+それぞれのデータは複数指定することができ、nickは「,」で、
+nameは空白で、userは1行に1つずつそれぞれ区切ります。
+実際のファイル中のデータは以下のようになっています。
+
+<PRE>
+nick: plum,plum_j,plum-j
+name: ぷらむ ぷらむちゃん
+user: *!plum@*.plum.org
+user: plum*!*plum@*.plum.com
+
+nick: plum_
+name: ぷらむ(偽)
+user: *!*plum@*.plum.org
+</PRE>
+
+
+<HR><H3>プロパティ</H3>
+
+<DL>
+<DT>  auto.alias.file ファイル名[;({jis|euc|sjis})]
+</DT>
+<DD>    エイリアスを保存するファイル名を指定します。
+        ファイル名の後に漢字コードを指定することができます。
+        漢字コードを複数指定した場合は最初に指定した漢字コードで保存され、
+        省略した場合は「jis」を指定したことと同じになります。
+        また「euc」と「sjis」を同時に指定することはできません。
+</DD>
+<DT>  auto.alias.readonly* (タイプ)
+</DT>
+<DD>    変更することのできないタイプを指定します。
+</DD>
+<DT>  auto.alias.invisible* (タイプ)
+</DT>
+<DD>    見ることのできないタイプを指定します。
+</DD>
+<DT>  auto.alias.private* (タイプ)
+</DT>
+<DD>    本人にしか見ることのできないタイプを指定します。
+</DD>
+<DT>  auto.alias.scalar* (タイプ)
+</DT>
+<DD>    値を一つしか設定することができないタイプを指定します。
+</DD>
+<DT>  auto.alias.get* 文字列
+</DT>
+<DD>    エイリアスを確認するためのメッセージです。
+        このメッセージと同じ文字列を発言をすると、
+        自分に設定されているエイリアスを確認することができます。
+        また、引数としてエイリアスのタイプとデータを指定すると、
+        それにマッチする人のエイリアスを確認できます。
+</DD>
+<DT>  auto.alias.add* 文字列
+</DT>
+<DD>    エイリアスを追加するためのメッセージです。
+        このメッセージに引数としてエイリアスのタイプとデータを指定すると、
+        自分のエイリアスに指定したデータを追加します。
+</DD>
+<DT>  auto.alias.remove* 文字列
+</DT>
+<DD>    エイリアスを削除するためのメッセージです。
+        このメッセージに引数としてエイリアスのタイプとデータを指定すると、
+        自分のエイリアスのうちで指定したデータを削除します。
+        nickに対するデータを削除すると、エイリアスそのものが削除されます。
+</DD>
+<DT>  auto.alias.change* 文字列
+</DT>
+<DD>    エイリアスを変更するためのメッセージです。
+        このメッセージに引数としてエイリアスのタイプ、古いデータ、
+        新しいデータを指定すると、自分のエイリアスのうちで
+        指定したタイプの古いデータを新しいデータに変更します。
+        新しいデータがすでに存在するかどうかは確認していないので、
+        同じデータが2つできないようにしてください。
+</DD>
+</DL>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
++ auto/alias.plm
+auto.alias.file: alias.txt;jis,euc
+auto.alias.get: エイリアス
+auto.alias.add: エイリアス追加
+auto.alias.remove: エイリアス削除
+auto.alias.change: エイリアス変更
+</PRE>
+
+「エイリアス」という発言があると、発言した人のエイリアスを発言します。
+エイリアスは「alias.txt」というファイルから読み込みます。
+alias.txtは漢字コードが「jis」か「euc」で書かれている必要がありますが、
+IRC上からエイリアスの変更を行った場合はjisで保存されます。
+また、「エイリアス name ぷらむ」のように発言すると、
+タイプが「name」で、データが「ぷらむ」という人のエイリアスを返します。
+
+<BR><BR>
+
+エイリアスを追加するためには、
+「エイリアス追加 user *!*plum@*.plum.gr.jp」のように発言します。
+この場合ではタイプが「user」で、データが「*!*plum@*.plum.gr.jp」
+というエイリアスを、発言した人のエイリアスに追加します。
+
+<BR><BR>
+
+エイリアスを削除するためには、
+「エイリアス削除 name ぷらむちゃん」のように発言します。
+この場合ではタイプが「name」で、データが「ぷらむちゃん」というエイリアスが、
+発言した人のエイリアスに存在すれば、それを削除します。
+指定したデータが発言した人のエイリアスに存在しない場合は無視されます。
+また、タイプが「nick」のデータをすべて削除した場合は、
+その人のエイリアスは全て削除されます。
+
+<BR><BR>
+
+エイリアスを変更するためには、
+「エイリアス変更 name ぷらむ(偽) ぷらむ(仮)」のように発言します。
+この場合ではタイプが「name」で、データが「ぷらむ(偽)」というエイリアスが、
+発言した人のエイリアスに存在すれば、それを「ぷらむ(仮)」に変更します。
+指定したデータが発言した人のエイリアスに存在しない場合は無視されます。
+
+</BODY></HTML>

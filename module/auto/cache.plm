@@ -1,0 +1,134 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1999-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package auto_cache;
+
+$_ = 'auto_cache';
+
+sub initialize {
+  $SIZE = 10;
+  $EXPIRE = 600;
+}
+
+sub module_disable {
+  local($userno) = @_;
+  local($no, $chan);
+  foreach $key (keys(%cache)) {
+    ($no, $chan) = split(/$;/, $key, 2);
+    next unless $'userno[$no] == $userno;
+    delete $cache{$key};
+  }
+}
+
+sub server_close {
+  local($serverno) = @_;
+  local($no, $chan);
+  foreach $key (keys(%cache)) {
+    ($no, $chan) = split(/$;/, $key, 2);
+    next unless $no == $serverno;
+    delete $cache{$key};
+  }
+}
+
+sub ss_privmsg {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($regex);
+  if (&'channel($params[0])) {
+    foreach $clear (&'property($'userno[$serverno], 'clear')) {
+      $regex = &'regex($clear);
+      next unless $params[1] =~ /$regex/;
+      $cache{$serverno, $params[0]} = '';
+      last;
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub sp_privmsg {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local(@list, $size, $key, $expire, $now, $time, $text);
+  if (&'channel($params[0])) {
+    $size = &'property($'userno[$serverno], 'size');
+    $size = $SIZE unless defined($size);
+    $key = $serverno . $; . $params[0];
+    @list = &'array($cache{$key});
+    while (@list > $size) {
+      shift(@list);
+    }
+    $expire = &'property($'userno[$serverno], 'expire');
+    $expire = $EXPIRE unless defined($expire);
+    $now = time();
+    foreach $line (@list) {
+      ($time, $text) = split(/\:/, $line, 2);
+      next if ($expire != 0 && $time + $expire < $now);
+      return () if $text eq $params[1];
+    }
+    $cache{$key} = '' unless $cache{$key};
+    $cache{$key} .= &'list($now . ':' . $params[1]);
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_part {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  delete $cache{$serverno, $params[0]};
+  return ($prefix, $cmd, @params);
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>auto/cache.plm</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+auto/cache.plm - 同じ発言を繰り返さないように制限する
+
+
+<HR><H3>説明</H3>
+
+過去に発言した文字列を保存しておき、その中に発言しようとしている
+文字列があれば、それを発言しないようにします。
+
+
+<HR><H3>プロパティ</H3>
+
+<DL>
+<DT>  auto.cache.size キャッシュの大きさ
+</DT>
+<DD>    保存しておく発言数の数を指定します。
+        デフォルトでは10になっています。
+</DD>
+<DT>  auto.cache.expire キャッシュの有効期限
+</DT>
+<DD>    キャッシュが有効な時間を指定します。
+        ここで指定した秒数が経過したキャッシュは自動的にクリアされます。
+        0を指定すると、クリアは行われません。
+        デフォルトでは600になっています。
+</DD>
+<DT>  auto.cache.clear* キャッシュをクリアする発言
+</DT>
+<DD>    ここで指定した文字列を発言すると、キャッシュをクリアします。
+</DD>
+</DL>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
++ auto/cache.plm
+auto.cache.size: 5
+auto.cache.expire: 300
+auto.cache.clear: ぷらむしょきか
+</PRE>
+
+過去の発言を5つまで保存しておき、それと同じ発言をしないようにします。
+「ぷらむしょきか」と発言すると、そのチャンネルのキャッシュをクリアします。
+また、300秒が経過したキャッシュも自動的にクリアされます。
+
+</BODY></HTML>
