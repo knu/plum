@@ -5,7 +5,7 @@
 package plum;
 
 $NAME = 'plum';
-$VERSION = '3.1.0b12';
+$VERSION = '3.1.0b13';
 
 $NIL = "\r";
 $NOTRAILING = &'list('004', '215', '221', '324', '341', '367', 'MODE');
