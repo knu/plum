@@ -1,0 +1,57 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1998-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package ctcp_dcc_cancel;
+
+$_ = 'ctcp_dcc_cancel';
+
+sub initialize {
+  $CLIENTINFO = 'DCC';
+}
+
+sub cpss_dcc {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick, @msg);
+  $nick = &'prefix($prefix);
+  @msg = split(/\s+/, $params[1]);
+  if ("\U$msg[0]\E" eq 'CHAT') {
+    &'s_print($serverno, '', 'PRIVMSG', $nick, "\cA" . join(' ', $cmd, 'CANCEL', @msg[1, 2, 3]) . "\cA");
+    foreach $cno (&'array($'clientlist)) {
+      next unless $'server[$cno] == $serverno;
+      &'c_print($cno, '', 'NOTICE', $'nick[$cno], "*** DCC canceled from $nick");
+    }
+    return ();
+  }
+  return ($prefix, $cmd, @params);
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>ctcp/dcc/cancel.plm</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+ctcp/dcc/cancel.plm - DCC CHATをキャンセルする
+
+
+<HR><H3>説明</H3>
+
+DCC CHATのリクエストがきたときに、それをキャンセルします。
+DCC CHAT以外のDCCについては何もしません。
+
+<HR><H3>プロパティ</H3>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
++ ctcp/dcc/cancel.plm
+</PRE>
+
+</BODY></HTML>
