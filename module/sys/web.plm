@@ -153,9 +153,9 @@ sub sp_notice {
   if ($params[1]) {
     foreach $chan (split(/\,/, $params[0])) {
       if (&'channel($chan)) {
-        &writelog($serverno, $chan, ">$'nick[$serverno]< $msg");
+        &writelog($serverno, $chan, ">$'nick[$serverno]< $params[1]");
       } else {
-        &writelog($serverno, '', ">$chan< $msg");
+        &writelog($serverno, '', ">$chan< $params[1]");
       }
     }
   }
@@ -200,7 +200,7 @@ sub ss_part {
 
 sub sp_privmsg {
   local($serverno, $prefix, $cmd, @params) = @_;
-  local($chan, $msg);
+  local($chan);
   if ($params[1]) {
     foreach $chan (split(/\,/, $params[0])) {
       if (&'channel($chan)) {
