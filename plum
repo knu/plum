@@ -124,7 +124,7 @@ sub main {
       next if substr($sockethandle, $i, 1) eq ' ';
       $'access[$i] = $time if vec($'rout, $'fileno[$i], 1);
     }
-    for ($i = 0; $i < @'username; $i++) {
+    for ($i = 1; $i < @'username; $i++) {
       &loop_event($i, 'main_loop', $i);
     }
     foreach $cno (&'array($'clientlist)) {
@@ -169,6 +169,7 @@ sub init {
       }
     }
   }
+  @'username = ('*');
   if (-r "$NAME.conf") {
     push(@'username, '');
     &'load('', "$NAME.conf");
@@ -178,7 +179,7 @@ sub init {
       @lib = split(/\+/, substr($args[$i], 1));
       foreach $lib (@lib) {
         if (-r "$NAME-$lib.conf") {
-          for ($userno = 0; $userno < @'username; $userno++) {
+          for ($userno = 1; $userno < @'username; $userno++) {
             $'userlist[$userno] = &'add($'userlist[$userno], $lib);
             &'merge($userno, "$NAME-$lib.conf");
           }
@@ -188,7 +189,7 @@ sub init {
     } else {
       ($user, @lib) = split(/\+/, $args[$i]);
       if (-r "$NAME-$user.conf") {
-        if (&userno($user) == -1) {
+        if (!&userno($user)) {
           push(@'username, $user);
           &'load($user, "$NAME-$user.conf");
           $userno = @'username - 1;
@@ -200,7 +201,7 @@ sub init {
       }
     }
   }
-  for ($userno = 0; $userno < @'username; $userno++) {
+  for ($userno = 1; $userno < @'username; $userno++) {
     &enable($userno, &'list($NAME), $'modulelist[$userno]);
   }
 }
@@ -320,12 +321,12 @@ sub 'property {
 sub userno {
   local($user) = @_;
   local($i);
-  for ($i= 0; $i< @'username; $i++) {
+  for ($i= 1; $i< @'username; $i++) {
     if ($user eq $'username[$i]) {
       return $i;
     }
   }
-  return -1;
+  return 0;
 }
 
 sub kanji_euc {
@@ -391,7 +392,7 @@ sub c_read {
   if (sysread($'socket[$cno], $tmp, $BUFFER)) {
     $rbuf[$cno] .= $tmp;
     while ((($next, $rest) = split(/[\r\n]+/, $rbuf[$cno], 2)) == 2) {
-      $rbuf[$cno] = $rest;
+      $rbuf[$cno] = $rest || '';
       next unless $next;
       $next = &read_event($'userno[$cno], 'client_read', $cno, $next);
       next unless $next;
@@ -1529,7 +1530,7 @@ sub replace {
 
 sub property_change {
   local($userno) = @_;
-  local($sno, $list, $mask, $pass, $host, $port, $lno);
+  local($sno, $cllist, $oplist, $mask, $pass, $host, $port, $all, $lno);
   if (!$default[$userno]) {
     $sno = &'socket('S');
     $default[$userno] = $sno;
@@ -1543,16 +1544,30 @@ sub property_change {
     $nicklist[$userno] = &'add($nicklist[$userno], split(/\,/, $nick));
   }
   $nickindex[$userno] = 0;
-  $list = '';
+  $all = '';
+  foreach $lno (&'array($listenlist), &'array($listenwaitlist)) {
+    $all = &'add($all, $port[$lno]);
+  }
+  $cllist = $all;
   foreach $client (&'property($userno, 'client')) {
     ($mask, $pass) = split(/\s+/, $client);
     ($host, $port) = split(/\;/, $mask);
-    $list = &'add($list, $port || $PORT);
+    $oplist = &'add($oplist, $port || $PORT);
+    $cllist = &'remove($cllist, $port || $PORT);
   }
-  foreach $lno (&'array($listenlist), &'array($listenwaitlist)) {
-    $list = &'remove($list, $port[$lno]);
+  $all = &'remove($all, &'array($cllist));
+  foreach $lno (&'array($listenlist)) {
+    next unless &'exist($cllist, $port);
+    &'close($lno);
+    $listenlist = &'remove($listenlist, $lno);
   }
-  foreach $port (&'array($list)) {
+  foreach $lno (&'array($listenwaitlist)) {
+    next unless &'exist($cllist, $port);
+    &'close($lno);
+    $listenwaitlist = &'remove($listenwaitlist, $lno);
+  }
+  foreach $port (&'array($oplist)) {
+    next if &'exist($all, $port);
     $lno = &'socket('L');
     $port[$lno] = $port;
     $listenwaitlist = &'add($listenwaitlist, $lno);
@@ -1586,7 +1601,9 @@ sub c_proc {
   if (sysread($socket, $tmp, $BUFFER)) {
     $bufr[$cno] .= $tmp;
     while ((($next, $rest) = split(/[\r\n]+/, $bufr[$cno], 2)) == 2) {
-      $bufr[$cno] = $rest;
+      $bufr[$cno] = $rest || '';
+      next unless $next;
+      $next = &read_event($'userno[$cno], 'client_read', $cno, $next)if $'userno[$cno];
       next unless $next;
       ($prefix, $cmd, @params) = &'parse($next);
       if ($cmd) {
@@ -1599,18 +1616,18 @@ sub c_proc {
             $user[$cno] = $params[0];
             &c_check($cno) if $nick[$cno];
           } else {
-            print $socket '', &'build($NAME, '461', 'Not enough parameters'), $EOL;
+            &c_out($cno, $NAME, '461', 'Not enough parameters');
           }
         } elsif ($cmd eq 'PASS') {
           $pass[$cno] = $params[0];
         } elsif ($cmd eq 'QUIT') {
           $params[0] = 'I Quit' unless $params[0];
-          print $socket '', &'build('', 'ERROR', 'Closing Link: ' . &'user($cno, $nick[$cno], $user[$cno]) . " ($params[0])"), $EOL;
+          &c_out($cno, '', 'ERROR', 'Closing Link: ' . &'user($cno, $nick[$cno], $user[$cno]) . " ($params[0])");
           $clientlist = &'remove($clientlist, $cno);
           &c_clear($cno);
           &'close($cno);
         } else {
-          print $socket '', &'build($NAME, '451', '*', 'You have not registered'), $EOL;
+          &c_out($cno, $NAME, '451', '*', 'You have not registered');
         }
       }
     }
@@ -1619,6 +1636,17 @@ sub c_proc {
     &c_clear($cno);
     &'close($cno);
   }
+}
+
+sub c_out {
+  local($cno, $prefix, $cmd, @params) = @_;
+  local($line, $socket);
+  $line = &'build($prefix, $cmd, @params);
+  return unless $line;
+  $line = &write_event($'userno[$cno], 'client_write', $cno, $line) if $'userno[$cno];
+  return unless $line;
+  $socket = $'socket[$cno];
+  print $socket $line, $EOL if fileno($socket);
 }
 
 sub c_check {
@@ -1635,14 +1663,14 @@ sub c_check {
     } else {
       $sno = 0;
     }
-    print $socket '', &'build($'servername[$sno] || $NAME, '001', $nick[$cno], 'Welcome to the Internet Relay Network ' . &'user($cno, $nick[$cno], $user[$cno])), $EOL;
+    &c_out($cno, $'servername[$sno] || $NAME, '001', $nick[$cno], 'Welcome to the Internet Relay Network ' . &'user($cno, $nick[$cno], $user[$cno]));
     &'c_open($cno, $userno, &'user($cno, $nick[$cno], $user[$cno]), $sno, $bufr[$cno]);
     $clientlist = &'remove($clientlist, $cno);
     &c_clear($cno);
     return;
   }
-  print $socket '', &'build($NAME, '464', $nick[$cno], 'Password incorrect'), $EOL;
-  print $socket '', &'build('', 'ERROR', 'Closing Link: ' . &'user($cno, $nick[$cno], $user[$cno]) . ' (Bad Password)'), $EOL;
+  &c_out($cno, $NAME, '464', $nick[$cno], 'Password incorrect');
+  &c_out($cno, '', 'ERROR', 'Closing Link: ' . &'user($cno, $nick[$cno], $user[$cno]) . ' (Bad Password)');
   $clientlist = &'remove($clientlist, $cno);
   &c_clear($cno);
   &'close($cno);
@@ -1659,24 +1687,31 @@ sub c_clear {
 
 sub l_proc {
   local($lno) = @_;
-  local($cno, $port, $i, $host, $pass, $mac, $serv);
+  local($cno, $port, $list, $i, $host, $pass, $mac, $serv);
   $cno = &'socket('C');
   &c_clear($cno);
   return unless &'accept($cno, $lno);
   $port = (&'sockname($cno))[0];
-  for ($i = 0; $i < @'username; $i++) {
+  $list = '';
+  for ($i = 1; $i < @'username; $i++) {
     foreach $client (&'property($i, 'client')) {
       ($host, $pass) = split(/\s+/, $client);
       ($mac, $serv) = split(/\;/, $host);
-      next unless $port == ($serv || $PORT);
+      next unless $port == ($serv || $port);
       next unless &'match($cno, $mac);
       $auth[$cno] = &'add($auth[$cno], $i, $pass || '');
+      $list = &'add($list, $i);
     }
   }
   if ($auth[$cno]) {
     $clientlist = &'add($clientlist, $cno);
   } else {
     &'close($cno);
+  }
+  if (&'array($list) == 1) {
+    $userno[$cno] = (&'array($list))[0];
+  } else {
+    $userno[$cno] = 0;
   }
 }
 
@@ -1699,24 +1734,26 @@ sub l_init {
 
 sub s_init {
   local($userno) = @_;
-  local($server, $host, $pass, $name, $list, @port, $socket, $nick, $user, $name);
+  local($server, $host, $pass, $name, $list, @port, $sno, $socket, $nick, $user, $name);
   return unless $serverlist[$userno];
   $server = (&'array($serverlist[$userno]))[$serverindex[$userno]];
   ($host, $pass) = split(/\s+/, $server);
   ($name, $list) = split(/\;/, $host);
   return unless $host;
   @port = split(/\,/, $list || '');
-  if (&'connect($default[$userno], $name, $port[rand(@port)] || $PORT)) {
+  $sno = $default[$userno];
+  if (&'connect($sno, $name, $port[rand(@port)] || $PORT)) {
+    $'userno[$sno] = $userno;
     $status[$userno] = 1;
-    $bufr[$default[$userno]] = '';
-    $socket = $'socket[$default[$userno]];
-    print $socket '', &'build('', 'PASS', $pass), $EOL if $pass;
+    $bufr[$sno] = '';
+    $socket = $'socket[$sno];
+    &s_out($sno, '', 'PASS', $pass) if $pass;
     $nick = $lastnick[$userno] || (&'array($nicklist[$userno]))[$nickindex[$userno]] || eval 'getlogin()' || eval '(getpwuid($<))[0]';
     $lastnick[$userno] = '';
-    print $socket '', &'build('', 'NICK', $nick), $EOL;
+    &s_out($sno, '', 'NICK', $nick);
     $user = &'property($userno, 'user') || eval 'getlogin()' || eval '(getpwuid($<))[0]' || $nick;
     $name = &'property($userno, 'name') || eval '((split(/\,/, (getpwuid($<))[6]))[0])' || $user;
-    print $socket '', &'build('', 'USER', $user, '*', '*', $name), $EOL;
+    &s_out($sno, '', 'USER', $user, '*', '*', $name);
   } else {
     &'alarm(-$INTERVAL);
     $serverindex[$userno] = ($serverindex[$userno] + 1) % &'array($serverlist[$userno]);
@@ -1732,11 +1769,13 @@ sub s_proc {
   if (sysread($socket, $tmp, $BUFFER)) {
     $bufr[$sno] .= $tmp;
     while ((($next, $rest) = split(/[\r\n]+/, $bufr[$sno], 2)) == 2) {
-      $bufr[$sno] = $rest;
+      $bufr[$sno] = $rest || '';
+      next unless $next;
+      $next = &read_event($'userno[$sno], 'server_read', $sno, $next);
       next unless $next;
       ($prefix, $cmd, @params) = &'parse($next);
       if ($cmd eq 'PING') {
-        print $socket '', &'build('', 'PONG', @params), $EOL;
+        &s_out($sno, '', 'PONG', @params);
       } elsif ($cmd eq 'ERROR') {
         $serverindex[$userno] = ($serverindex[$userno] + 1) % &'array($serverlist[$userno]);
       } elsif ($cmd eq '001') {
@@ -1749,7 +1788,7 @@ sub s_proc {
       } elsif ($cmd eq '432' || $cmd eq '433' || $cmd eq '437') {
         if ($nicklist[$userno]) {
           $nickindex[$userno] = ($nickindex[$userno] + 1) % &'array($nicklist[$userno]);
-          print $socket '', &'build('', 'NICK', (&'array($nicklist[$userno]))[$nickindex[$userno]]), $EOL;
+          &s_out($sno, '', 'NICK', (&'array($nicklist[$userno]))[$nickindex[$userno]]);
         } else {
           if ($params[1] =~ /\d+$/) {
             $nick = $params[1];
@@ -1757,7 +1796,7 @@ sub s_proc {
           } else {
             $nick = substr($params[1], 0, 8) . '0';
           }
-          print $socket '', &'build('', 'NICK', $nick), $EOL;
+          &s_out($sno, '', 'NICK', $nick);
         }
       }
     }
@@ -1766,6 +1805,17 @@ sub s_proc {
     &'reuse($sno);
     &s_clear($userno);
   }
+}
+
+sub s_out {
+  local($sno, $prefix, $cmd, @params) = @_;
+  local($line, $socket);
+  $line = &'build($prefix, $cmd, @params);
+  return unless $line;
+  $line = &write_event($'userno[$sno], 'server_write', $sno, $line);
+  return unless $line;
+  $socket = $'socket[$sno];
+  print $socket $line, $EOL if fileno($socket);
 }
 
 sub s_clear {
@@ -1850,7 +1900,7 @@ sub clear_variable {
 sub cs_exit {
   local($cno, $prefix, $cmd, @params) = @_;
   local($i, @list);
-  for ($i = 0; $i < @'username; $i++) {
+  for ($i = 1; $i < @'username; $i++) {
     @list = &sub_list($i, 'module_disable');
     $'modulelist[$i] = '';
     foreach $sub (@list) {
