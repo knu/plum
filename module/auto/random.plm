@@ -1,0 +1,352 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1997-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package auto_random;
+
+$_ = 'auto_random';
+
+sub initialize {
+  $RATE = 100;
+  $FORMAT = '#(name|nick|nick.now): #(message)';
+}
+
+sub ss_privmsg {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($userno, $mtime, $name, $code, $req, $reply, $regex, $rate, $to, @list, %alias, @format);
+  $userno = $'userno[$serverno];
+  ($name, $code) = &filename(&'property($userno, 'file'));
+  $name = &'expand($name);
+  if ($name) {
+    $mtime = (stat($name))[9];
+    if (defined($mtime) && ($modify[$userno] || 0) != $mtime) {
+      $modify[$userno] = $mtime;
+      &read_data($userno);
+    }
+  }
+  ($req, $reply) = split(/\s+/, $params[1], 2);
+  if ($reply) {
+    foreach $add (&'property($userno, 'add')) {
+      next unless $req eq $add;
+      &add_file($userno, $reply);
+      return ($prefix, $cmd, $params[0], $params[1]);
+    }
+    foreach $remove (&'property($userno, 'remove')) {
+      next unless $req eq $remove;
+      &remove_file($userno, $reply);
+      return ($prefix, $cmd, @params);
+    }
+  }
+  $rate = &'property($userno, 'rate') || $RATE;
+  if (rand(100) < $rate) {
+    foreach $req (&'property($userno, 'request')) {
+      $regex = &'regex($req);
+      next unless $params[1] =~ /$regex/;
+      @list = &'array($message[$userno]);
+      $str = $list[rand(@list)];
+      last unless $str;
+      %alias = &get_alias_user($userno, $prefix);
+      $alias{'nick.now'} = (&'prefix($prefix))[0];
+      $alias{'message'} = &'format($str, %alias);
+      if (&'channel($params[0])) {
+        $alias{'channel'} = $params[0];
+        $to = $params[0];
+      } else {
+        $to = &'prefix($prefix);
+      }
+      @format = &'property($userno, 'format');
+      if (@format) {
+        foreach $reply (@format) {
+          &privmsg($serverno, $to, &'format($reply, %alias));
+        }
+      } else {
+        &privmsg($serverno, $to, &'format($FORMAT, %alias));
+      }
+      last;
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub privmsg {
+  local($serverno, $to, $msg) = @_;
+  &'s_print($serverno, '', 'PRIVMSG', $to, $msg);
+  foreach $cno (&'array($'clientlist)) {
+    next unless $'server[$cno] == $serverno;
+    &'c_print($cno, &'user($cno), 'PRIVMSG', $to, $msg);
+  }
+}
+
+sub add_file {
+  local($userno, $reply) = @_;
+  $message[$userno] = &'add($message[$userno], $reply);
+  &write_file($userno);
+}
+
+sub remove_file {
+  local($userno, $reply) = @_;
+  $message[$userno] = &'remove($message[$userno], $reply);
+  &write_file($userno);
+}
+
+sub read_data {
+  local($userno) = @_;
+  local($name, $code, $line);
+  ($name, $code) = &filename(&'property($userno, 'file'));
+  if ($name && open(FILE, $name)) {
+    undef($message[$userno]);
+    while (defined($line = <FILE>)) {
+      $line =~ tr/\r\n//d;
+      next unless $line;
+      $line = &code_euc($line, $code) if $code;
+      $message[$userno] = &'add($message[$userno], $line);
+    }
+    close(FILE);
+  }
+}
+
+sub write_file {
+  local($userno) = @_;
+  local($name, $code);
+  ($name, $code) = &filename(&'property($userno, 'file'));
+  if ($name && open(FILE, ">$name")) {
+    foreach $line (&'array($message[$userno])) {
+      $line = &euc_code($line, $code) if $code;
+      print FILE $line, "\n";
+    }
+    close(FILE);
+  }
+}
+
+sub get_alias_user {
+  local($userno, $from, $prefix) = @_;
+  local($file, @list);
+  $file = &'property($userno, 'alias');
+  foreach $list (&split_list('nick', &read_file($file))) {
+    @list = &'array($list);
+    if (&match_alias_user($from, @list)) {
+      return &parse_alias($prefix, @list);
+    }
+  }
+  return ();
+}
+
+sub match_alias_user {
+  local($from, @list) = @_;
+  local($var, $arg, $regex);
+  foreach $line (@list) {
+    ($var, $arg) = split(/\s+/, $line, 2);
+    next unless "\L$var\E" eq 'user';
+    $regex = &'regex($arg);
+    next unless $from =~ /$regex/i;
+    return 1;
+  }
+  return 0;
+}
+
+sub parse_alias {
+  local($prefix, @list) = @_;
+  local(%alias, $var, $arg, $key);
+  %alias = ();
+  foreach $line (@list) {
+    ($var, $arg) = split(/\s+/, $line, 2);
+    $var = "\L$var\E";
+    if ($prefix) {
+      $key = $prefix . '.' . $var;
+    } else {
+      $key = $var;
+    }
+    next if defined($alias{$key});
+    if ($var eq 'nick') {
+      $alias{$key} = (split(/\,/, $arg))[0];
+    } elsif ($var eq 'name') {
+      $alias{$key} = (split(/\s+/, $arg))[0];
+    } else {
+      $alias{$key} = $arg;
+    }
+  }
+  return %alias;
+}
+
+sub split_list {
+  local($field, @list) = @_;
+  local($var, $arg, @array, @entry);
+  $field = "\L$field\E";
+  @array = ();
+  @entry = ();
+  foreach $line (@list) {
+    ($var, $arg) = split(/\s*\:\s*/, $line, 2);
+    if ($field eq "\L$var\E") {
+      push(@array, &'list(@entry)) if @entry;
+      @entry = ();
+    }
+    push(@entry, $var . ' ' . $arg);
+  }
+  push(@array, &'list(@entry)) if @entry;
+  return @array;
+}
+
+sub read_file {
+  local($file) = @_;
+  local($name, $code, $mtime, @data, $line);
+  ($name, $code) = &filename($file);
+  $mtime = (stat($name))[9];
+  if (defined($mtime)) {
+    $modify{$name} = -1 unless defined($modify{$name});
+    if ($modify{$name} != $mtime) {
+      if (open(TMP, $name)) {
+        @data = ();
+        while (defined($line = <TMP>)) {
+          $line =~ s/^\s+//;
+          next if $line =~ /^[\#\;]/;
+          $line =~ tr/\r\n//d;
+          next unless $line;
+          $line =~ s/\s+$//;
+          $line = &code_euc($line, $code) if $code;
+          push(@data, $line);
+        }
+        close(TMP);
+        $modify{$name} = $mtime;
+        $cache{$name} = &'list(@data);
+        return @data;
+      }
+    } else {
+      return &'array($cache{$name});
+    }
+  }
+  return ();
+}
+
+sub filename {
+  local($file) = @_;
+  local($idx, $name, $code);
+  return ('', '') unless $file;
+  if (($idx = rindex($file, ';')) != -1) {
+    $name = substr($file, 0, $idx);
+    $code = substr($file, $idx + 1);
+  } else {
+    $name = $file;
+    $code = '';
+  }
+  return (&'expand($name), $code);
+}
+
+sub code_euc {
+  local($line, $list) = @_;
+  foreach $code (split(/\,/, "\L$list\E")) {
+    if ($code eq 'euc') {
+      $line = &'euc_euc($line);
+    } elsif ($code eq 'jis') {
+      $line = &'jis_euc($line);
+    } elsif ($code eq 'sjis') {
+      $line = &'sjis_euc($line);
+    }
+  }
+  return $line;
+}
+
+sub euc_code {
+  local($line, $list) = @_;
+  local($code);
+  $code = (split(/\,/, "\L$list\E"))[0];
+  if ($code eq 'euc') {
+    $line = &'euc_euc($line);
+  } elsif ($code eq 'jis') {
+    $line = &'euc_jis($line);
+  } elsif ($code eq 'sjis') {
+    $line = &'euc_sjis($line);
+  }
+  return $line;
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>auto/random.plm</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+auto/random.plm - 特定の発言に反応してランダムな発言をする
+
+
+<HR><H3>説明</H3>
+
+特定のメッセージが発言されると、指定されたメッセージの中から
+どれか1つをランダムに選択して発言します。
+
+
+<HR><H3>プロパティ</H3>
+
+<DL>
+<DT>  auto.random.file ファイル名[;({jis|euc|sjis})]
+</DT>
+<DD>    ランダムに発言するメッセージの書かれたファイルを指定します。
+        ファイルの中では1行に1つのメッセージを書いて下さい。
+        ファイルは指定した漢字コードで保存されます。
+        漢字コードを複数指定した場合は、最初に指定した漢字コードで
+        保存され、省略した場合は「jis」を指定したことと同じです。
+        また、「euc」と「sjis」を同時に指定することはできません。
+</DD>
+<DT>  auto.random.alias ファイル名[;({jis|euc|sjis})]
+</DT>
+<DD>    エイリアスを参照するファイルを指定します。
+        このファイルが指定されていると、誰に対する発言かを
+        ニックネームではなく、対応する名前で発言します。
+</DD>
+<DT>  auto.random.request* 文字列
+</DT>
+<DD>    反応する発言を指定します。
+        ここで指定したメッセージのどれか1つと一致した場合に
+        ランダムに選択されたメッセージを発言します。
+</DD>
+<DT>  auto.random.format* フォーマット
+</DT>
+<DD>    メッセージを発言する際のフォーマットを指定します。
+        フォーマットに#(nick)のように指定することでエイリアス中の
+        対応する値で置き換えます。また#(message)でメッセージの内容に、
+        #(nick.now)で現在のニックネームに、#(channel)でチャンネル名に
+        それぞれ置き換えます。
+</DD>
+<DT>  auto.random.rate 確率
+</DT>
+<DD>    発言に反応する確率を指定します。0を指定すると全く反応せず、
+        100を指定すると全ての発言に反応するようになります。
+        デフォルトでは100になっています。
+</DD>
+<DT>  auto.random.add* 文字列
+</DT>
+<DD>    メッセージを追加する文字列を指定します。
+        ここで指定した文字列を発言すると、新しいメッセージを追加します。
+</DD>
+<DT>  auto.random.remove* 文字列
+</DT>
+<DD>    メッセージを削除する文字列を指定します。
+        ここで指定した文字列を発言すると、一致するメッセージを削除します。
+</DD>
+</DL>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
++ auto/random.plm
+auto.random.request: 今日の運勢は?
+auto.random.request: うらない
+auto.random.file: random.txt;jis
+auto.random.format: #(name|nick|nick.now)さんの運勢は「#(message)」だよっ
+auto.random.rate: 100
+auto.random.add: うらない追加
+auto.random.remove: うらない削除
+</PRE>
+
+「今日の運勢は?」か「うらない」のどちらかの発言があったときに、
+「random.txt」の中に書かれたメッセージの中のどれか1つを発言します。
+random.txtはjisで書かれていないといけません。
+また、「うらない追加 大吉です☆」などのように発言することで、
+新しいメッセージを追加することができます。
+
+</BODY></HTML>

@@ -1,0 +1,323 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1998-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package auto_response;
+
+$_ = 'auto_response';
+
+sub initialize {
+  $FORMAT = '#(message)';
+}
+
+sub ss_privmsg {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($userno, @data, %alias, $to, @format, $list, $rate, @rand);
+  $userno = $'userno[$serverno];
+  @data = &get_response($userno, $params[1]);
+  %alias = &get_alias_user($userno, $prefix);
+  $alias{'nick.now'} = (&'prefix($prefix))[0];
+  if (&'channel($params[0])) {
+    $alias{'channel'} = &'list($params[0]);
+    $to = $params[0];
+  } else {
+    $to = &'prefix($prefix);
+  }
+  foreach $list (@data) {
+    ($rate, @rand) = &'array($list);
+    next unless rand(100) < $rate;
+    $alias{'message'} = &'format($rand[rand(@rand)], %alias);
+    @format = &'property($userno, 'format');
+    if (@format) {
+      foreach $reply (@format) {
+        &privmsg($serverno, $to, &'format($reply, %alias));
+      }
+    } else {
+      &privmsg($serverno, $to, &'format($FORMAT, %alias));
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub privmsg {
+  local($serverno, $to, $msg) = @_;
+  &'s_print($serverno, '', 'PRIVMSG', $to, $msg);
+  foreach $cno (&'array($'clientlist)) {
+    next unless $'server[$cno] == $serverno;
+    &'c_print($cno, &'user($cno), 'PRIVMSG', $to, $msg);
+  }
+}
+
+sub get_response {
+  local($userno, $text) = @_;
+  local($file, @list);
+  $file = &'property($userno, 'file');
+  foreach $list (&split_list('pattern', &read_file($file))) {
+    @list = &'array($list);
+    if (&match_response($text, @list)) {
+      return &parse_response(@list);
+    }
+  }
+  return ();
+}
+
+sub match_response {
+  local($value, @list) = @_;
+  local($regex, $var, $arg, $pat);
+  foreach $line (@list) {
+    ($var, $arg) = split(/\s+/, $line, 2);
+    next unless "\L$var\E" eq 'pattern';
+    if (&'exist($'kanjilist, 'euc')) {
+      return 1 if $value =~ /$pat/;
+    } elsif (&'exist($'kanjilist, 'sjis')) {
+      $pat = &'jis_sjis($arg);
+      return 1 if &'jis_sjis($value) =~ /$pat/;
+    } else {
+      $pat = &'jis_euc($arg);
+      return 1 if &'jis_euc($value) =~ /$pat/;
+    }
+  }
+  return 0;
+}
+
+sub parse_response {
+  local(@list) = @_;
+  local(@data, $var, $arg, $rate, @tmp);
+  $rate = 0;
+  @tmp = ();
+  @data = ();
+  foreach $line (@list) {
+    ($var, $arg) = split(/\s+/, $line, 2);
+    $var = "\L$var\E";
+    if ($var eq 'rate') {
+      push(@data, &'list($rate, @tmp)) if ($rate && @tmp);
+      $rate = $arg;
+      @tmp = ();
+    } elsif ($var eq 'response') {
+      push(@tmp, $arg);
+    }
+  }
+  push(@data, &'list($rate, @tmp)) if ($rate && @tmp);
+  return @data;
+}
+
+sub get_alias_user {
+  local($userno, $from, $prefix) = @_;
+  local($file, @list);
+  $file = &'property($userno, 'alias');
+  foreach $list (&split_list('nick', &read_file($file))) {
+    @list = &'array($list);
+    if (&match_alias_user($from, @list)) {
+      return &parse_alias($prefix, @list);
+    }
+  }
+  return ();
+}
+
+sub match_alias_user {
+  local($from, @list) = @_;
+  local($var, $arg, $regex);
+  foreach $line (@list) {
+    ($var, $arg) = split(/\s+/, $line, 2);
+    next unless "\L$var\E" eq 'user';
+    $regex = &'regex($arg);
+    next unless $from =~ /$regex/i;
+    return 1;
+  }
+  return 0;
+}
+
+sub parse_alias {
+  local($prefix, @list) = @_;
+  local(%alias, $var, $arg, $key);
+  %alias = ();
+  foreach $line (@list) {
+    ($var, $arg) = split(/\s+/, $line, 2);
+    $var = "\L$var\E";
+    if ($prefix) {
+      $key = $prefix . '.' . $var;
+    } else {
+      $key = $var;
+    }
+    next if defined($alias{$key});
+    if ($var eq 'nick') {
+      $alias{$key} = (split(/\,/, $arg))[0];
+    } elsif ($var eq 'name') {
+      $alias{$key} = (split(/\s+/, $arg))[0];
+    } else {
+      $alias{$key} = $arg;
+    }
+  }
+  return %alias;
+}
+
+sub split_list {
+  local($field, @list) = @_;
+  local($var, $arg, @array, @entry);
+  $field = "\L$field\E";
+  @array = ();
+  @entry = ();
+  foreach $line (@list) {
+    ($var, $arg) = split(/\s*\:\s*/, $line, 2);
+    if ($field eq "\L$var\E") {
+      push(@array, &'list(@entry)) if @entry;
+      @entry = ();
+    }
+    push(@entry, $var . ' ' . $arg);
+  }
+  push(@array, &'list(@entry)) if @entry;
+  return @array;
+}
+
+sub read_file {
+  local($file) = @_;
+  local($name, $code, $mtime, @data, $line);
+  ($name, $code) = &filename($file);
+  $mtime = (stat($name))[9];
+  if (defined($mtime)) {
+    $modify{$name} = -1 unless defined($modify{$name});
+    if ($modify{$name} != $mtime) {
+      if (open(TMP, $name)) {
+        @data = ();
+        while (defined($line = <TMP>)) {
+          $line =~ s/^\s+//;
+          next if $line =~ /^[\#\;]/;
+          $line =~ tr/\r\n//d;
+          next unless $line;
+          $line =~ s/\s+$//;
+          $line = &code_euc($line, $code) if $code;
+          push(@data, $line);
+        }
+        close(TMP);
+        $modify{$name} = $mtime;
+        $cache{$name} = &'list(@data);
+        return @data;
+      }
+    } else {
+      return &'array($cache{$name});
+    }
+  }
+  return ();
+}
+
+sub filename {
+  local($file) = @_;
+  local($idx, $name, $code);
+  return ('', '') unless $file;
+  if (($idx = rindex($file, ';')) != -1) {
+    $name = substr($file, 0, $idx);
+    $code = substr($file, $idx + 1);
+  } else {
+    $name = $file;
+    $code = '';
+  }
+  return (&'expand($name), $code);
+}
+
+sub code_euc {
+  local($line, $list) = @_;
+  foreach $code (split(/\,/, "\L$list\E")) {
+    if ($code eq 'euc') {
+      $line = &'euc_euc($line);
+    } elsif ($code eq 'jis') {
+      $line = &'jis_euc($line);
+    } elsif ($code eq 'sjis') {
+      $line = &'sjis_euc($line);
+    }
+  }
+  return $line;
+}
+
+sub euc_code {
+  local($line, $list) = @_;
+  local($code);
+  $code = (split(/\,/, "\L$list\E"))[0];
+  if ($code eq 'euc') {
+    $line = &'euc_euc($line);
+  } elsif ($code eq 'jis') {
+    $line = &'euc_jis($line);
+  } elsif ($code eq 'sjis') {
+    $line = &'euc_sjis($line);
+  }
+  return $line;
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>auto/response.plm</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+auto/response.plm - メッセージに反応して発言を行う
+
+
+<HR><H3>説明</H3>
+
+
+ユーザの発言に反応して、それに対する発言を行います。
+反応とその発言はファイルに以下のようなフォーマットで記述します。
+
+<PRE>
+pattern: ^こんにち(は|わ)〜?$
+rate: 100
+response: こんにちは〜
+response: #(name|nick|nick.now)さん、いらっしゃ〜い
+
+pattern: (ねる|おやすみ)
+rate: 50
+response: #(name|nick|nick.now)さん、おやすみなさい
+response: #(nick.now): だめ☆
+response: えっ、もう寝ちゃうんですか〜?(;-;)
+</PRE>
+
+それぞれのパターンは正規表現で、大文字小文字は区別します。
+また、rateに続くresponseの連続した行のうちから一行を選択して、
+rateパーセントの確率で発言を行います。
+
+
+<HR><H3>プロパティ</H3>
+
+<DL>
+<DT>  auto.response.file ファイル名[;({euc|jis|sjis})]
+</DT>
+<DD>    反応する発言と、それに対する発言を記述するファイルです。
+        ファイルの漢字コードがjis以外の場合は漢字コードを
+       指定する必要があります。
+</DD>
+<DT>  auto.response.alias ファイル名[;({euc|jis|sjis})]
+</DT>
+<DD>    エイリアスを参照するファイルを指定します。
+        このファイルの内容に従って、メッセージ中のフォーマットと、
+        auto.response.formatを展開します。
+</DD>
+<DT>  auto.response.format* フォーマット
+</DT>
+<DD>    発言時のフォーマットを指定します。すべての発言に対して、
+        このフォーマットで発言を行います。#(nick)のように書くことで、
+        エイリアスの対応する値で置き換えます。エイリアス以外の値では、
+        #(nick.now)でニックネーム、#(channel)でチャンネル、#(message)で
+        発言しようとしているメッセージに置き換えます。
+        デフォルトでは「#(message)」です。
+</DD>
+</DL>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
++ auto/response.plm
+auto.response.file: response.txt;euc
+auto.response.alias: alias.txt
+</PRE>
+
+反応を記述するファイルとして「response.txt」を、
+エイリアスを参照するファイルとして「alias.txt」を使用します。
+「response.txt」は漢字コードを「euc」で記述します。
+また「alias.txt」は漢字コードを「jis」で記述します。
+
+</BODY></HTML>
