@@ -5,7 +5,7 @@
 package plum;
 
 $NAME = 'plum';
-$VERSION = '3.1.0b11';
+$VERSION = '3.1.0b12';
 
 $NIL = "\r";
 $NOTRAILING = &'list('004', '215', '221', '324', '341', '367', 'MODE');
@@ -1801,6 +1801,7 @@ sub s_proc {
     $status[$userno] = 0;
     &'recycle($sno);
     &s_clear($userno);
+    &'alarm(-$INTERVAL);
   }
 }
 
