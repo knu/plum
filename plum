@@ -1865,8 +1865,8 @@ sub server_close {
   &clear_variable($sno);
   if ($default[$'userno[$sno]] == $sno) {
     $status[$'userno[$sno]] = 0;
-    &'recycle($sno);
     $lastnick[$'userno[$sno]] = $'nick[$'userno[$sno]];
+    &'recycle($sno);
   }
   &'alarm(-$INTERVAL);
 }
