@@ -18,8 +18,7 @@ sub main_loop {
     next unless $'userno[$sno] == $userno;
     if ($sno) {
       if (time() - $'access[$sno] > $limit) {
-        &'s_close($sno);
-        &'close($sno);
+        close($'fileno[$sno]);
       } else {
         &'alarm(time() - $'access[$sno] - $limit - 1);
       }
