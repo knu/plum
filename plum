@@ -646,7 +646,7 @@ sub 'socket {
   local($no);
   $no = index($sockethandle . ' ', ' ');
   substr($sockethandle, $no, 1) = $prefix;
-  $'socket[$no] = $prefix . $no;
+  $'socket[$no] = '\'' . $prefix . $no;
   $'fileno[$no] = 0;
   return $no;
 }
