@@ -1689,29 +1689,32 @@ sub l_proc {
   local($lno) = @_;
   local($cno, $port, $list, $i, $host, $pass, $mac, $serv);
   $cno = &'socket('C');
-  &c_clear($cno);
-  return unless &'accept($cno, $lno);
-  $port = (&'sockname($cno))[0];
-  $list = '';
-  for ($i = 1; $i < @'username; $i++) {
-    foreach $client (&'property($i, 'client')) {
-      ($host, $pass) = split(/\s+/, $client);
-      ($mac, $serv) = split(/\;/, $host);
-      next unless $port == ($serv || $port);
-      next unless &'match($cno, $mac);
-      $auth[$cno] = &'add($auth[$cno], $i, $pass || '');
-      $list = &'add($list, $i);
+  if (&'accept($cno, $lno)) {
+    &c_clear($cno);
+    $port = (&'sockname($cno))[0];
+    $list = '';
+    for ($i = 1; $i < @'username; $i++) {
+      foreach $client (&'property($i, 'client')) {
+        ($host, $pass) = split(/\s+/, $client);
+        ($mac, $serv) = split(/\;/, $host);
+        next unless $port == ($serv || $PORT);
+        next unless &'match($cno, $mac);
+        $auth[$cno] = &'add($auth[$cno], $i, $pass || '');
+        $list = &'add($list, $i);
+      }
     }
-  }
-  if ($auth[$cno]) {
-    $clientlist = &'add($clientlist, $cno);
+    if ($auth[$cno]) {
+      $clientlist = &'add($clientlist, $cno);
+    } else {
+      &'close($cno);
+    }
+    if (&'array($list) == 1) {
+      $userno[$cno] = (&'array($list))[0];
+    } else {
+      $userno[$cno] = 0;
+    }
   } else {
     &'close($cno);
-  }
-  if (&'array($list) == 1) {
-    $userno[$cno] = (&'array($list))[0];
-  } else {
-    $userno[$cno] = 0;
   }
 }
 
