@@ -57,7 +57,7 @@ plumが内部で使用する各種の変数の情報などを表示します。
 <HR><H3>設定例</H3>
 
 <PRE>
-= sys/dump.plm
++ sys/dump.plm
 </PRE>
 
 </BODY></HTML>
