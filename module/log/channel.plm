@@ -1,0 +1,434 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1997-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package log_channel;
+
+$_ = 'log_channel';
+
+sub initialize {
+  $DIRECTORY = '.';
+  $HEADER = '%H:%M';
+  $COMMAND = &'list('privmsg', 'join', 'part', 'kick' ,'invite', 'mode', 'nick', 'quit', 'topic');
+}
+
+sub module_enable {
+  local($userno) = @_;
+  foreach $sno (&'array($'serverlist)) {
+    next unless $userno == $'userno[$sno];
+    foreach $chan (&'array($'channellist[$sno])) {
+      $nameslist{$sno, $chan} = '';
+      foreach $nick (&'array($'nameslist{$sno, $chan})) {
+        $nick =~ tr/\@\+//d;
+        $nameslist{$sno, $chan} = &'add($nameslist{$sno, $chan}, $nick);
+      }
+    }
+  }
+}
+
+sub module_disable {
+  local($userno) = @_;
+  foreach $sno (&'array($'serverlist)) {
+    next unless $userno == $'userno[$sno];
+    foreach $chan (&'array($'channellist[$sno])) {
+      delete $nameslist{$sno, $chan};
+    }
+  }
+}
+
+sub ss_privmsg {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick, $vchan);
+  if ($params[1] && &savecommand($'userno[$serverno], $cmd)) {
+    $nick = &'prefix($prefix);
+    if (&'channel($params[0])) {
+      $vchan = &'alias($params[0]);
+      if (&'exist($nameslist{$serverno, $params[0]}, $nick)) {
+        &writelog($serverno, $params[0], "<$vchan:$nick> $params[1]");
+      } else {
+        &writelog($serverno, $params[0], "($vchan:$nick) $params[1]");
+      }
+    } else {
+      &writelog($serverno, '', "=$nick= $params[1]");
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_notice {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick, $vchan);
+  if ($params[1] && &savecommand($'userno[$serverno], $cmd)) {
+    $nick = &'prefix($prefix);
+    if (&'channel($params[0])) {
+      $vchan = &'alias($params[0]);
+      if (&'exist($nameslist{$serverno, $params[0]}, $nick)) {
+        &writelog($serverno, $params[0], "<$vchan:$nick> $params[1]");
+      } else {
+        &writelog($serverno, $params[0], "($vchan:$nick) $params[1]");
+      }
+    } else {
+      &writelog($serverno, '', "=$nick= $params[1]");
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_join {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick, $name, $mode, $vchan);
+  $nick = &'prefix($prefix);
+  ($name, $mode) = (split(/\cG/, $params[0]), '');
+  if ($nick eq $'nick[$serverno]) {
+    $nameslist{$serverno, $name} = '';
+  } else {
+    $nameslist{$serverno, $name} = &'add($nameslist{$serverno, $name}, $nick);
+  }
+  if (&savecommand($'userno[$serverno], $cmd)) {
+    $vchan = &'alias($name);
+    if (index($mode, 'o') != -1) {
+      &writelog($serverno, $name, "+ \@$nick ($prefix) to $vchan");
+    } elsif (index($mode, 'v') != -1) {
+      &writelog($serverno, $name, "+ +$nick ($prefix) to $vchan");
+    } else {
+      &writelog($serverno, $name, "+ $nick ($prefix) to $vchan");
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_part {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick, $vchan);
+  $nick = &'prefix($prefix);
+  if (&savecommand($'userno[$serverno], $cmd)) {
+    $vchan = &'alias($params[0]);
+    &writelog($serverno, $params[0], "- $nick from $vchan ($params[1])");
+  }
+  if ($nick eq $'nick[$serverno]) {
+    delete $nameslist{$serverno, $params[0]};
+  } else {
+    $nameslist{$serverno, $params[0]} = &'remove($nameslist{$serverno, $params[0]}, $nick);
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_kick {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick, $vchan);
+  $nick = &'prefix($prefix);
+  if (&savecommand($'userno[$serverno], $cmd)) {
+    $vchan = &'alias($params[0]);
+    &writelog($serverno, $params[0], "- $params[1] by $nick from $vchan ($params[2])");
+  }
+  if ($nick eq $'nick[$serverno]) {
+    delete $nameslist{$serverno, $params[0]};
+  } else {
+    $nameslist{$serverno, $params[0]} = &'remove($nameslist{$serverno, $params[0]}, $params[1]);
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_invite {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick, $vchan);
+  if (&savecommand($'userno[$serverno], $cmd)) {
+    $nick = &'prefix($prefix);
+    $vchan = &'alias($params[1]);
+    &writelog($serverno, $params[1], "Invited by $nick: $vchan");
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_mode {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick, $vchan, @mode);
+  @mode = @params;
+  shift(@mode);
+  if (&savecommand($'userno[$serverno], $cmd)) {
+    $nick = &'prefix($prefix);
+    if (&'channel($params[0])) {
+      $vchan = &'alias($params[0]);
+      &writelog($serverno, $params[0], "Mode by $nick: $vchan " . join(' ', @mode));
+    } else {
+      &writelog($serverno, '', "Mode by $nick: $params[0] " . join(' ', @mode));
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_nick {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick);
+  $nick = &'prefix($prefix);
+  if (&savecommand($'userno[$serverno], $cmd)) {
+    if ($params[0] eq $'nick[$serverno]) {
+      &writelog($serverno, $nick, "My nick is changed ($nick -\> $params[0])");
+    } else {
+      &writelog($serverno, $nick, "$nick -\> $params[0]");
+    }
+  }
+  foreach $chan (&'array($'channellist[$serverno])) {
+    $nameslist{$serverno, $chan} = &'change($nameslist{$serverno, $chan}, $nick, $params[0]);
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_quit {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick);
+  $nick = &'prefix($prefix);
+  if (&savecommand($'userno[$serverno], $cmd)) {
+    &writelog($serverno, $nick, "! $nick ($params[0])");
+  }
+  foreach $chan (&'array($'channellist[$serverno])) {
+    $nameslist{$serverno, $chan} = &'remove($nameslist{$serverno, $chan}, $nick);
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_topic {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick, $vchan);
+  if (&savecommand($'userno[$serverno], $cmd)) {
+    $nick = &'prefix($prefix);
+    $vchan = &'alias($params[0]);
+    &writelog($serverno, $params[0], "Topic of channel $vchan by $nick: $params[1]");
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_353 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  if (&'exist($'channellist[$serverno], $params[2])) {
+    foreach $name (split(/\s+/, $params[3])) {
+      $name =~ tr/\+\@//d;
+      $nameslist{$serverno, $params[2]} = &'add($nameslist{$serverno, $params[2]}, $name);
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub sp_privmsg {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($chan, $vchan);
+  if ($params[1] && &savecommand($'userno[$serverno], $cmd)) {
+    foreach $chan (split(/\,/, $params[0])) {
+      if (&'channel($chan)) {
+        $vchan = &'alias($chan);
+        &writelog($serverno, $chan, ">$vchan:$'nick[$serverno]< $params[1]");
+      } else {
+        &writelog($serverno, '', ">$chan< $params[1]");
+      }
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub sp_notice {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($chan, $vchan);
+  if ($params[1] && &savecommand($'userno[$serverno], $cmd)) {
+    foreach $chan (split(/\,/, $params[0])) {
+      if (&'channel($chan)) {
+        $vchan = &'alias($chan);
+        &writelog($serverno, $chan, ">$vchan:$'nick[$serverno]< $params[1]");
+      } else {
+        &writelog($serverno, '', ">$chan< $params[1]");
+      }
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub savecommand {
+  local($userno, $cmd) = @_;
+  local($save);
+  $save = &'property($userno, 'command');
+  if (defined($save)) {
+    $save = '';
+    foreach $mask (&'property($userno, 'command')) {
+      $save = &'add($save, split(/\,/, $mask));
+    }
+  } else {
+    $save = $COMMAND;
+  }
+  return &'exist($save, $cmd);
+}
+
+sub writelog {
+  local($serverno, $chan, $msg) = @_;
+  local($userno, $chanlist, $rchan, $file, $name, $list);
+  $userno = $'userno[$serverno];
+  if ($chan eq '') {
+    foreach $file (&'property($userno, 'file')) {
+      ($name, $list) = split(/\s+/, $file);
+      if (!$list || &'exist(&'list(split(/\,/, $list)), '*')) {
+        &channellog($serverno, $name, $msg);
+        last;
+      }
+    }
+  } elsif (&'channel($chan)) {
+    foreach $file (&'property($userno, 'file')) {
+      ($name, $list) = split(/\s+/, $file);
+      $chanlist = '';
+      foreach $item (split(/\,/, $list || '')) {
+        $chanlist = &'add($chanlist, &'real($item));
+      }
+      if (&'exist($chanlist, $chan) || $chanlist eq '') {
+        &channellog($serverno, $name, $msg);
+        last;
+      }
+    }
+  } else {
+    foreach $file (&'property($userno, 'file')) {
+      ($name, $list) = split(/\s+/, $file);
+      foreach $item (split(/\,/, $list || '')) {
+        $rchan = &'real($item);
+        if (&'exist($nameslist{$serverno, $rchan}, $chan)) {
+          &channellog($serverno, $name, $msg);
+          last;
+        }
+      }
+    }
+  }
+}
+
+sub channellog {
+  local($fileno, $file, $msg) = @_;
+  local($userno, $dir, $idx, $name, $code, $header, $mode);
+  $userno = $'userno[$fileno];
+  ($name, $code) = &filename($file);
+  if ($name !~ /^[\\\/]/) {
+    $dir = &'expand(&'property($userno, 'directory') || $DIRECTORY);
+    $name = "$dir/$name";
+  }
+  $name = &'date($name);
+  $header = &'property($userno, 'header');
+  $header = $HEADER unless defined($header);
+  $header = &'date($header);
+  $msg = &euc_code($msg, $code) if $code;
+  if (!-e $name) {
+    if (open(FILE, ">$name")) {
+      close(FILE);
+      $mode = &'property($userno, 'mode');
+      if (defined($mode)) {
+        chmod(oct($mode), $name);
+      }
+    }
+  }
+  if (open(FILE, ">>$name")) {
+    print FILE $header, ' ', $msg, "\n";
+    close(FILE);
+  }
+}
+
+sub filename {
+  local($file) = @_;
+  local($idx, $name, $code);
+  return ('', '') unless $file;
+  if (($idx = rindex($file, ';')) != -1) {
+    $name = substr($file, 0, $idx);
+    $code = substr($file, $idx + 1);
+  } else {
+    $name = $file;
+    $code = '';
+  }
+  return (&'expand($name), $code);
+}
+
+sub euc_code {
+  local($line, $list) = @_;
+  local($code);
+  $code = (split(/\,/, "\L$list\E"))[0];
+  if ($code eq 'euc') {
+    $line = &'euc_euc($line);
+  } elsif ($code eq 'jis') {
+    $line = &'euc_jis($line);
+  } elsif ($code eq 'sjis') {
+    $line = &'euc_sjis($line);
+  }
+  return $line;
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>log/channel.plm</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+log/channel.plm - メッセージをチャンネルごとのログとして保存する
+
+
+<HR><H3>説明</H3>
+
+チャンネルごとにファイルを指定してログを保存します。
+
+
+<HR><H3>プロパティ</H3>
+
+<DL>
+<DT>  log.channel.directory ディレクトリ
+</DT>
+<DD>    ログを作成するディレクトリを指定します。
+        ディレクトリはplumを実行したディレクトリからの相対パスになります。
+        UNIXなら「~/」や「~user」という指定もできます。
+</DD>
+<DT>  log.channel.file* ファイル名[;({jis|euc|sjis})] [(チャンネル)]
+</DT>
+<DD>    ログのファイル名と保存するチャンネルを指定します。
+        %ではじまる文字があると対応する日付に変換されます。
+        またチャンネル名の変わりに*を指定することで自分宛の
+        メッセージをログに保存することができます。
+        同じチャンネルが複数のファイルに指定されていたときは、
+        最初に書いたファイルにだけ保存し、チャンネル名を省略すると、
+        残りのすべてのログがそのファイルに保存されます。
+</DD>
+<DT>  log.channel.header へッダ
+</DT>
+<DD>    ログに出力する時刻のフォーマットを指定します。
+        %ではじまる文字があると対応する時間に変換されます。
+</DD>
+<DT>  log.channel.mode ファイルモード
+</DT>
+<DD>    ログのファイルモードをここで指定した値にします。
+</DD>
+<DT>  log.channel.command ({invite|join|kick|mode|nick|notice|part|privmsg|quit|topic})
+</DT>
+<DD>    保存するメッセージの種類を指定します。
+        デフォルトでは「notice」以外のすべてです。
+</DD>
+</DL>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
++ log/channel.plm
+log.channel.directory: log
+log.channel.file: log%-8O%m%d;sjis #まどか,#まどか:*.jp
+</PRE>
+
+「#まどか」と「#まどか:*.jp」のログを「log/log%m%d」に保存します。
+それ以外のチャンネルのログは保存しません。
+このときの漢字コードはsjisです。
+また、ログのファイル名は毎日8時にその日の日付のものに変わります。
+
+<PRE>
++ log/channel.plm
+log.channel.file: madoka/%m%d #まどか,*
+log.channel.file: log%m%d
+log.channel.command: privmsg,notice,topic
+</PRE>
+
+「#まどか」のログと自分宛のメッセージを「madoka/log%m%d」に保存し、
+それ以外のログを「log%m%d」に保存します。
+「%m」と「%d」はそれぞれ現在の月と日に変換されます。
+また、「privmsg」、「notice」、「topic」以外のログは保存しません。
+
+</BODY></HTML>
