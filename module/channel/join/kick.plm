@@ -1,0 +1,119 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1997-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package channel_join_kick;
+
+$_ = 'channel_join_kick';
+
+sub initialize {
+}
+
+sub server_close {
+  local($serverno) = @_;
+  local($no, $chan);
+  foreach $key (keys(%keyword)) {
+    ($no, $chan) = split(/$;/, $key, 2);
+    next unless $no == $serverno;
+    delete $keyword{$key};
+  }
+}
+
+sub sp_join {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local(@chan, @key, $i);
+  if ($params[1]) {
+    if (!&'exist($'channellist{$serverno}, $params[0])) {
+      @chan = split(/\,/, $params[0]);
+      @key = split(/\,/, $params[1]);
+      for ($i = 0; $i < @chan; $i++) {
+        $keyword{$serverno, $chan[$i]} = $key[$i];
+      }
+    }
+  }
+  return ($prefix, $cmd, @params);
+}            
+
+sub ss_kick {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($userno, $regex);
+  $userno = $'userno[$serverno];
+  if ($params[1] eq $'nick[$serverno]) {
+    if (&check_mask($userno, $prefix, $params[0])) {
+      &'s_print($serverno, '', 'JOIN', $params[0], $'channelmode{$serverno, $params[0], 'k'} || $keyword{$serverno, $params[0]} || '');
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub check_mask {
+  local($userno, $prefix, $chan) = @_;
+  local($user, $chlist, $list);
+  foreach $mask (&'property($userno, 'mask')) {
+    ($user, $chlist) = split(/\s+/, $mask);
+    $list = '';
+    foreach $vchan (split(/\,/, $chlist || '')) {
+      $list = &'add($list, &'real($vchan));
+    }
+    if (&'channel($chan)) {
+      next unless (!$list || &'exist($list, $chan));
+    } else {
+      next unless (!$list || &'exist($list, '*'));
+    }
+    if ($user =~ /^\-/) {
+      $regex = &'regex(substr($user, 1));
+      return 0 if $prefix =~ /$regex/i;
+    }
+    if ($user =~ /^\+/) {
+      $regex = &'regex(substr($user, 1));
+    } else {
+      $regex = &'regex($user);
+    }
+    return 1 if $prefix =~ /$regex/i;
+  }
+  return 0;
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>channel/join/kick.plm</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+channel/join/kick.plm - チャンネルからキックされても入り直す
+
+
+<HR><H3>説明</H3>
+
+チャンネルからキックされたときに、再びそのチャンネルに入ります。
+
+
+<HR><H3>プロパティ</H3>
+
+<DL>
+<DT>  channel.join.kick.mask* ユーザマスク [(チャンネル名)]
+</DT>
+<DD>    キックした人がここで指定したものにマッチしたら、
+        キックされたチャンネルに再び入ります。
+</DD>
+</DL>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
++ channel/join/kick.plm
+channel.join.kick.mask: -*!*@* #まどか:*.jp
+channel.join.kick.mask: *!*@*
+</PRE>
+
+「#まどか:*.jp」からキックされたときは何もしませんが、
+それ以外のチャンネルからキックされたときはそのチャンネルに
+再び入ります。
+
+</BODY></HTML>

@@ -1,0 +1,112 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1997-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package channel_join_invite;
+
+$_ = 'channel_join_invite';
+
+sub initialize {
+}
+
+sub ss_invite {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($userno, $regex, $user, $list);
+  $userno = $'userno[$serverno];
+  if (&check_mask($userno, $prefix, $params[1])) {
+    &'s_print($serverno, '', 'JOIN', $params[1]);
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub check_mask {
+  local($userno, $prefix, $chan) = @_;
+  local($user, $chlist, $list);
+  foreach $mask (&'property($userno, 'mask')) {
+    ($user, $chlist) = split(/\s+/, $mask);
+    $list = '';
+    foreach $vchan (split(/\,/, $chlist || '')) {
+      $list = &'add($list, &'real($vchan));
+    }
+    if (&'channel($chan)) {
+      next unless (!$list || &'exist($list, $chan));
+    } else {
+      next unless (!$list || &'exist($list, '*'));
+    }
+    if ($user =~ /^\-/) {
+      $regex = &'regex(substr($user, 1));
+      return 0 if $prefix =~ /$regex/i;
+    }
+    if ($user =~ /^\+/) {
+      $regex = &'regex(substr($user, 1));
+    } else {
+      $regex = &'regex($user);
+    }
+    return 1 if $prefix =~ /$regex/i;
+  }
+  return 0;
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>channel/join/invite.plm</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+channel/join/invite.plm - 招待されたチャンネルに入る
+
+
+<HR><H3>説明</H3>
+
+チャンネルに招待されたときに、そのチャンネルに入ります。
+
+
+<HR><H3>プロパティ</H3>
+
+<DL>
+<DT>  channel.join.invite.mask* ユーザマスク [(チャンネル名)]
+</DT>
+<DD>    招待した人、およびチャンネルがここで指定された
+        ものにマッチした場合、そのチャンネルに入ります。
+</DD>
+</DL>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
++ channel/join/invite.plm
+channel.join.invite.mask: *!*@* #まどか:*.jp
+channel.join.invite.mask: *!*@* #ぷらむ
+</PRE>
+
+招待されたチャンネルが「#まどか:*.jp」か「#ぷらむ」だった場合に、
+そのチャンネルに入ります。
+
+<PRE>
++ channel/join/invite.plm
+channel.join.invite.mask: pupu_j!*@*.jp
+channel.join.invite.mask: pupu_d!*@*.jp %まどか
+</PRE>
+
+また、招待した人が「pupu_j!*@*.jp」にマッチした場合、
+そのチャンネルに入ります。また招待された人が「pupu_d!*@**.jp」
+にマッチし、チャンネルが「%まどか」だった場合、「%まどか」に
+入ります。
+
+<PRE>
++ channel/join/invite.plm
+channel.join.invite.mask: -*!*@* #ぷらむ
+channel.join.invite.mask: *!*@*
+</PRE>
+
+招待されたチャンネルが「#ぷらむ」だった場合は、
+「#ぷらむ」には入りません。それ以外のチャンネルだった場合は、
+そのチャンネルに入ります。
+
+</BODY></HTML>

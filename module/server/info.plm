@@ -1,0 +1,189 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1998-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package server_info;
+
+$_ = 'server_info';
+
+sub initialize {
+}
+
+sub module_disable {
+  local($userno) = @_;
+  foreach $sno (&'array($'serverlist)) {
+    next unless $userno == $'userno[$sno];
+    &clear_message($sno);
+  }
+}
+
+sub server_close {
+  local($serverno) = @_;
+  &clear_message($serverno);
+}
+
+sub clear_message {
+  local($no) = @_;
+  undef($msg002[$no]);
+  undef($msg003[$no]);
+  undef($msg004[$no]);
+  undef($msg251[$no]);
+  undef($msg252[$no]);
+  undef($msg253[$no]);
+  undef($msg254[$no]);
+  undef($msg255[$no]);
+  undef($msg372[$no]);
+  undef($msg375[$no]);
+}
+
+sub client_open {
+  local($clientno) = @_;
+  local($sno, $name, $nick);
+  $sno = $'server[$clientno];
+  $name = $'servername[$clientno];
+  $nick = $'nick[$clientno];
+  if (&'exist($'serverlist, $sno)) {
+    &'c_print($clientno, $name, '002', $nick, &'array($msg002[$sno])) if $msg002[$sno];
+    &'c_print($clientno, $name, '003', $nick, &'array($msg003[$sno])) if $msg003[$sno];
+    &'c_print($clientno, $name, '004', $nick, &'array($msg004[$sno])) if $msg004[$sno];
+    &'c_print($clientno, $name, '251', $nick, &'array($msg251[$sno])) if $msg251[$sno];
+    &'c_print($clientno, $name, '252', $nick, &'array($msg252[$sno])) if $msg252[$sno];
+    &'c_print($clientno, $name, '253', $nick, &'array($msg253[$sno])) if $msg253[$sno];
+    &'c_print($clientno, $name, '254', $nick, &'array($msg254[$sno])) if $msg254[$sno];
+    &'c_print($clientno, $name, '255', $nick, &'array($msg255[$sno])) if $msg255[$sno];
+    if ($msg375[$sno]) {
+      &'c_print($clientno, $name, '375', $nick, &'array($msg375[$sno]));
+      foreach $msg (&'array($msg372[$sno])) {
+        &'c_print($clientno, $name, '372', $nick, $msg);
+      }
+    } else {
+      &'c_print($clientno, $name, '375', $nick, "- $name Message of the Day -");
+    }
+    &'c_print($clientno, $name, '376', $nick, 'End of /MOTD command.');
+  } else {
+    &'c_print($clientno, $name, '375', $nick, "- $name Message of the Day -");
+    &'c_print($clientno, $name, '376', $nick, 'End of /MOTD command.');
+  }
+}
+
+sub ss_002 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local(@msg);
+  @msg = @params;
+  shift(@msg);
+  $msg002[$serverno] = &'list(@msg);
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_003 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local(@msg);
+  @msg = @params;
+  shift(@msg);
+  $msg003[$serverno] = &'list(@msg);
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_004 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local(@msg);
+  @msg = @params;
+  shift(@msg);
+  $msg004[$serverno] = &'list(@msg);
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_251 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local(@msg);
+  @msg = @params;
+  shift(@msg);
+  $msg251[$serverno] = &'list(@msg);
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_252 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local(@msg);
+  @msg = @params;
+  shift(@msg);
+  $msg252[$serverno] = &'list(@msg);
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_253 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local(@msg);
+  @msg = @params;
+  shift(@msg);
+  $msg253[$serverno] = &'list(@msg);
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_254 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local(@msg);
+  @msg = @params;
+  shift(@msg);
+  $msg254[$serverno] = &'list(@msg);
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_255 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local(@msg);
+  @msg = @params;
+  shift(@msg);
+  $msg255[$serverno] = &'list(@msg);
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_372 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($msg);
+  $msg = $params[1];
+  $msg372[$serverno] .= &'list($msg);
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_375 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local(@msg);
+  @msg = @params;
+  shift(@msg);
+  $msg375[$serverno] = &'list(@msg);
+  $msg372[$serverno] = '';
+  return ($prefix, $cmd, @params);
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>server/info.plm</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+server/info.plm - クライアントの接続時にサーバ情報を送る
+
+
+<HR><H3>説明</H3>
+
+クライアントを接続したときに、現在接続しているサーバの情報を送ります。
+これらの情報はplumがサーバに接続した時や、
+ユーザが明示的に新しい情報を問い合わせたときに更新されます。
+
+
+<HR><H3>プロパティ</H3>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
++ server/info.plm
+</PRE>
+
+</BODY></HTML>

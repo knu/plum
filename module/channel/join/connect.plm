@@ -1,0 +1,159 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1998-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package channel_join_connect;
+
+$_ = 'channel_join_connect';
+
+sub initialize {
+}
+
+sub server_open {
+  local($serverno) = @_;
+  local($userno, $i, $chan, $key, @chan, @key, $name, $keylist);
+  $userno = $'userno[$serverno];
+  if (!defined($joinlist[$userno])) {
+    $joinlist[$userno] = '';
+    $keylist = '';
+    foreach $channel (&'property($userno, 'channel')) {
+      ($chan, $key) = split(/\s+/, $channel, 2);
+      @chan = split(/\,/, $chan);
+      @key = split(/\,/, $key || '');
+      for ($i = 0; $i < @chan; $i++) {
+        $name = &'real($chan[$i]);
+        next unless $name;
+        $joinlist[$userno] = &'add($joinlist[$userno], $name);
+        if ($key[$i] && !$keyword{$userno, $name}) {
+          $keyword{$userno, $name} = $key[$i];
+        }
+        $keylist = &'add($keylist, $keyword{$userno, $name} || '');
+      }
+    }
+  }
+  if ($joinlist[$userno]) {
+    &'s_print($serverno, '', 'JOIN', join(',', &'array($joinlist[$userno])), join(',', &'array($keylist)));
+  }
+}
+
+sub module_disable {
+  local($userno) = @_;
+  local($no, $chan);
+  undef($joinlist[$userno]);
+  foreach $key (keys(%keyword)) {
+    ($no, $chan) = split(/$;/, $key, 2);
+    next unless $no == $userno;
+    delete $keyword{$key};
+  }
+}
+
+sub ss_join {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($name, $mode);
+  ($name, $mode) = (split(/\cG/, $params[0]), '');
+  $joinlist[$'userno[$serverno]] = &'add($joinlist[$'userno[$serverno]], $name) if &'prefix($prefix) eq $'nick[$serverno];
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_kick {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  $joinlist[$'userno[$serverno]] = &'remove($joinlist[$'userno[$serverno]], $params[0]) if $params[1] eq $'nick[$serverno];
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_part {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  $joinlist[$'userno[$serverno]] = &'remove($joinlist[$'userno[$serverno]], $params[0]) if &'prefix($prefix) eq $'nick[$serverno];
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_mode {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($chan, $mode, @modes, $char, $flag, $name, $i);
+  ($chan, $mode, @modes) = @params;
+  if (&'channel($chan)) {
+    for ($i = 0; $i < length($mode); $i++) {
+      $char = substr($mode, $i, 1);
+      if ($char eq '+' || $char eq '-') {
+        $flag = $char;
+      } elsif ($char eq 'b') {
+        shift(@modes);
+      } elsif ($char eq 'e') {
+        shift(@modes);
+      } elsif ($char eq 'I') {
+        shift(@modes);
+      } elsif ($char eq 'k') {
+        if ($flag eq '+') {
+          $keyword{$'userno[$serverno], $chan} = shift(@modes);
+        } else {
+          delete $keyword{$'userno[$serverno], $chan};
+          shift(@modes);
+        }
+      } elsif ($char eq 'l') {
+        if ($flag eq '+') {
+          shift(@modes);
+        }
+      } elsif ($char eq 'O') {
+        shift(@modes);
+      } elsif ($char eq 'o') {
+        shift(@modes);
+      } elsif ($char eq 'v') {
+        shift(@modes);
+      }
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>channel/join/connect.plm</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+channel/join/connect.plm - サーバに接続したときに指定したチャンネルに入る
+
+
+<HR><H3>説明</H3>
+
+サーバに接続したときに、指定したチャンネルに入ります。
+サーバとの接続が切れて再び接続し直したときは、
+指定したチャンネルとは関係なく、
+接続が切れる前に入っていたチャンネルに入ります。
+
+
+<HR><H3>プロパティ</H3>
+
+<DL>
+<DT>  channel.join.connect.channel* (チャンネル) (キー)
+</DT>
+<DD>    サーバに接続したときに入るチャンネルを指定します。
+        チャンネルのキーが指定されているときは、そのキーを使います。
+</DD>
+</DL>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
++ channel/join/connect.plm
+channel.join.connect.channel: #まどか mdk
+</PRE>
+
+サーバに接続したときに、「#まどか」に「mdk」というキーで入ります。
+
+<PRE>
++ channel/join/connect.plm
+channel.join.connect.channel: #まどか:*.jp,#ぷらむ:*.jp
+channel.join.connect.channel: #ぷらむ
+</PRE>
+
+サーバに接続したときに、「#まどか:*.jp」、「#ぷらむ:*.jp」、
+「#ぷらむ」の3つのチャンネルに入ります。
+
+</BODY></HTML>

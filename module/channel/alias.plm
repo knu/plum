@@ -1,0 +1,110 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1997-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package channel_alias;
+
+$_ = 'channel_alias';
+
+sub initialize {
+}
+
+sub cs_invite {
+  local($clientno, @message) = @_;
+  return &convert(3, @message);
+}
+
+sub cs_join {
+  local($clientno, @message) = @_;
+  return &convert(2, @message);
+}
+
+sub cs_kick {
+  local($clientno, @message) = @_;
+  return &convert(2, @message);
+}
+
+sub cs_list {
+  local($clientno, @message) = @_;
+  return &convert(2, @message);
+}
+
+sub cs_mode {
+  local($clientno, @message) = @_;
+  return &convert(2, @message);
+}
+
+sub cs_names {
+  local($clientno, @message) = @_;
+  return &convert(2, @message);
+}
+
+sub cs_notice {
+  local($clientno, @message) = @_;
+  return &convert(2, @message);
+}
+
+sub cs_part {
+  local($clientno, @message) = @_;
+  return &convert(2, @message);
+}
+
+sub cs_privmsg {
+  local($clientno, @message) = @_;
+  return &convert(2, @message);
+}
+
+sub cs_topic {
+  local($clientno, @message) = @_;
+  return &convert(2, @message);
+}
+
+sub cs_who {
+  local($clientno, @message) = @_;
+  return &convert(2, @message);
+}
+
+sub convert {
+  local($idx, @message) = @_;
+  local(@list);
+  @list = ();
+  if (@message > $idx) {
+    foreach $chan (split(/\,/, $message[$idx])) {
+      push(@list, &'real($chan));
+    }
+    $message[$idx] = join(',', @list);
+  }
+  return @message;
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>channel/alias.plm</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+channel/alias.plm - チャンネルエイリアスを変換する
+
+
+<HR><H3>説明</H3>
+
+IRCのコマンドを送るときに、チャンネルエイリアスを使えるようにします。
+チャンネル名の指定が「%チャンネル名」という形式だった場合に、
+それを「#チャンネル名:*.jp」という形式に変換して送ります。
+
+
+<HR><H3>プロパティ</H3>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
++ channel/alias.plm
+</PRE>
+
+</BODY></HTML>
