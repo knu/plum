@@ -197,6 +197,11 @@ sub ss_kick {
   return ($prefix, $cmd, @params);
 }
 
+sub cs_links {
+  local($clientno, @message) = @_;
+  return &send_server($clientno, 2, @message);
+}
+
 sub cs_list {
   local($clientno, @message) = @_;
   return &send_server($clientno, 2, @message);
@@ -262,6 +267,11 @@ sub ss_mode {
   }
   $params[0] = $chan;
   return ($prefix, $cmd, @params);
+}
+
+sub cs_motd {
+  local($clientno, @message) = @_;
+  return &send_server($clientno, 2, @message);
 }
 
 sub cs_names {
