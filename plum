@@ -13,7 +13,7 @@ $NOTRAILING = &'list('004', '215', '221', '324', '341', '367', 'MODE');
 $ALIAS = '*.jp';
 $EOL = "\r\n";
 
-$INTERVAL = 60;
+$INTERVAL = 30;
 $PORT = 6667;
 $BUFFER = 2048;
 $LISTEN = 16;
@@ -1818,6 +1818,7 @@ sub server_close {
     &'reuse($sno);
     $lastnick[$'userno[$sno]] = $'nick[$'userno[$sno]];
   }
+  &'alarm(-$INTERVAL);
 }
 
 sub clear_variable {
