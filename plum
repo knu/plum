@@ -1530,7 +1530,7 @@ sub replace {
 
 sub property_change {
   local($userno) = @_;
-  local($sno, $cllist, $oplist, $mask, $pass, $host, $port, $all, $lno);
+  local($sno, $i, $mask, $pass, $host, $port, $lno);
   if (!$default[$userno]) {
     $sno = &'socket('S');
     $default[$userno] = $sno;
@@ -1544,30 +1544,30 @@ sub property_change {
     $nicklist[$userno] = &'add($nicklist[$userno], split(/\,/, $nick));
   }
   $nickindex[$userno] = 0;
-  $all = '';
-  foreach $lno (&'array($listenlist), &'array($listenwaitlist)) {
-    $all = &'add($all, $port[$lno]);
+  undef %auth;
+  for ($i = 1; $i < @'username; $i++) {
+    foreach $client (&'property($i, 'client')) {
+      ($mask, $pass) = split(/\s+/, $client);
+      ($host, $port) = split(/\;/, $mask);
+      $auth{$port} = &'add($auth{$port}, join(';', $host, $i, $pass || ''));
+    }
   }
-  $cllist = $all;
-  foreach $client (&'property($userno, 'client')) {
-    ($mask, $pass) = split(/\s+/, $client);
-    ($host, $port) = split(/\;/, $mask);
-    $oplist = &'add($oplist, $port || $PORT);
-    $cllist = &'remove($cllist, $port || $PORT);
-  }
-  $all = &'remove($all, &'array($cllist));
   foreach $lno (&'array($listenlist)) {
-    next unless &'exist($cllist, $port);
+    next unless exists($auth{$port[$lno]});
     &'close($lno);
     $listenlist = &'remove($listenlist, $lno);
   }
   foreach $lno (&'array($listenwaitlist)) {
-    next unless &'exist($cllist, $port);
+    next unless exists($auth{$port[$lno]});
     &'close($lno);
     $listenwaitlist = &'remove($listenwaitlist, $lno);
   }
-  foreach $port (&'array($oplist)) {
-    next if &'exist($all, $port);
+  $list = '';
+  foreach $lno (&'array($listenlist), &'array($listenwaitlist)) {
+    $list = &'add($list, $port[$lno]);
+  }
+  foreach $port (keys(%auth)) {
+    next if &'exist($list, $port);
     $lno = &'socket('L');
     $port[$lno] = $port;
     $listenwaitlist = &'add($listenwaitlist, $lno);
@@ -1603,32 +1603,31 @@ sub c_proc {
     while ((($next, $rest) = split(/[\r\n]+/, $bufr[$cno], 2)) == 2) {
       $bufr[$cno] = $rest || '';
       next unless $next;
-      $next = &read_event($'userno[$cno], 'client_read', $cno, $next)if $'userno[$cno];
+      $next = &read_event($'userno[$cno], 'client_read', $cno, $next) if $'userno[$cno];
       next unless $next;
       ($prefix, $cmd, @params) = &'parse($next);
-      if ($cmd) {
-        $cmd = "\U$cmd\E";
-        if ($cmd eq 'NICK') {
-          $nick[$cno] = $params[0];
-          &c_check($cno) if $user[$cno];
-        } elsif ($cmd eq 'USER') {
-          if (defined(@params) && @params >= 4) {
-            $user[$cno] = $params[0];
-            &c_check($cno) if $nick[$cno];
-          } else {
-            &c_out($cno, $NAME, '461', 'Not enough parameters');
-          }
-        } elsif ($cmd eq 'PASS') {
-          $pass[$cno] = $params[0];
-        } elsif ($cmd eq 'QUIT') {
-          $params[0] = 'I Quit' unless $params[0];
-          &c_out($cno, '', 'ERROR', 'Closing Link: ' . &'user($cno, $nick[$cno], $user[$cno]) . " ($params[0])");
-          $clientlist = &'remove($clientlist, $cno);
-          &c_clear($cno);
-          &'close($cno);
+      next unless $cmd;
+      $cmd = "\U$cmd\E";
+      if ($cmd eq 'NICK') {
+        $nick[$cno] = $params[0];
+        &c_check($cno) if $user[$cno];
+      } elsif ($cmd eq 'USER') {
+        if (defined(@params) && @params >= 4) {
+          $user[$cno] = $params[0];
+          &c_check($cno) if $nick[$cno];
         } else {
-          &c_out($cno, $NAME, '451', '*', 'You have not registered');
+          &c_out($cno, $NAME, '461', 'Not enough parameters');
         }
+      } elsif ($cmd eq 'PASS') {
+        $pass[$cno] = $params[0];
+      } elsif ($cmd eq 'QUIT') {
+        $params[0] = 'I Quit' unless $params[0];
+        &c_out($cno, '', 'ERROR', 'Closing Link: ' . &'user($cno, $nick[$cno], $user[$cno]) . " ($params[0])");
+        $clientlist = &'remove($clientlist, $cno);
+        &c_clear($cno);
+        &'close($cno);
+      } else {
+        &c_out($cno, $NAME, '451', '*', 'You have not registered');
       }
     }
   } else {
@@ -1651,12 +1650,10 @@ sub c_out {
 
 sub c_check {
   local($cno) = @_;
-  local($socket, @ary, $i, $userno, $pass, $sno);
+  local($socket, $userno, $pass, $sno);
   $socket = $'socket[$cno];
-  @ary = &'array($auth[$cno]);
-  for ($i = 0; $i < @ary; $i += 2) {
-    $userno = $ary[$i];
-    $pass = $ary[$i + 1];
+  foreach $auth (&'array($auth[$cno])) {
+    ($userno, $pass) = split(/\;/, $auth, 2);
     next if ($pass && $pass ne $pass[$cno]);
     if ($default[$userno]) {
       $sno = $default[$userno];
@@ -1678,44 +1675,31 @@ sub c_check {
 
 sub c_clear {
   local($cno) = @_;
-  $auth[$cno] = '';
   $nick[$cno] = '';
   $user[$cno] = '';
   $pass[$cno] = '';
+  $auth[$cno] = '';
   $bufr[$cno] = '';
 }
 
 sub l_proc {
   local($lno) = @_;
-  local($cno, $port, $list, $i, $host, $pass, $mac, $serv);
+  local($cno, $mask, $rest);
   $cno = &'socket('C');
+  vec($'rout, $'fileno[$lno], 1) = 0;
   if (&'accept($cno, $lno)) {
     &c_clear($cno);
-    $port = (&'sockname($cno))[0];
-    $list = '';
-    for ($i = 1; $i < @'username; $i++) {
-      foreach $client (&'property($i, 'client')) {
-        ($host, $pass) = split(/\s+/, $client);
-        ($mac, $serv) = split(/\;/, $host);
-        next unless $port == ($serv || $PORT);
-        next unless &'match($cno, $mac);
-        $auth[$cno] = &'add($auth[$cno], $i, $pass || '');
-        $list = &'add($list, $i);
-      }
-    }
-    if ($auth[$cno]) {
+    $'userno[$cno] = 0;
+    $port[$cno] = (&'sockname($cno))[0];
+    foreach $auth (&'array($auth{$port[$cno]})) {
+      ($mask, $rest) = split(/\;/, $auth, 2);
+      next unless &'match($cno, $mask);
       $clientlist = &'add($clientlist, $cno);
-    } else {
-      &'close($cno);
+      $auth[$cno] = &'add($auth[$cno], $rest);
     }
-    if (&'array($list) == 1) {
-      $userno[$cno] = (&'array($list))[0];
-    } else {
-      $userno[$cno] = 0;
-    }
-  } else {
-    &'close($cno);
+    return if $auth[$cno]; 
   }
+  &'close($cno);
 }
 
 sub l_init {
@@ -1777,6 +1761,8 @@ sub s_proc {
       $next = &read_event($'userno[$sno], 'server_read', $sno, $next);
       next unless $next;
       ($prefix, $cmd, @params) = &'parse($next);
+      next unless $cmd;
+      $cmd = "\U$cmd\E";
       if ($cmd eq 'PING') {
         &s_out($sno, '', 'PONG', @params);
       } elsif ($cmd eq 'ERROR') {
@@ -1789,18 +1775,23 @@ sub s_proc {
         $nickindex[$userno] = 0;
         &s_clear($userno);
       } elsif ($cmd eq '432' || $cmd eq '433' || $cmd eq '437') {
-        if ($nicklist[$userno]) {
-          $nickindex[$userno] = ($nickindex[$userno] + 1) % &'array($nicklist[$userno]);
-          &s_out($sno, '', 'NICK', (&'array($nicklist[$userno]))[$nickindex[$userno]]);
+        $nickindex[$userno]++;
+        if ($nickindex[$userno] < &'array($nicklist[$userno])) {
+          $nick = (&'array($nicklist[$userno]))[$nickindex[$userno]];
         } else {
-          if ($params[1] =~ /\d+$/) {
+          $nickindex[$userno] = 0;
+          if ($nicklist[$userno]) {
+            $nick = (&'array($nicklist[$userno]))[0];
+          } else {
             $nick = $params[1];
+          }
+          if ($nick =~ /\d+$/) {
             $nick++;
           } else {
-            $nick = substr($params[1], 0, 8) . '0';
+            $nick = substr($nick, 0, 8) . '0';
           }
-          &s_out($sno, '', 'NICK', $nick);
         }
+        &s_out($sno, '', 'NICK', $nick);
       }
     }
   } else {
@@ -1931,64 +1922,67 @@ sub cs_exit {
 }
 
 sub cp_join {
-  local($cno, $prefix, $cmd, $chan) = @_;
-  local($userno, $nick, $name, $mode);
-  $nick = &'prefix($prefix);
-  ($name, $mode) = (split(/\cG/, $chan), '');
-  if ($nick eq $'nick[$cno]) {
-    $'channellist[$cno] = &'add($'channellist[$cno], $name);
-    $'nameslist{$cno, $name} = '';
-  } else {
-    if (index($mode, 'o') != -1) {
-      $'nameslist{$cno, $name} = &'add($'nameslist{$cno, $name}, "\@$nick");
-    } elsif (index($mode, 'v') != -1) {
-      $'nameslist{$cno, $name} = &'add($'nameslist{$cno, $name}, "+$nick");
-    } else {
-      $'nameslist{$cno, $name} = &'add($'nameslist{$cno, $name}, $nick);
-    }
-  }
+  local($cno, $prefix, $cmd, @params) = @_;
+  &proc_join($cno, $prefix, $cmd, @params);
   return ($prefix, $cmd, $chan);
 }
 
 sub ss_join {
   local($sno, $prefix, $cmd, $chan) = @_;
-  local($nick, $name, $mode);
+  &proc_join($sno, $prefix, @params);
+  return ($prefix, $cmd, $chan);
+}
+
+sub proc_join {
+  local($no, $prefix, @params) = @_;
+  local($name, $mode);
   $nick = &'prefix($prefix);
   ($name, $mode) = (split(/\cG/, $chan), '');
-  if ($nick eq $'nick[$sno]) {
-    $'channellist[$sno] = &'add($'channellist[$sno], $name);
-    $'nameslist{$sno, $name} = '';
+  if ($nick eq $'nick[$no]) {
+    $'channellist[$no] = &'add($'channellist[$no], $name);
+    $'nameslist{$no, $name} = '';
   } else {
     if (index($mode, 'o') != -1) {
-      $'nameslist{$sno, $name} = &'add($'nameslist{$sno, $name}, "\@$nick");
+      $'nameslist{$no, $name} = &'add($'nameslist{$no, $name}, "\@$nick");
     } elsif (index($mode, 'v') != -1) {
-      $'nameslist{$sno, $name} = &'add($'nameslist{$sno, $name}, "+$nick");
+      $'nameslist{$no, $name} = &'add($'nameslist{$no, $name}, "+$nick");
     } else {
-      $'nameslist{$sno, $name} = &'add($'nameslist{$sno, $name}, $nick);
+      $'nameslist{$no, $name} = &'add($'nameslist{$no, $name}, $nick);
     }
   }
-  return ($prefix, $cmd, $chan);
 }
 
 sub cp_kick {
   local($cno, $prefix, $cmd, @params) = @_;
-  if ($params[1] eq $'nick[$cno]) {
-    $'channellist[$cno] = &'remove($'channellist[$cno], $params[0]);
-    delete $'nameslist{$cno, $params[0]};
-  } else {
-    $'nameslist{$cno, $params[0]} = &'remove($'nameslist{$cno, $params[0]}, $params[1], "+$params[1]", "\@$params[1]");
-  }
+  &proc_kick($cno, @params);
   return ($prefix, $cmd, @params);
 }
 
 sub ss_kick {
   local($sno, $prefix, $cmd, @params) = @_;
-  if ($params[1] eq $'nick[$sno]) {
-    $'channellist[$sno] = &'remove($'channellist[$sno], $params[0]);
-    delete $'nameslist{$sno, $params[0]};
+  &proc_kick($sno, @params);
+  return ($prefix, $cmd, @params);
+}
+
+sub proc_kick {
+  local($no, @params) = @_;
+  if ($params[1] eq $'nick[$no]) {
+    $'channellist[$no] = &'remove($'channellist[$no], $params[0]);
+    delete $'nameslist{$no, $params[0]};
   } else {
-    $'nameslist{$sno, $params[0]} = &'remove($'nameslist{$sno, $params[0]}, $params[1], "+$params[1]", "\@$params[1]");
+    $'nameslist{$no, $params[0]} = &'remove($'nameslist{$no, $params[0]}, $params[1], "+$params[1]", "\@$params[1]");
   }
+}
+
+sub cp_mode {
+  local($cno, $prefix, $cmd, @params) = @_;
+  &proc_mode($cno, @params);
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_mode {
+  local($sno, $prefix, $cmd, @params) = @_;
+  &proc_mode($sno, @params);
   return ($prefix, $cmd, @params);
 }
 
@@ -2060,31 +2054,6 @@ sub proc_mode {
   }
 }
 
-sub cp_mode {
-  local($cno, $prefix, $cmd, @params) = @_;
-  &proc_mode($cno, @params);
-  return ($prefix, $cmd, @params);
-}
-
-sub ss_mode {
-  local($sno, $prefix, $cmd, @params) = @_;
-  &proc_mode($sno, @params);
-  return ($prefix, $cmd, @params);
-}
-
-sub cp_nick {
-  local($cno, $prefix, $cmd, @params) = @_;
-  local($nick);
-  $nick = &'prefix($prefix);
-  if ($nick eq $'nick[$cno]) {
-    $'nick[$cno] = $params[0];
-  }
-  foreach $chan (&'array($'channellist[$cno])) {
-    $'nameslist{$cno, $chan} = &'change($'nameslist{$cno, $chan}, $nick, $params[0], "+$nick", "+$params[0]", "\@$nick", "\@$params[0]");
-  }
-  return ($prefix, $cmd, @params);
-}
-
 sub cs_nick {
   local($cno, $prefix, $cmd, @params) = @_;
   if (&'exist($'serverlist, $'server[$cno])) {
@@ -2097,44 +2066,52 @@ sub cs_nick {
   return ();
 }
 
+sub cp_nick {
+  local($cno, $prefix, $cmd, @params) = @_;
+  &proc_nick($cno, $prefix, @params);
+  return ($prefix, $cmd, @params);
+}
+
 sub ss_nick {
   local($sno, $prefix, $cmd, @params) = @_;
-  local($userno, $nick);
-  $userno = $'userno[$sno];
-  $nick = &'prefix($prefix);
-  if ($nick eq $'nick[$sno]) {
-    $'nick[$sno] = $params[0];
-  }
-  foreach $chan (&'array($'channellist[$sno])) {
-    $'nameslist{$sno, $chan} = &'change($'nameslist{$sno, $chan}, $nick, $params[0], "+$nick", "+$params[0]", "\@$nick", "\@$params[0]");
-  }
+  &proc_nick($sno, $prefix, @params);
   return ($prefix, $cmd, @params);
+}
+
+sub proc_nick {
+  local($no, $prefix, @params) = @_;
+  local($nick);
+  $nick = &'prefix($prefix);
+  if ($nick eq $'nick[$no]) {
+    $'nick[$no] = $params[0];
+  }
+  foreach $chan (&'array($'channellist[$no])) {
+    $'nameslist{$no, $chan} = &'change($'nameslist{$no, $chan}, $nick, $params[0], "+$nick", "+$params[0]", "\@$nick", "\@$params[0]");
+  }
 }
 
 sub cp_part {
   local($cno, $prefix, $cmd, @params) = @_;
-  local($nick);
-  $nick = &'prefix($prefix);
-  if ($nick eq $'nick[$cno]) {
-    $'channellist[$cno] = &'remove($'channellist[$cno], $params[0]);
-    delete $'nameslist{$cno, $params[0]};
-  } else {
-    $'nameslist{$cno, $params[0]} = &'remove($'nameslist{$cno, $params[0]}, $nick, "+$nick", "\@$nick");
-  }
+  &proc_part($no, $prefix, @params);
   return ($prefix, $cmd, @params);
 }
 
 sub ss_part {
   local($sno, $prefix, $cmd, @params) = @_;
+  &proc_part($no, $prefix, @params);
+  return ($prefix, $cmd, @params);
+}
+
+sub proc_part {
+  local($no, $prefix, @params) = @_;
   local($nick);
   $nick = &'prefix($prefix);
-  if ($nick eq $'nick[$sno]) {
-    $'channellist[$sno] = &'remove($'channellist[$sno], $params[0]);
-    delete $'nameslist{$sno, $params[0]};
+  if ($nick eq $'nick[$no]) {
+    $'channellist[$no] = &'remove($'channellist[$no], $params[0]);
+    delete $'nameslist{$no, $params[0]};
   } else {
-    $'nameslist{$sno, $params[0]} = &'remove($'nameslist{$sno, $params[0]}, $nick, "+$nick", "\@$nick");
+    $'nameslist{$no, $params[0]} = &'remove($'nameslist{$no, $params[0]}, $nick, "+$nick", "\@$nick");
   }
-  return ($prefix, $cmd, @params);
 }
 
 sub cs_pong {
@@ -2190,6 +2167,18 @@ sub ss_topic {
   return ($prefix, $cmd, @params);
 }
 
+sub cp_324 {
+  local($cno, $prefix, $cmd, @params) = @_;
+  &proc_324($cno, @params);
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_324 {
+  local($sno, $prefix, $cmd, @params) = @_;
+  &proc_324($sno, @params);
+  return ($prefix, $cmd, @params);
+}
+
 sub proc_324 {
   local($no, @params) = @_;
   local($nick, $chan, $mode, @modes, $char, $flag, $i);
@@ -2221,18 +2210,6 @@ sub proc_324 {
   }
 }
 
-sub cp_324 {
-  local($cno, $prefix, $cmd, @params) = @_;
-  &proc_324($cno, @params);
-  return ($prefix, $cmd, @params);
-}
-
-sub ss_324 {
-  local($sno, $prefix, $cmd, @params) = @_;
-  &proc_324($sno, @params);
-  return ($prefix, $cmd, @params);
-}
-
 sub cp_332 {
   local($cno, $prefix, $cmd, @params) = @_;
   if (&'exist($'channellist[$cno], $params[1])) {
@@ -2251,24 +2228,21 @@ sub ss_332 {
 
 sub cp_353 {
   local($cno, $prefix, $cmd, @params) = @_;
-  local($key);
-  $key = "$cno$;$params[2]";
-  if (&'exist($'channellist[$cno], $params[2])) {
-    $'nameslist{$key} = &'add($'nameslist{$key}, reverse(split(/\s+/, $params[3])));
-    if ($params[1] eq '@') {
-      $'channelmode{$key, 's'} = 1;
-    } elsif ($params[1] eq '*') {
-      $'channelmode{$key, 'p'} = 1;
-    }
-  }
+  &proc_353($cno, @params);
   return ($prefix, $cmd, @params);
 }
 
 sub ss_353 {
   local($sno, $prefix, $cmd, @params) = @_;
+  &proc_353($sno, @params);
+  return ($prefix, $cmd, @params);
+}
+
+sub proc_353 {
+  local($no, @params) = @_;
   local($key);
-  $key = "$sno$;$params[2]";
-  if (&'exist($'channellist[$sno], $params[2])) {
+  $key = "$no$;$params[2]";
+  if (&'exist($'channellist[$no], $params[2])) {
     $'nameslist{$key} = &'add($'nameslist{$key}, reverse(split(/\s+/, $params[3])));
     if ($params[1] eq '@') {
       $'channelmode{$key, 's'} = 1;
@@ -2276,14 +2250,13 @@ sub ss_353 {
       $'channelmode{$key, 'p'} = 1;
     }
   }
-  return ($prefix, $cmd, @params);
 }
 
 sub cs_privmsg {
   local($cno, $prefix, $cmd, @params) = @_;
   local($text, $ctcp);
   if ($params[1]) {
-    ($text, $ctcp) = &scan_ctcp($cno, 'cpcs', $prefix, $cmd, @params);
+    ($text, $ctcp) = &ctcp_event($cno, 'scan_event', 'cpcs', $prefix, $cmd, @params);
     return () unless ($tmp || $ctcp);
     $params[1] = $text;
     foreach $no (&'array($'clientlist)) {
@@ -2300,7 +2273,7 @@ sub cp_privmsg {
   local($cno, $prefix, $cmd, @params) = @_;
   local($text, $ctcp);
   if ($params[1]) {
-    ($text, $ctcp) = &print_ctcp($cno, 'cpcp', $prefix, $cmd, @params);
+    ($text, $ctcp) = &ctcp_event($cno, 'print_event', 'cpcp', $prefix, $cmd, @params);
     return () unless ($text || $ctcp);
     $params[1] = $text . $ctcp;
   }
@@ -2311,7 +2284,7 @@ sub ss_privmsg {
   local($sno, $prefix, $cmd, @params) = @_;
   local($text, $ctcp);
   if ($params[1]) {
-    ($text, $ctcp) = &scan_ctcp($sno, 'cpss', $prefix, $cmd, @params);
+    ($text, $ctcp) = &ctcp_event($sno, 'scan_event', 'cpss', $prefix, $cmd, @params);
     return () unless ($text || $ctcp);
     $params[1] = $text . $ctcp;
   }
@@ -2322,7 +2295,7 @@ sub sp_privmsg {
   local($sno, $prefix, $cmd, @params) = @_;
   local($text, $ctcp);
   if ($params[1]) {
-    ($text, $ctcp) = &print_ctcp($sno, 'cpsp', $prefix, $cmd, @params);
+    ($text, $ctcp) = &ctcp_event($sno, 'print_event', 'cpsp', $prefix, $cmd, @params);
     return () unless ($text || $ctcp);
     $params[1] = $text . $ctcp;
   }
@@ -2333,7 +2306,7 @@ sub cs_notice {
   local($cno, $prefix, $cmd, @params) = @_;
   local($text, $ctcp);
   if ($params[1]) {
-    ($text, $ctcp) = &scan_ctcp($cno, 'cncs', $prefix, $cmd, @params);
+    ($text, $ctcp) = &ctcp_event($cno, 'scan_event', 'cncs', $prefix, $cmd, @params);
     return () unless ($tmp || $ctcp);
     $params[1] = $text;
     foreach $no (&'array($'clientlist)) {
@@ -2350,7 +2323,7 @@ sub cp_notice {
   local($cno, $prefix, $cmd, @params) = @_;
   local($text, $ctcp);
   if ($params[1]) {
-    ($text, $ctcp) = &print_ctcp($cno, 'cncp', $prefix, $cmd, @params);
+    ($text, $ctcp) = &ctcp_event($cno, 'print_event', 'cncp', $prefix, $cmd, @params);
     return () unless ($text || $ctcp);
     $params[1] = $text . $ctcp;
   }
@@ -2361,7 +2334,7 @@ sub ss_notice {
   local($sno, $prefix, $cmd, @params) = @_;
   local($text, $ctcp);
   if ($params[1]) {
-    ($text, $ctcp) = &scan_ctcp($sno, 'cnss', $prefix, $cmd, @params);
+    ($text, $ctcp) = &ctcp_event($sno, 'scan_event', 'cnss', $prefix, $cmd, @params);
      return () unless ($text || $ctcp);
      $params[1] = $text . $ctcp;
   }
@@ -2372,43 +2345,15 @@ sub sp_notice {
   local($sno, $prefix, $cmd, @params) = @_;
   local($text, $ctcp);
   if ($params[1]) {
-    ($text, $ctcp) = &print_ctcp($sno, 'cnsp', $prefix, $cmd, @params);
+    ($text, $ctcp) = &ctcp_event($sno, 'print_event', 'cnsp', $prefix, $cmd, @params);
     return () unless ($text || $ctcp);
     $params[1] = $text . $ctcp;
   }
   return ($prefix, $cmd, @params);
 }
 
-sub scan_ctcp {
-  local($no, $event, $prefix, $cmd, @params) = @_;
-  local($chan, $rest, $tmp, $ctmp, $list, $ctcp, $ccmd, @param);
-  $chan = $params[0];
-  $rest = $params[1];
-  $tmp = '';
-  $ctmp = '';
-  $list = '';
-  while ($rest =~ /^([^\cA]*)\cA([^\cA]*)\cA(.*)$/) {
-    $tmp .= $1;
-    $ctcp = $2;
-    $rest = $3;
-    next if &'exist($list, $ctcp);
-    $list = &'add($list, $ctcp);
-    ($ccmd, $param) = split(/\s+/, $ctcp, 2);
-    next unless $ccmd;
-    ($prefix, $ccmd, $chan, $param) = &scan_event($'userno[$no], "$event\_\L$ccmd\E", $no, $prefix, $ccmd, $chan, $param);
-    next unless $ccmd;
-    if ($param) {
-      $ctmp .= "\cA$ccmd $param\cA";
-    } else {
-      $ctmp .= "\cA$ccmd\cA";
-    }
-  }
-  $tmp .= $rest || '';
-  return ($tmp, $ctmp);
-}
-
-sub print_ctcp {
-  local($no, $event, $prefix, $cmd, @params) = @_;
+sub ctcp_event {
+  local($no, $sub, $event, $prefix, $cmd, @params) = @_;
   local($chan, $rest, $tmp, $ctmp, $list, $ctcp, $ccmd, $param);
   $chan = $params[0];
   $rest = $params[1];
@@ -2423,7 +2368,7 @@ sub print_ctcp {
     $list = &'add($list, $ctcp);
     ($ccmd, $param) = split(/\s+/, $ctcp, 2);
     next unless $ccmd;
-    ($prefix, $ccmd, $chan, $param) = &print_event($'userno[$no], "$event\_\L$ccmd\E", $no, $prefix, $ccmd, $chan, $param);
+    ($prefix, $ccmd, $chan, $param) = &$sub($'userno[$no], "$event\_\L$ccmd\E", $no, $prefix, $ccmd, $chan, $param);
     next unless $ccmd;
     if ($param) {
       $ctmp .= "\cA$ccmd $param\cA";
