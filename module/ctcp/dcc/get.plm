@@ -1,0 +1,234 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1997-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package ctcp_dcc_get;
+
+$_ = 'ctcp_dcc_get';
+
+sub initialize {
+  $BUFFER = 65536;
+  $DIRECTORY = '.';
+  $CLIENTINFO = 'DCC';
+  $TIMEOUT = 3600;
+}
+
+sub main_loop {
+  local($userno) = @_;
+  local($socket, $recv, $length, $size, $tmp, $timeout);
+  $recv = &'property($userno, 'buffer') || $BUFFER;
+  $timeout = &'property($userno, 'timeout') || $TIMEOUT;
+  foreach $sno (&'array($dccserverlist)) {
+    next unless $'userno[$server[$sno]] == $userno;
+    if (vec($'rout, $'fileno[$sno], 1)) {
+      if ($size[$sno] - $done[$sno] < $recv) {
+        $size = $size[$sno] - $done[$sno];
+      } else {
+        $size = $recv;
+      }
+      $tmp = '';
+      $socket = $'socket[$sno];
+      if ($length = sysread($socket, $tmp, $size)) {
+        if (open(FILE, ">>$file[$sno]")) {
+          select((select(FILE), $| = 1)[0]);
+          print FILE $tmp;
+          close(FILE);
+        }
+        $done[$sno] += $length;
+        print $socket pack('N', $done[$sno]);
+        if ($done[$sno] >= $size[$sno]) {
+          &dcc_close($sno);
+        }
+      } else {
+        &dcc_close($sno);
+      }
+      vec($'rout, $'fileno[$sno], 1) = 0;
+    } elsif (time() - $'access[$sno] > $timeout) {
+      &'close($sno);
+      $dccserverlist = &'remove($dccserverlist, $sno);
+    }
+  }
+}
+
+sub module_disable {
+  local($userno) = @_;
+  foreach $sno (&'array($dccserverlist)) {
+    next unless $'userno[$server[$sno]] == $userno;
+    &'close($sno);
+    $dccserverlist = &'remove($dccserverlist, $sno);
+  }
+}
+
+sub cpss_dcc {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($userno, $regex);
+  $userno = $'userno[$serverno];
+  if (&check_mask($userno, $prefix, $params[0])) {
+    ($prefix, $cmd, $params[1]) = &dcc_open($serverno, $prefix, $cmd, $params[1]);
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub dcc_open {
+  local($serverno, $prefix, $cmd, $msg) = @_;
+  local($userno, $nick, $dir, $name, $mode, @params, $sno);
+  $userno = $'userno[$serverno];
+  $nick = &'prefix($prefix);
+  @params = split(/\s+/, $msg);
+  if ("\L$params[0]\E" eq 'send') {
+    $dir = &'expand(&'property($userno, 'directory') || $DIRECTORY);
+    $name = "$dir/" . &newfile($dir, $params[1]);
+    if (open(FILE, ">$name")) {
+      close(FILE);
+      $mode = &'property($userno, 'mode');
+      if (defined($mode)) {
+        chmod(oct($mode), $name);
+      }
+      $sno = &'socket('S');
+      if (&'connect($sno, $params[2], $params[3])) {
+        $file[$sno] = $name;
+        $size[$sno] = $params[4];
+        $done[$sno] = 0;
+        $nick[$sno] = $nick;
+        $server[$sno] = $serverno;
+        $dccserverlist = &'add($dccserverlist, $sno);
+        foreach $cno (&'array($'clientlist)) {
+          next unless $'server[$cno] == $serverno;
+          &'c_print($cno, '', 'NOTICE', $'nick[$cno], "*** DCC SEND request from $nick: $params[1] ($params[4] bytes)");
+          &'c_print($cno, '', 'NOTICE', $'nick[$cno], "*** DCC getting file $name ($params[4] bytes) from $nick");
+        }
+        return ();
+      } else {
+        &'close($sno);
+      }
+    }
+  }
+  return ($prefix, $cmd, $msg);
+}
+
+sub dcc_close {
+  local($sno) = @_;
+  foreach $cno (&'array($'clientlist)) {
+    next unless $'server[$cno] == $server[$sno];
+    &'c_print($cno, '', 'NOTICE', $'nick[$cno], "*** DCC got file $file[$sno] ($size[$sno] bytes) from $nick[$sno]");
+  }
+  &'close($sno);
+  $dccserverlist = &'remove($dccserverlist, $sno);
+}
+
+sub newfile {
+  local($dir, $file) = @_;
+  local($name, $ext, $num);
+  $file =~ s/^.*[\\\/]([^\\\/]+)$/$1/;
+  $name = $file;
+  if (-e "$dir/$name") {
+    $ext = '';
+    if (rindex($file, '.') > 0) {
+      $ext = substr($file, rindex($file, '.'));
+      $file = substr($file, 0, rindex($file, '.'));
+    }
+    $num = 1;
+    $name = "$file-$num$ext";
+    while (-e "$dir/$name") {
+      $num++;
+      $name = "$file-$num$ext";
+    }
+  }
+  return $name;
+}
+
+sub check_mask {
+  local($userno, $prefix, $chan) = @_;
+  local($user, $chlist, $list);
+  foreach $mask (&'property($userno, 'mask')) {
+    ($user, $chlist) = split(/\s+/, $mask);
+    $list = '';
+    foreach $vchan (split(/\,/, $chlist || '')) {
+      $list = &'add($list, &'real($vchan));
+    }
+    if (&'channel($chan)) {
+      next unless (!$list || &'exist($list, $chan));
+    } else {
+      next unless (!$list || &'exist($list, '*'));
+    }
+    if ($user =~ /^\-/) {
+      $regex = &'regex(substr($user, 1));
+      return 0 if $prefix =~ /$regex/i;
+    }
+    if ($user =~ /^\+/) {
+      $regex = &'regex(substr($user, 1));
+    } else {
+      $regex = &'regex($user);
+    }
+    return 1 if $prefix =~ /$regex/i;
+  }
+  return 0;
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>ctcp/dcc.get.plm</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+ctcp/dcc/get.plm - DCC SENDに反応して送られてきたファイルを受け取る
+
+
+<HR><H3>説明</H3>
+
+DCC SENDリクエストが送られてきたとき、
+それに反応して送られてきたファイルを自動的に受信します。
+
+
+<HR><H3>プロパティ</H3>
+
+<DL>
+<DT>  ctcp.dcc.get.directory ディレクトリ
+</DT>
+<DD>    受信したファイルを置くディレクトリを指定します
+        ディレクトリが存在しないときや、
+        ディレクトリに書き込みができないときはファイルを受信しません。
+        デフォルトではカレントディレクトリです。
+</DD>
+<DT>  ctcp.dcc.get.mask* ユーザマスク [(チャンネル名)]
+</DT>
+<DD>    ファイルを送信してきた人がここで指定されたものにマッチしたら、
+        送られてきたファイルを受信します。
+</DD>
+<DT>  ctcp.dcc.get.mode ファイルモード
+</DT>
+<DD>    ファイルを受信したとき、そのファイルのファイルのモードを
+        ここで指定した値にします。
+</DD>
+</DL>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
++ ctcp/dcc/get.plm
+ctcp.dcc.get.mask: *!*@*
+</PRE>
+
+DCC SENDでファイルが送信されてきたとき、
+それが誰から送られてきたかにかかわらず、そのファイルを受信します。
+受信したファイルはカレントディレクトリに作成されます。
+
+<PRE>
++ ctcp/dcc/get.plm
+ctcp.dcc.get.directory: dcc
+ctcp.dcc.get.mask: *!*@*.jp
+</PRE>
+
+DCC SENDでファイルが送信されてきたとき、
+送信してきた人が「*!*@*.jp」にマッチしたら、そのファイルを受信します。
+受信したファイルは「dcc」というディレクトリの中に作成されます。
+「dcc」という名前のディレクトリが存在しない場合や、
+書き込みができない場合はファイルは受信しません。
+
+</BODY></HTML>
