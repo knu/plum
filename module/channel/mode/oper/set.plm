@@ -58,14 +58,16 @@ sub ss_join {
   $userno = $'userno[$serverno];
   $nick = &'prefix($prefix);
   ($name, $mode) = (split(/\cG/, $params[0]), '');
-  if ($nick ne $'nick[$serverno] && index($mode, 'o') == -1) {
-    if (&check_mask($userno, $prefix, $params[0])) {
-      $delay = &'property($userno, 'delay');
-      $delay = $DELAY unless defined($delay);
-      if ($delay) {
-        $operlist{$serverno, $name} = &'add($operlist{$serverno, $name}, $nick);
-      } else {
-        &'s_print($serverno, '', 'MODE', $name, '+o', $nick);
+  if (&'exist($'nameslist{$serverno, $name}, "\@$'nick[$serverno]")) {
+    if ($nick ne $'nick[$serverno] && index($mode, 'o') == -1) {
+      if (&check_mask($userno, $prefix, $name)) {
+        $delay = &'property($userno, 'delay');
+        $delay = $DELAY unless defined($delay);
+        if ($delay) {
+          $operlist{$serverno, $name} = &'add($operlist{$serverno, $name}, $nick);
+        } else {
+          &'s_print($serverno, '', 'MODE', $name, '+o', $nick);
+        }
       }
     }
   }
