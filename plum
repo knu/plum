@@ -5,7 +5,7 @@
 package plum;
 
 $NAME = 'plum';
-$VERSION = '3.1.0b15';
+$VERSION = '3.1.0b16';
 
 $NIL = "\r";
 $NOTRAILING = &'list('004', '215', '221', '324', '341', '367', 'MODE');
@@ -389,7 +389,7 @@ sub disable {
 
 sub c_read {
   local($cno) = @_;
-  local($tmp, $next, $rest, $prefix, $cmd, @params);
+  local($tmp);
   $tmp = '';
   if (sysread($'socket[$cno], $tmp, $BUFFER)) {
     &c_parse($cno, $tmp);
@@ -708,7 +708,10 @@ sub 'listen {
   } else {
     $sin = pack($SOCKADDR, $AF_INET || $PF_INET || 2, $port, $addr);
   }
-  bind($'socket[$no], $sin) || return 0;
+  if (!bind($'socket[$no], $sin)) {
+    close($'socket[$no]);
+    return 0;
+  }
   listen($'socket[$no], $count || $SOMAXCONN || $LISTEN) || return 0;
   &setup($no);
   return 1;
@@ -726,9 +729,13 @@ sub 'listen6 {
   if (defined(&pack_sockaddr_in6)) {
     $sin = &pack_sockaddr_in6($port, $addr);
   } else {
+    close($'socket[$no]);
     return 0;
   }
-  bind($'socket[$no], $sin) || return 0;
+  if (!bind($'socket[$no], $sin)) {
+    close($'socket[$no]);
+    return 0;
+  }
   listen($'socket[$no], $count || $SOMAXCONN || $LISTEN) || return 0;
   &setup($no);
   return 1;
