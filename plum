@@ -5,7 +5,7 @@
 package plum;
 
 $NAME = 'plum';
-$VERSION = '3.1.0b14';
+$VERSION = '3.1.0b15';
 
 $NIL = "\r";
 $NOTRAILING = &'list('004', '215', '221', '324', '341', '367', 'MODE');
@@ -392,19 +392,25 @@ sub c_read {
   local($tmp, $next, $rest, $prefix, $cmd, @params);
   $tmp = '';
   if (sysread($'socket[$cno], $tmp, $BUFFER)) {
-    $rbuf[$cno] .= $tmp;
-    while ((($next, $rest) = split(/[\r\n]+/, $rbuf[$cno], 2)) == 2) {
-      $rbuf[$cno] = $rest || '';
-      next unless $next;
-      $next = &read_event($'userno[$cno], 'client_read', $cno, $next);
-      next unless $next;
-      ($prefix, $cmd, @params) = &'parse($next);
-      ($prefix, $cmd, @params) = &scan_event($'userno[$cno], "cs_\L$cmd\E", $cno, $prefix, $cmd, @params);
-      next unless $cmd;
-      &'s_print($'server[$cno], $prefix, $cmd, @params) if $'server[$cno];
-    }
+    &c_parse($cno, $tmp);
   } else {
     &'c_close($cno);
+  }
+}
+
+sub c_parse {
+  local($cno, $tmp) = @_;
+  local($next, $rest, $prefix, $cmd, @params);
+  $rbuf[$cno] .= $tmp;
+  while ((($next, $rest) = split(/[\r\n]+/, $rbuf[$cno], 2)) == 2) {
+    $rbuf[$cno] = $rest || '';
+    next unless $next;
+    $next = &read_event($'userno[$cno], 'client_read', $cno, $next);
+    next unless $next;
+    ($prefix, $cmd, @params) = &'parse($next);
+    ($prefix, $cmd, @params) = &scan_event($'userno[$cno], "cs_\L$cmd\E", $cno, $prefix, $cmd, @params);
+    next unless $cmd;
+    &'s_print($'server[$cno], $prefix, $cmd, @params) if $'server[$cno];
   }
 }
 
@@ -442,7 +448,7 @@ sub 'c_open {
   ($'nick[$cno], $'user[$cno], $'address[$cno]) = &'prefix($prefix);
   $'server[$cno] = $sno;
   $'userno[$cno] = $userno;
-  $rbuf[$cno] = $buf || '';
+  $rbuf[$cno] = '';
   $'clientlist = &'add($'clientlist, $cno);
   vec($'rout, $'fileno[$cno], 1) = 0;
   if (&'exist($'serverlist, $sno)) {
@@ -451,6 +457,7 @@ sub 'c_open {
     $'servername[$cno] = $NAME;
   }
   &open_event($userno, 'client_open', $cno);
+  &c_parse($cno, $buf || '');
 }
 
 sub 'c_close {
@@ -471,25 +478,31 @@ sub 'c_close {
 
 sub s_read {
   local($sno) = @_;
-  local($tmp, $next, $rest, $prefix, $cmd, @params);
+  local($tmp);
   $tmp = '';
   if (sysread($'socket[$sno], $tmp, $BUFFER)) {
-    $rbuf[$sno] .= $tmp;
-    while ((($next, $rest) = split(/[\r\n]+/, $rbuf[$sno], 2)) == 2) {
-      $rbuf[$sno] = $rest || '';
-      next unless $next;
-      $next = &read_event($'userno[$sno], 'server_read', $sno, $next);
-      next unless $next;
-      ($prefix, $cmd, @params) = &'parse($next);
-      ($prefix, $cmd, @params) = &scan_event($'userno[$sno], "ss_\L$cmd\E", $sno, $prefix, $cmd, @params);
-      next unless $cmd;
-      foreach $cno (&'array($'clientlist)) {
-        next unless $'server[$cno] == $sno;
-        &'c_print($cno, $prefix, $cmd, @params);
-      }
-    }
+    &s_parse($sno, $tmp);
   } else {
     &'s_close($sno);
+  }
+}
+
+sub s_parse {
+  local($sno, $tmp) = @_;
+  local($next, $rest, $prefix, $cmd, @params);
+  $rbuf[$sno] .= $tmp;
+  while ((($next, $rest) = split(/[\r\n]+/, $rbuf[$sno], 2)) == 2) {
+    $rbuf[$sno] = $rest || '';
+    next unless $next;
+    $next = &read_event($'userno[$sno], 'server_read', $sno, $next);
+    next unless $next;
+    ($prefix, $cmd, @params) = &'parse($next);
+    ($prefix, $cmd, @params) = &scan_event($'userno[$sno], "ss_\L$cmd\E", $sno, $prefix, $cmd, @params);
+    next unless $cmd;
+    foreach $cno (&'array($'clientlist)) {
+      next unless $'server[$cno] == $sno;
+      &'c_print($cno, $prefix, $cmd, @params);
+    }
   }
 }
 
@@ -542,10 +555,11 @@ sub 's_open {
   ($'nick[$sno], $'user[$sno], $'address[$sno]) = &'prefix($prefix);
   $'userno[$sno] = $userno;
   $'servername[$sno] = $name;
-  $rbuf[$sno] = $buf || '';
+  $rbuf[$sno] = '';
   $'serverlist = &'add($'serverlist, $sno);
   vec($'rout, $'fileno[$sno], 1) = 0;
   &open_event($userno, 'server_open', $sno);
+  &s_parse($sno, $buf || '');
 }
 
 sub 's_close {
