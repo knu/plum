@@ -1,0 +1,204 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1998-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package log_mail;
+
+$_ = 'log_mail';
+
+sub initialize {
+  $DIRECTORY = '.';
+  $HOST = 'localhost';
+  $PROTO = getprotobyname('tcp');
+  $PORT = getservbyname('smtp', $PROTO) || 25;
+}
+
+sub main_loop {
+  local($userno) = @_;
+  local($file, $idx, $name, $code, $new, $adrs, $sno, $dir);
+  $sno = 0;
+  foreach $mail (&'property($userno, 'file')) {
+    ($file, $adrs) = split(/\s+/, $mail);
+    next unless $adrs;
+    if (($idx = rindex($file, ';')) != -1) {
+      $name = substr($file, 0, $idx);
+      $code = substr($file, $idx + 1);
+    } else {
+      $name = $file;
+      $code = '';
+    }
+    $name = &'expand($name);
+    if ($name !~ /^[\\\/]/) {
+      $dir = &'expand(&'property($userno, 'directory') || $DIRECTORY);
+      $name = "$dir/$name";
+    }
+    $new = &'date($name);
+    if ($filename{$name} && $new ne $filename{$name}) {
+      if ($filename{$name} && -r $filename{$name}) {
+        $sno = &open($userno) unless $sno;
+        &send($userno, $sno, $filename{$name}, $code, $adrs) if $sno;
+      }
+    }
+    $filename{$name} = $new;
+  }
+  &close($sno);
+}
+
+sub open {
+  local($userno) = @_;
+  local($host, $port, $sno, $socket);
+  ($host, $port) = split(/\;/, &'property($userno, 'smtpserver') || '');
+  $host = $HOST unless $host;
+  $port = $PORT unless $port;
+  $sno = &'socket('S');
+  if (&'connect($sno, $host, $port)) {
+    $socket = $'socket[$sno];
+    print $socket "HELO localhost\r\n";
+    while (defined($reply = <$socket>)) {
+      next if substr($reply, 0, 3) eq '220';
+      return $sno if substr($reply, 0, 3) eq '250';
+      last;
+    }
+    &'close($sno);
+  } else {
+    &'close($sno);
+  }
+  return 0;
+}
+
+sub close {
+  local($sno) = @_;
+  if ($sno) {
+    $socket = $'socket[$sno];
+    print $socket "QUIT\r\n";
+    &'close($sno);
+  }
+}
+
+sub send {
+  local($userno, $sno, $name, $code, $adrs) = @_;
+  local($from, $socket, $line, $reply, $date);
+  $socket = $'socket[$sno];
+  $from = &'property($userno, 'from') || '';
+  print $socket "RSET\r\n";
+  $reply = <$socket> || '';
+  return unless substr($reply, 0, 3) eq '250';
+  print $socket "MAIL FROM:<$from>\r\n";
+  $reply = <$socket> || '';
+  return unless substr($reply, 0, 3) eq '250';
+  foreach $item (split(/\,/, $adrs)) {
+    print $socket "RCPT TO:<$item>\r\n";
+    $reply = <$socket> || '';
+    if (substr($reply, 0, 3) eq '551') {
+      $reply =~ /\<([^\<\>]*)\>/;
+      $item = $1;
+      redo;
+    } elsif (substr($reply, 0, 3) ne '250' && substr($reply, 0, 3) ne '251') {
+      return;
+    }
+  }
+  print $socket "DATA\r\n";
+  $reply = <$socket> || '';
+  return unless substr($reply, 0, 3) eq '354';
+  print $socket "To: $adrs\r\n";
+  print $socket "Subject: $name\r\n";
+  print $socket "MIME-Version: 1.0\r\n";
+  print $socket "Content-Type: text/plain; charset=iso-2022-jp\r\n";
+  print $socket "Content-Transfer-Encoding: 7bit\r\n";
+  $date = &'date('%a, %d %b %Y %H:%M:%S JST');
+  print $socket "Date: $date\r\n";
+  print $socket "From: $from\r\n";
+  print $socket "\r\n";
+  if (open(FILE, $name)) {
+    while (defined($line = <FILE>)) {
+      $line =~ s/[\r\n]+//;
+      $line = '..=' if $line eq '.';
+      $line = &code_jis($line, $code);
+      print $socket $line, "\r\n";
+    }
+    close(FILE);
+  }
+  print $socket ".\r\n";
+  $reply = <$socket> || '';
+}
+
+sub code_jis {
+  local($line, $list) = @_;
+  foreach $code (split(/\,/, "\L$list\E")) {
+    if ($code eq 'euc') {
+      $line = &'euc_jis($line);
+    } elsif ($code eq 'jis') {
+      $line = &'jis_jis($line);
+    } elsif ($code eq 'sjis') {
+      $line = &'sjis_jis($line);
+    }
+  }
+  return $line;
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>log/mail.plm</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+log/mail.plm - ログファイルを指定したアドレスへメールで送信する
+
+
+<HR><H3>説明</H3>
+
+ログファイルを指定したアドレスへメールで送信します。
+
+
+<HR><H3>プロパティ</H3>
+
+<DL>
+<DT>  log.mail.from アドレス
+</DT>
+<DD>    送信元として使用するアドレスを指定します。
+        メールの送信がエラーになったときは、ここで指定したアドレスへ
+        エラーのメールが送られます。
+</DD>
+<DT>  log.mail.smtpserver ホスト名[;ポート番号]
+</DT>
+<DD>    使用するSMTPサーバを指定します。
+        サーバに接続できないときや送信に失敗したときは何もしません。
+</DD>
+<DT>  log.mail.directory ディレクトリ名
+</DT>
+<DD>    ログファイルの存在するディレクトリを指定します。
+        ディレクトリはplumを実行したディレクトリからの相対パスになります。
+        UNIXなら「~/」や「~user」という指定もできます。
+</DD>
+<DT>  log.mail.file* ファイル名[;({jis|euc|sjis})] (アドレス)
+</DT>
+<DD>    送信するファイルとそれを送るアドレスを指定します。
+        ファイル名に%で始まる文字があると、対応する日付に変換され、
+        その名前が変わるたびにメールでファイルを送信します。
+</DD>
+</DL>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
++ log/mail.plm
+log.mail.from: plum@plum.or.jp
+log.mail.smtpserver: mail.plum.or.jp;25
+log.mail.file: log%m%d hogehoge@plum.gr.jp
+log.mail.file: plum%m;euc hoehoe@plum.gr.jp,hogehoge@plum.or.jp
+</PRE>
+
+「plum@plum.or.jp」を送信元として、ログをメールで送信します。
+このとき、SMTPサーバとして「mail.plum.or.jp」のポート「25」を使用します。
+送信するファイルは2つで、「hogehoge@plum.gr.jp」宛に「log%m%d」を
+「hoehoe@plum.gr.jp」と「hogehoge@plum.or.jp」宛に「plum%m」を送信します。
+log%m%dとplum%mはそれぞれ日付が展開され、ファイルの日付が変わったときに
+メールで送信します。そのため、log%m%dは1日1回、plum%mは1月に1回送信されます。
+
+</BODY></HTML>
