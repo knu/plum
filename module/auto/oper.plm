@@ -10,7 +10,7 @@ sub initialize {
 
 sub ss_privmsg {
   local($serverno, $prefix, $cmd, @params) = @_;
-  local($userno, $nick, %alias, $regex);
+  local($userno, $nick, %alias);
   $userno = $'userno[$serverno];
   $nick = &'prefix($prefix);
   %alias = &get_alias_user($userno, $prefix);
@@ -19,8 +19,7 @@ sub ss_privmsg {
     $alias{'channel'} = $params[0];
   }
   foreach $req (&'property($userno, 'request')) {
-    $regex = &'regex($req);
-    next unless $params[1] =~ /$regex/;
+    next unless $params[1] =~ /$req/;
     if (!&'channel($params[0])) {
       foreach $reply (&'property($userno, 'private')) {
         &privmsg($serverno, $nick, &'format($reply, %alias));
@@ -65,7 +64,7 @@ sub privmsg {
 
 sub check_mask {
   local($userno, $prefix, $chan) = @_;
-  local($user, $chlist, $list);
+  local($user, $chlist, $list, $regex);
   foreach $mask (&'property($userno, 'mask')) {
     ($user, $chlist) = split(/\s+/, $mask);
     $list = '';

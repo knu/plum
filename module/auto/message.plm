@@ -246,7 +246,7 @@ sub privmsg {
 
 sub get_msg {
   local($userno, $prefix) = @_;
-  local($nick, @list, $name, $code, $line, @data, %alias, $regex);
+  local($nick, @list, $name, $code, $line, @data);
   @list = ();
   $nick = &'prefix($prefix);
   ($name, $code) = &filename(&'property($userno, 'file'));
