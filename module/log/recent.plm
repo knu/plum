@@ -1,0 +1,283 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1997-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package log_recent;
+
+$_ = 'log_recent';
+
+sub initialize {
+  $HEADER = '%H:%M';
+  $LINE = 50;
+  $COMMAND = &'list('privmsg');
+}
+
+sub module_disable {
+  local($userno) = @_;
+  undef($recent[$userno]);
+}
+
+sub client_open {
+  local($clientno) = @_;
+  foreach $log (&'array($recent[$'userno[$clientno]])) {
+    &'c_print($clientno, '', 'NOTICE', $'nick[$clientno], $log);
+  }
+}
+
+sub ss_privmsg {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick, $vchan);
+  if ($params[1] && &savecommand($'userno[$serverno], $cmd)) {
+    $nick = &'prefix($prefix);
+    if (&'channel($params[0])) {
+      $vchan = &'alias($params[0]);
+      if (&'exist($'nameslist{$serverno, $params[0]}, $nick, "\+$nick", "\@$nick")) {
+        &writelog($serverno, "<$vchan:$nick> $params[1]");
+      } else {
+        &writelog($serverno, "($vchan:$nick) $params[1]");
+      }
+    } else {
+      &writelog($serverno, "=$nick= $params[1]");
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_notice {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick, $vchan);
+  if ($params[1] && &savecommand($'userno[$serverno], $cmd)) {
+    $nick = &'prefix($prefix);
+    if (&'channel($params[0])) {
+      $vchan = &'alias($params[0]);
+      if (&'exist($'nameslist{$serverno, $params[0]}, $nick, "\+$nick", "\@$nick")) {
+        &writelog($serverno, "<$vchan:$nick> $params[1]");
+      } else {
+        &writelog($serverno, "($vchan:$nick) $params[1]");
+      }
+    } else {
+      &writelog($serverno, "=$nick= $params[1]");
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_join {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick, $name, $mode, $vchan);
+  if (&savecommand($'userno[$serverno], $cmd)) {
+    $nick = &'prefix($prefix);
+    ($name, $mode) = (split(/\cG/, $params[0]), '');
+    $vchan = &'alias($name);
+    if (index($mode, 'o') != -1) {
+      &writelog($serverno, "+ \@$nick ($prefix) to $vchan");
+    } elsif (index($mode, 'v') != -1) {
+      &writelog($serverno, "+ +$nick ($prefix) to $vchan");
+    } else {
+      &writelog($serverno, "+ $nick ($prefix) to $vchan");
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_part {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick, $vchan);
+  if (&savecommand($'userno[$serverno], $cmd)) {
+    $nick = &'prefix($prefix);
+    $vchan = &'alias($params[0]);
+    &writelog($serverno, "- $nick from $vchan ($params[1])");
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_kick {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick, $vchan);
+  if (&savecommand($'userno[$serverno], $cmd)) {
+    $nick = &'prefix($prefix);
+    $vchan = &'alias($params[0]);
+    &writelog($serverno, "- $params[1] by $nick from $vchan ($params[2])");
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_invite {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick, $vchan);
+  if (&savecommand($'userno[$serverno], $cmd)) {
+    $nick = &'prefix($prefix);
+    $vchan = &'alias($params[1]);
+    &writelog($serverno, "Invited by $nick: $vchan");
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_mode {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick, $vchan, @mode);
+  @mode = @params;
+  shift(@mode);
+  if (&savecommand($'userno[$serverno], $cmd)) {
+    $nick = &'prefix($prefix);
+    if (&'channel($params[0])) {
+      $vchan = &'alias($params[0]);
+      &writelog($serverno, "Mode by $nick: $vchan " . join(' ', @mode));
+    } else {
+      &writelog($serverno, "Mode by $nick: $params[0] " . join(' ', @mode));
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_nick {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick);
+  if (&savecommand($'userno[$serverno], $cmd)) {
+    $nick = &'prefix($prefix);
+    if ($nick eq $'nick[$serverno] || $params[0] eq $'nick[$serverno]) {
+      &writelog($serverno, "My nick is changed ($nick -\> $params[0])");
+    } else {
+      &writelog($serverno, "$nick -\> $params[0]");
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_quit {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick);
+  if (&savecommand($'userno[$serverno], $cmd)) {
+    $nick = &'prefix($prefix);
+    &writelog($serverno, "! $nick ($params[0])");
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_topic {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick, $vchan);
+  if (&savecommand($'userno[$serverno], $cmd)) {
+    $nick = &'prefix($prefix);
+    $vchan = &'alias($params[0]);
+    &writelog($serverno, "Topic of channel $vchan by $nick: $params[1]");
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub sp_privmsg {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($chan, $vchan);
+  if ($params[1] && &savecommand($'userno[$serverno], $cmd)) {
+    foreach $chan (split(/\,/, $params[0])) {
+      if (&'channel($chan)) {
+        $vchan = &'alias($chan);
+        &writelog($serverno, ">$vchan:$'nick[$serverno]< $params[1]");
+      } else {
+        &writelog($serverno, ">$chan< $params[1]");
+      }
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub sp_notice {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($chan, $vchan);
+  if ($params[1] && &savecommand($'userno[$serverno], $cmd)) {
+    foreach $chan (split(/\,/, $params[0])) {
+      if (&'channel($chan)) {
+        $vchan = &'alias($chan);
+        &writelog($serverno, ">$vchan:$'nick[$serverno]< $params[1]");
+      } else {
+        &writelog($serverno, ">$chan< $params[1]");
+      }
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub savecommand {
+  local($userno, $cmd) = @_;
+  local($save);
+  $save = &'property($userno, 'command');
+  if (defined($save)) {
+    $save = '';
+    foreach $mask (&'property($userno, 'command')) {
+      $save = &'add($save, split(/\,/, $mask));
+    }
+  } else {
+    $save = $COMMAND;
+  }
+  return &'exist($save, $cmd);
+}
+
+sub writelog {
+  local($serverno, $log) = @_;
+  local($userno, @log, $header, $line);
+  $userno = $'userno[$serverno];
+  $header = &'property($userno, 'header');
+  $header = $HEADER unless defined($header);
+  $header = &'date($header);
+  @log = &'array($recent[$userno]);
+  push(@log, "$header $log");
+  $line = &'property($userno, 'line');
+  $line = $LINE unless defined($line);
+  while (@log > $line) {
+    shift(@log);
+  }
+  $recent[$userno] = &'list(@log);
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>log/recent.plm</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+log/recent.plm - クライアントを接続したときに最近のメッセージを送る
+
+
+<HR><H3>説明</H3>
+
+最近のメッセージを指定した数だけ保存しておき、
+クライアントを接続したときに、それを送ります。
+
+
+<HR><H3>プロパティ</H3>
+
+<DL>
+<DT>  log.recent.header へッダ
+</DT>
+<DD>    ログの時刻のフォーマットを指定します。
+        %ではじまる文字があると、対応する時間に変換されます。
+</DD>
+<DT>  log.recent.line 行数
+</DT>
+<DD>    ログを残す行数を指定します。デフォルトでは50行です。
+</DD>
+<DT>  log.recent.command ({invite|join|kick|mode|nick|notice|part|privmsg|quit|topic})
+</DT>
+<DD>    保存するメッセージの種類を指定します。
+        デフォルトでは「privmsg」だけです。
+</DD>
+</DL>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
+log.recent.header: %H%M%S
+log.recent.command: notice,privmsg,topic
+</PRE>
+
+へッダを「%H%M%S」にし、ログの種類を「notice」、「privmsg」、「topic」
+の3種類にします。
+「%H」、「%M」、「%S」はそれぞれ現在の時、分、秒に変換されます。
+
+</BODY></HTML>
