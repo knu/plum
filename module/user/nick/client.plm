@@ -1,0 +1,136 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1997-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package user_nick_client;
+
+$_ = 'user_nick_client';
+
+sub initialize {
+}
+
+sub client_open {
+  local($clientno) = @_;
+  local($userno, $sno);
+  $userno = $'userno[$clientno];
+  $sno = $'server[$clientno];
+  return unless &'exist($'serverlist, $sno);
+  foreach $cno (&'array($'clientlist)) {
+    return if $'server[$cno] == $sno && $cno != $clientno;
+  }
+  $nicklist[$sno] = '';
+  foreach $list (&'property($userno, 'stay')) {
+    $nicklist[$sno] = &'add($nicklist[$sno], split(/\,/, $list));
+  }
+  return unless $nicklist[$sno];
+  &'s_print($sno, '', 'NICK', (&'array($nicklist[$sno]))[0]);
+  $flag[$sno] = 1;
+}
+
+sub client_close {
+  local($clientno) = @_;
+  local($userno, $sno);
+  $userno = $'userno[$clientno];
+  $sno = $'server[$clientno];
+  return unless &'exist($'serverlist, $sno);
+  foreach $cno (&'array($'clientlist)) {
+    return if $'server[$cno] == $sno;
+  }
+  $nicklist[$sno] = '';
+  foreach $list (&'property($userno, 'away')) {
+    $nicklist[$sno] = &'add($nicklist[$sno], split(/\,/, $list));
+  }
+  return unless $nicklist[$sno];
+  &'s_print($sno, '', 'NICK', (&'array($nicklist[$sno]))[0]);
+  $flag[$sno] = 1;
+}
+
+sub ss_nick {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  $nick = &'prefix($prefix);
+  $flag[$serverno] = 0 if $params[0] eq $'nick[$serverno];
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_433 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  &anothernick($serverno, $params[0], $params[1]) if $flag[$serverno];
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_437 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  &anothernick($serverno, $params[0], $params[1]) if $flag[$serverno];
+  return ($prefix, $cmd, @params);
+}
+
+sub anothernick {
+  local($serverno, $nick, $newnick) = @_;
+  local($userno, @nickentry);
+  return if $nick ne $'nick[$serverno];
+  $userno = $'userno[$serverno];
+  @nickentry = &'array($nicklist[$serverno]);
+  return if $nickentry[$#nickentry] eq $newnick;
+  if (&'exist($nicklist[$serverno], $newnick)) {
+    while ($nickentry[0] ne $newnick) {
+      push(@nickentry, shift(@nickentry));
+    }
+    push(@nickentry, shift(@nickentry));
+  }
+  &'s_print($serverno, '', 'NICK', $nickentry[0]);
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>user/nick/client.plm</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+user/nick/client.plm - クライアントとの接続状態によってニックネームを変更する
+
+
+<HR><H3>説明</H3>
+
+plumにクライアントが接続されているかどうかによって、
+ニックネームを変更します。
+
+
+<HR><H3>プロパティ</H3>
+
+<DL>
+<DT>  user.nick.client.stay* (ニックネーム)
+</DT>
+<DD>    クライアントが接続されているときのニックネームを指定します。
+        指定したニックネームがすでに使われていて、
+        そのニックネームに変更できないときは、
+        最初に指定したものから順番に変更します。
+</DD>
+<DT>  user.nick.client.away* (ニックネーム)
+</DT>
+<DD>    クライアントが接続されていないときのニックネームを指定します。
+        指定したニックネームがすでに使われていて、
+        そのニックネームに変更できないときは、
+        最初に指定したものから順番に変更します。
+</DD>
+</DL>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
++ user/nick/client.plm
+user.nick.client.stay: pupu_j
+user.nick.client.away: pupu_d,pupu_Zzz
+</PRE>
+
+クライアントが接続されているときのニックネームを「pupu_j」に、
+クライアントが接続されていないときのニックネームを「pupu_d」にします。
+「pupu_d」というニックネームの人がすでに存在するときは、
+「pupu_Zzz」というニックネームを使います。
+
+</BODY></HTML>

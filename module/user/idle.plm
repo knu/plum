@@ -1,0 +1,49 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1998-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package user_idle;
+
+$_ = 'user_idle';
+
+sub initialize {
+}
+
+sub sp_whois {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  if (@params == 1) {
+    $params[1] = $params[0];
+  }
+  return ($prefix, $cmd, @params);
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>user/idle.plm</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+user/idle.plm - WHOISを実行したときにユーザのIDLE時間を表示する
+
+
+<HR><H3>説明</H3>
+
+WHOISコマンドでユーザの情報を見るときに、そのユーザのIDLE時間が
+必ず表示されるようにします。
+
+
+<HR><H3>プロパティ</H3>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
++ user/idle.plm
+</PRE>
+
+</BODY></HTML>

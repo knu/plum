@@ -1,0 +1,86 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1997-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package user_away_nick;
+
+$_ = 'user_away_nick';
+
+sub initialize {
+}
+
+sub server_open {
+  local($serverno) = @_;
+  local($away);
+  $away = &getaway($'userno[$serverno], $'nick[$serverno]);
+  &'s_print($serverno, '', 'AWAY', $away);
+}
+
+sub ss_nick {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  &'s_print($serverno, '', 'AWAY', &getaway($'userno[$serverno], $'nick[$serverno])) if $params[0] eq $'nick[$serverno];
+  return ($prefix, $cmd, @params);
+}
+
+sub getaway {
+  local($userno, $nick) = @_;
+  local($list, $away, $name);
+  foreach $set (&'property($userno, 'set')) {
+    ($list, $away) = (split(/\s+/, $set, 2), '');
+    foreach $name (split(/\,/, $list)) {
+      return $away if "\L$name\E" eq "\L$nick\E";
+    }
+  }
+  return '';
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>user/away/nick.plm</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+user/away/nick.plm - ニックネームを変更するとそれに対応するAWAYを設定する
+
+
+<HR><H3>説明</H3>
+
+ニックネームを変更したときに、そのニックネームに対応するAWAYが
+指定されていれば、そのAWAYを設定します。
+そうでなければAWAYを取り消します。
+
+
+<HR><H3>プロパティ</H3>
+
+<DL>
+<DT>  user.away.nick.set* (ニックネーム) メッセージ
+</DT>
+<DD>    ニックネームと対応するAWAYを指定します。
+        ニックネームを変更したときに、
+        そのニックネームがここで指定されたものなら、
+        対応するAWAYを設定します。
+        ニックネームが指定されていなければAWAYを取り消します。
+</DD>
+</DL>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
++ user/away/nick.plm
+user.away.nick.set: pupu_Zzz ねてます
+user.away.nick.set: pupu_work,pupu_job 仕事中です
+</PRE>
+
+ニックネームを「pupu_Zzz」に変更すると、
+「ねてます」というAWAYを設定します。
+またニックネームを「pupu_work」か「pupu_job」に変更すると、
+「仕事中です」というAWAYを設定します。
+それ以外のニックネームに変更した場合はAWAYを取り消します。
+
+</BODY></HTML>
