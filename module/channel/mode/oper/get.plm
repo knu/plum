@@ -1,0 +1,86 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1997-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package channel_mode_oper_get;
+
+$_ = 'channel_mode_oper_get';
+
+sub initialize {
+}
+
+sub ss_kick {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($userno);
+  $userno = $'userno[$serverno];
+  if ($params[1] ne $'nick[$serverno]) {
+    if ($'nameslist{$serverno, $params[0]} eq &'list($'nick[$serverno]) || $'nameslist{$serverno, $params[0]} eq &'list("+$'nick[$serverno]")) {
+      &'s_print($serverno, '', 'PART', $params[0]);
+      &'s_print($serverno, '', 'JOIN', $params[0]);
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_part {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($userno, $nick);
+  $userno = $'userno[$serverno];
+  $nick = &'prefix($prefix);
+  if ($nick ne $'nick[$serverno]) {
+    if ($'nameslist{$serverno, $params[0]} eq &'list($'nick[$serverno]) || $'nameslist{$serverno, $params[0]} eq &'list("+$'nick[$serverno]")) {
+      &'s_print($serverno, '', 'PART', $params[0]);
+      &'s_print($serverno, '', 'JOIN', $params[0]);
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_quit {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($userno, $nick);
+  $userno = $'userno[$serverno];
+  $nick = &'prefix($prefix);
+  if (!($params[0] =~ /^[\w\-\*]+(\.[\w\-]+)+\s+[\w\-\*]+(\.[\w\-]+)+$/)) {
+    foreach $chan (&'array($'channellist[$serverno])) {
+      if ($'nameslist{$serverno, $chan} eq &'list($'nick[$serverno]) || $'nameslist{$serverno, $chan} eq &'list("+$'nick[$serverno]")) {
+        &'s_print($serverno, '', 'PART', $chan);
+        &'s_print($serverno, '', 'JOIN', $chan);
+      }
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>channel/mode/oper/get.plm</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+channel/mode/oper/get.plm - チャンネルオペレータを復帰する
+
+
+<HR><H3>説明</H3>
+
+チャンネルに自分しかいないにもかかわらず、
+自分がチャンネルオペレータではない場合、
+一度チャンネルを抜けて再び入り直すことによって、
+チャンネルオペレータになります。
+
+
+<HR><H3>プロパティ</H3>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
++ channel/mode/oper/get.plm
+</PRE>
+
+</BODY></HTML>

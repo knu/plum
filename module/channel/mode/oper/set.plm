@@ -1,0 +1,250 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1997-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package channel_mode_oper_set;
+
+$_ = 'channel_mode_oper_set';
+
+sub initialize {
+  $DELAY = 20;
+}
+
+sub main_loop {
+  local($userno) = @_;
+  local($delay, $no, $chan, @names, $nick);
+  $delay = &'property($userno, 'delay');
+  $delay = $DELAY unless defined($delay);
+  foreach $key (keys(%operlist)) {
+    ($no, $chan) = split(/$;/, $key, 2);
+    next unless $'userno[$no] == $userno;
+    next unless &'exist($'nameslist{$no, $chan}, "\@$'nick[$no]");
+    next unless $operlist{$key};
+    $wait[$userno]++;
+    @names = &'array($operlist{$key});
+    next unless $wait[$userno] >= $delay;
+    $nick = shift(@names);
+    next if &'exist($'nameslist{$no, $chan}, "\@$nick");
+    &'s_print($no, '', 'MODE', $chan, '+o', $nick);
+    $operlist{$key} = &'list(@names);
+    $wait[$userno] = 0;
+  }
+}
+
+sub module_disable {
+  local($userno) = @_;
+  local($no, $chan);
+  foreach $key (keys(%operlist)) {
+    ($no, $chan) = split(/$;/, $key, 2);
+    next unless $'userno[$no] == $userno;
+    delete $operlist{$key};
+  }
+}
+
+sub server_close {
+  local($serverno) = @_;
+  local(@keys, $no, $chan);
+  @keys = keys(%operlist);
+  foreach $key (@keys) {
+    ($no, $chan) = split(/$;/, $key, 2);
+    next unless $no == $serverno;
+    delete $operlist{$key};
+  }
+}
+
+sub ss_join {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($userno, $nick, $regex, $name, $mode, $delay);
+  $userno = $'userno[$serverno];
+  $nick = &'prefix($prefix);
+  ($name, $mode) = (split(/\cG/, $params[0]), '');
+  if ($nick ne $'nick[$serverno] && index($mode, 'o') == -1) {
+    if (&check_mask($userno, $prefix, $params[0])) {
+      $delay = &'property($userno, 'delay');
+      $delay = $DELAY unless defined($delay);
+      if ($delay) {
+        $operlist{$serverno, $name} = &'add($operlist{$serverno, $name}, $nick);
+      } else {
+        &'s_print($serverno, '', 'MODE', $name, '+o', $nick);
+      }
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_mode {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($chan, $mode, @modes) = @params;
+  local($userno, $flag, $name);
+  $userno = $'userno[$serverno];
+  foreach $char (split(//, $mode)) {
+    if ($char eq '+' || $char eq '-') {
+      $flag = $char;
+    } elsif ($char eq 'b') {
+      shift(@modes);
+    } elsif ($char eq 'e') {
+      shift(@modes);
+    } elsif ($char eq 'I') {
+      shift(@modes);
+    } elsif ($char eq 'k') {
+      shift(@modes);
+    } elsif ($char eq 'l') {
+      shift(@modes) if $flag eq '+';
+    } elsif ($char eq 'O') {
+      shift(@modes);
+    } elsif ($char eq 'o') {
+      $name = shift(@modes);
+      if ($flag eq '+') {
+        $operlist{$serverno, $chan} = &'remove($operlist{$serverno, $chan}, $name);
+      }
+    } elsif ($char eq 'v') {
+      shift(@modes);
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_nick {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($userno, $nick, $no, $chan);
+  $userno = $'userno[$serverno];
+  $nick = &'prefix($prefix);
+  if ($nick ne $'nick[$serverno]) {
+    foreach $key (keys(%operlist)) {
+      ($no, $chan) = split(/$;/, $key, 2);
+      next unless $no == $serverno;
+      $operlist{$no, $chan} = &'change($operlist{$no, $chan}, $nick, $params[0]);
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_part {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick, $userno);
+  $userno = $'userno[$serverno];
+  $nick = &'prefix($prefix);
+  if ($nick eq $'nick[$serverno]) {
+    delete $operlist{$serverno, $params[0]};
+  } else {
+    $operlist{$serverno, $params[0]} = &'remove($operlist{$serverno, $params[0]}, $nick);
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_quit {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($userno, $nick, $no, $chan);
+  $userno = $'userno[$serverno];
+  $nick = &'prefix($prefix);
+  foreach $key (keys(%operlist)) {
+    ($no, $chan) = split(/$;/, $key, 2);
+    next unless $no == $serverno;
+    $operlist{$no, $chan} = &'remove($operlist{$no, $chan}, $nick);
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_kick {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($userno);
+  $userno = $'userno[$serverno];
+  if ($params[1] eq $'nick[$serverno]) {
+    delete $operlist{$serverno, $params[0]};
+  } else {
+    $operlist{$serverno, $params[0]} = &'remove($operlist{$serverno, $params[0]}, $params[1]);
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub check_mask {
+  local($userno, $prefix, $chan) = @_;
+  local($user, $chlist, $list);
+  foreach $mask (&'property($userno, 'mask')) {
+    ($user, $chlist) = split(/\s+/, $mask);
+    $list = '';
+    foreach $vchan (split(/\,/, $chlist || '')) {
+      $list = &'add($list, &'real($vchan));
+    }
+    if (&'channel($chan)) {
+      next unless (!$list || &'exist($list, $chan));
+    } else {
+      next unless (!$list || &'exist($list, '*'));
+    }
+    if ($user =~ /^\-/) {
+      $regex = &'regex(substr($user, 1));
+      return 0 if $prefix =~ /$regex/i;
+    }
+    if ($user =~ /^\+/) {
+      $regex = &'regex(substr($user, 1));
+    } else {
+      $regex = &'regex($user);
+    }
+    return 1 if $prefix =~ /$regex/i;
+  }
+  return 0;
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>channel/mode/oper/set.plm</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+channel/mode/oper/set.plm - 特定の人をチャンネルオペレータにする
+
+
+<HR><H3>説明</H3>
+
+チャンネルに入ってきた人が指定された人なら、
+その人をチャンネルオペレータにします。
+実際にはチャンネルに入ってきたときにすぐにチャンネルオペレータ
+にするわけではなく、一定時間待ってからチャンネルオペレータにします。
+
+
+<HR><H3>プロパティ</H3>
+
+<DL>
+<DT>  channel.mode.oper.set.delay 待ち時間
+</DT>
+<DD>    チャンネルオペレータにするまでの待ち時間です。
+        誰かがチャンネルに入ってくると、
+        ここで指定されたの数だけ内部でカウントし、
+        その後でその人をチャンネルオペレータにします。
+        デフォルトでは20となっています。
+</DD>
+<DT>  channel.mode.oper.set.mask* ユーザマスク [(チャンネル名)]
+</DT>
+<DD>    チャンネルに入ってきた人がここで指定したものにマッチしたら、
+        その人をチャンネルオペレータにします。
+</DD>
+</DL>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
++ channel/mode/oper/set.plm
+channel.mode.oper.set.mask: +pupu_j!*@*
+channel.mode.oper.set.mask: +pupu_d!*@*
+</PRE>
+
+チャンネルに入ってきた人が「pupu_j!*@*」か「pupu_d!*@*」に
+マッチした場合、その人をチャンネルオペレータにします。
+
+<PRE>
++ channel/mode/oper/set.plm
+channel.mode.oper.set.delay: 0
+channel.mode.oper.set.mask: -*!*@*.com
+channel.mode.oper.set.mask: +*!*@* %まどか,#ぷらむ
+</PRE>
+
+「%まどか」か「#ぷらむ」に入ってきた人が「*!*@*.com」にマッチしなければ、
+その人をすぐにチャンネルオペレータにします。
+
+</BODY></HTML>

@@ -1,0 +1,273 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1999-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package channel_filter;
+
+$_ = 'channel_filter';
+
+sub initialize {
+}
+
+sub module_enable {
+  local($userno) = @_;
+  foreach $cno (&'array($'clientlist)) {
+    next unless $'userno[$cno] == $userno;
+    $visiblelist[$cno] = $'channellist[$cno];
+    $joinlist[$cno] = '';
+  }
+}
+
+sub module_disable {
+  local($userno) = @_;
+  foreach $cno (&'array($'clientlist)) {
+    next unless $'userno[$cno] == $userno;
+    foreach $chan (&'array($'channellist[$'server[$cno]])) {
+      if (!&'exist($visiblelist[$cno], $chan)) {
+        $joinlist[$cno] = &'add($joinlist[$cno], $chan);
+        &join_channel($cno, $chan);
+      }
+    }
+    $visiblelist[$cno] = '';
+    $joinlist[$cno] = '';
+  }
+}
+
+sub client_open {
+  local($clientno) = @_;
+  $visiblelist[$clientno] = '';
+  $joinlist[$clientno] = '';
+}
+
+sub client_close {
+  local($clientno) = @_;
+  $visiblelist[$clientno] = '';
+  $joinlist[$clientno] = '';
+}
+
+sub cp_kick {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  if (!&'exist($visiblelist[$clientno], $params[0])) {
+    return ();
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub cs_join {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  local(@chan, @key, @joinchan, @joinkey, $i);
+  if ($params[0]) {
+    @chan = split(/\,/, $params[0]);
+    @key = split(/\,/, $params[1] || '');
+    @joinchan = ();
+    @joinkey = ();
+    for ($i = 0; $i < @chan; $i++) {
+      $rchan = &'real($chan[$i]);
+      next unless &'channel($rchan);
+      $joinlist[$clientno] = &'add($joinlist[$clientno], $rchan);
+      if (&'exist($'channellist[$'server[$clientno]], $rchan)) {
+        &join_channel($clientno, $rchan);
+      } elsif (!&'exist($visiblelist[$clientno], $rchan)) {
+        push(@joinchan, $rchan);
+        push(@joinkey, $key[$i] || '');
+      }
+    }
+  }
+  if (@joinchan) {
+    return ($prefix, $cmd, join(',', @joinchan), join(',', @joinkey));
+  }
+  return ();
+}
+
+sub cp_join {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  if (&'exist($joinlist[$clientno], $params[0])) {
+    $visiblelist[$clientno] = &'add($visiblelist[$clientno], $params[0]);
+    $joinlist[$clientno] = &'remove($joinlist[$clientno], $params[0]);
+    return ($prefix, $cmd, @params);
+  }
+  return ();
+}
+
+sub cp_nick {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  local($nick);
+  $nick = &'prefix($prefix);
+  if ($nick eq $'nick[$clientno]) {
+    return ($prefix, $cmd, @params);
+  }
+  foreach $chan (&'array($visiblelist[$clientno])) {
+    if (&'exist($'nameslist{$clientno, $chan}, $nick, "\+$nick", "\@$nick")) {
+      return ($prefix, $cmd, @params);
+    }
+  }
+  return ();
+}
+
+sub cp_notice {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  if (&'channel($params[0])) {
+    if (!&'exist($visiblelist[$clientno], $params[0])) {
+      return ();
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub cp_mode {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  if (&'channel($params[0])) {
+    if (!&'exist($visiblelist[$clientno], $params[0])) {
+      return ();
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub cs_part {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  &'c_print($clientno, &'user($clientno), $cmd, @params);
+  return ();
+}
+
+sub cp_part {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  if (&'channel($params[0])) {
+    if (!&'exist($visiblelist[$clientno], $params[0])) {
+      return ();
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub cp_privmsg {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  if (&'channel($params[0])) {
+    if (!&'exist($visiblelist[$clientno], $params[0])) {
+      return ();
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub cp_quit {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  local($nick);
+  $nick = &'prefix($prefix);
+  foreach $chan (&'array($visiblelist[$clientno])) {
+    if (&'exist($'nameslist{$clientno, $chan}, $nick, "\+$nick", "\@$nick")) {
+      return ($prefix, $cmd, @params);
+    }
+  }
+  return ();
+}
+
+sub cp_topic {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  if (!&'exist($visiblelist[$clientno], $params[0])) {
+    return ();
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub cp_332 {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  if (!&'exist($visiblelist[$clientno], $params[1])) {
+    return ();
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub cp_353 {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  if (!&'exist($visiblelist[$clientno], $params[2])) {
+    return ();
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub cp_366 {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  if (!&'exist($visiblelist[$clientno], $params[1])) {
+    return ();
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub cp_405 {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  $joinlist[$clientno] = &'remove($joinlist[$clientno], $params[1]);
+  return ($prefix, $cmd, @params);
+}
+
+sub cp_471 {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  $joinlist[$clientno] = &'remove($joinlist[$clientno], $params[1]);
+  return ($prefix, $cmd, @params);
+}
+
+sub cp_473 {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  $joinlist[$clientno] = &'remove($joinlist[$clientno], $params[1]);
+  return ($prefix, $cmd, @params);
+}
+
+sub cp_474 {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  $joinlist[$clientno] = &'remove($joinlist[$clientno], $params[1]);
+  return ($prefix, $cmd, @params);
+}
+
+sub cp_475 {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  $joinlist[$clientno] = &'remove($joinlist[$clientno], $params[1]);
+  return ($prefix, $cmd, @params);
+}
+
+sub cp_476 {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  $joinlist[$clientno] = &'remove($joinlist[$clientno], $params[1]);
+  return ($prefix, $cmd, @params);
+}
+
+sub join_channel {
+  local($cno, $chan) = @_;
+  local($sno);
+  $sno = $'server[$cno];
+  &'c_print($cno, &'user($cno), 'JOIN', $chan);
+  &'c_print($cno, $'servername[$cno], '332', $'nick[$cno], $chan, $'topic{$sno, $chan}) if $'topic{$sno, $chan};
+  &'c_print($cno, $'servername[$cno], '353', $'nick[$cno], '=', $chan, join(' ', reverse(&'array($'nameslist{$sno, $chan}))));
+  &'c_print($cno, $'servername[$cno], '366', $'nick[$cno], $chan, 'End of /NAMES list.');
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>channel/filter.plm</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+channel/filter.plm - クライアントから見えるチャンネルを制限する
+
+
+<HR><H3>説明</H3>
+
+クライアントを接続したときに、実際にはいくつかのチャンネルに
+入っていても、クライアントからはそれが見えないようにします。
+また、チャンネルを抜けようとしても、実際には抜けません。
+
+
+<HR><H3>プロパティ</H3>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
++ channel/filter.plm
+</PRE>
+
+</BODY></HTML>
