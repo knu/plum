@@ -334,7 +334,7 @@ sub userno {
 sub kanji_euc {
   local($userno, $line) = @_;
   local($code);
-  $code = (reverese(&'property($userno, 'kanji')))[0];
+  $code = (reverse(&'property($userno, 'kanji')))[0] || '';
   if ($code eq 'euc') {
     $line = &'euc_euc($line);
   } elsif ($code eq 'jis') {
