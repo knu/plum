@@ -1,0 +1,1324 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1998-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package sys_web;
+
+$_ = 'sys_web';
+
+sub initialize {
+  $BUFFER = 1024;
+  $TIMEOUT = 3600;
+  $METHOD = 'get';
+  $HEADER = '%H:%M';
+  $LINE = 50;
+  $KANJI = 'jis,sjis';
+}
+
+sub main_loop {
+  local($userno) = @_;
+  local($timeout);
+  $timeout = &'property($userno, 'timeout') || $TIMEOUT;
+  foreach $lno (&'array($httplistenlist)) {
+    if (vec($'rout, $'fileno[$lno], 1)) {
+      &http_listen($lno);
+      vec($'rout, $'fileno[$lno], 1) = 0;
+    }
+  }
+  foreach $cno (&'array($httpclientlist)) {
+    next unless $userno[$cno] == $userno;
+    if (vec($'rout, $'fileno[$cno], 1)) {
+      &http_client($cno);
+      vec($'rout, $'fileno[$cno], 1) = 0;
+    } elsif (time() - $'access[$cno] > $timeout) {
+      $httpclientlist = &'remove($httpclientlist, $cno);
+      &'close($cno);
+    }
+  }
+  &open_port($userno);
+  &close_port(-1);
+}
+
+sub module_enable {
+  local($userno) = @_;
+  &open_port($userno);
+  foreach $sno (&'array($'serverlist)) {
+    next unless $userno == $'userno[$sno];
+    foreach $chan (&'array($'channellist[$sno])) {
+      $nameslist{$sno, $chan} = '';
+      foreach $nick (&'array($'nameslist{$sno, $chan})) {
+        $nick =~ tr/\@\+//d;
+        $nameslist{$sno, $chan} = &'add($nameslist{$sno, $chan}, $nick);
+      }
+    }
+  }
+}
+
+sub module_disable {
+  local($userno) = @_;
+  &close_port($userno);
+  foreach $cno (&'array($httpclientlist)) {
+    next unless $userno[$cno] == $userno;
+    &'close($cno);
+    $httpclientlist = &'remove($httpclientlist, $cno);
+  }
+  foreach $sno (&'array($'serverlist)) {
+    next unless $userno == $'userno[$sno];
+    foreach $chan (&'array($'channellist[$sno])) {
+      delete $message{$userno, $chan};
+    }
+  }
+}
+
+sub ss_invite {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick, $vchan);
+  $nick = &'prefix($prefix);
+  $vchan = &'alias($params[1]);
+  &writelog($serverno, $params[1], "*** $nick invites you to channel $vchan");
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_join {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick, $name, $mode, $vchan);
+  $nick = &'prefix($prefix);
+  ($name, $mode) = (split(/\cG/, $params[0]), '');
+  if ($nick eq $'nick[$serverno]) {
+    $nameslist{$serverno, $name} = '';
+  } else {
+    $nameslist{$serverno, $name} = &'add($nameslist{$serverno, $name}, $nick);
+  }
+  $vchan = &'alias($name);
+  if (index($mode, 'o') != -1) {
+    &writelog($serverno, $name, "\@$nick has joined channel $vchan");
+  } elsif (index($mode, 'v') != -1) {
+    &writelog($serverno, $name, "+$nick has joined channel $vchan");
+  } else {
+    &writelog($serverno, $name, "$nick has joined channel $vchan");
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_kick {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick, $vchan);
+  $nick = &'prefix($prefix);
+  $vchan = &'alias($params[0]);
+  if ($params[1] eq $'nick[$serverno]) {
+    &writelog($serverno, '', "You were kicked off channel $vchan by $nick ($params[2])");
+  } else {
+    &writelog($serverno, $params[0], "$nick has kicked $params[1] out from channel $vchan ($params[2])");
+  }
+  if ($nick eq $'nick[$serverno]) {
+    delete $nameslist{$serverno, $params[0]};
+  } else {
+    $nameslist{$serverno, $params[0]} = &'remove($nameslist{$serverno, $params[0]}, $params[1]);
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_mode {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick, $vchan, @mode);
+  @mode = @params;
+  shift(@mode);
+  $nick = &'prefix($prefix);
+  if (&'channel($params[0])) {
+    $vchan = &'alias($params[0]);
+    &writelog($serverno, $params[0], "New mode for $vchan set by $nick: " . join(' ', @mode));
+  } else {
+    &writelog($serverno, '', "Your new mode is set: " . join(' ', @mode));
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_nick {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick);
+  $nick = &'prefix($prefix);
+  if ($nick eq $'nick[$serverno]) {
+    &writelog($serverno, '', "$nick is now known as $params[0]");
+  }
+  &writelog($serverno, $nick, "$nick is now known as $params[0]");
+  foreach $chan (&'array($'channellist[$serverno])) {
+    $nameslist{$serverno, $chan} = &'change($nameslist{$serverno, $chan}, $nick, $params[0]);
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub sp_notice {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($chan);
+  if ($params[1]) {
+    foreach $chan (split(/\,/, $params[0])) {
+      if (&'channel($chan)) {
+        &writelog($serverno, $chan, ">$'nick[$serverno]< $params[1]");
+      } else {
+        &writelog($serverno, '', ">$chan< $params[1]");
+      }
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_notice {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick);
+  if ($params[1]) {
+    $nick = &'prefix($prefix);
+    if (&'channel($params[0])) {
+      if (&'exist($nameslist{$serverno, $params[0]}, $nick)) {
+        &writelog($serverno, $params[0], "<$nick> $params[1]");
+      } else {
+        &writelog($serverno, $params[0], "($nick) $params[1]");
+      }
+    } else {
+      &writelog($serverno, '', "=$nick= $params[1]");
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_part {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick, $vchan);
+  $nick = &'prefix($prefix);
+  $vchan = &'alias($params[0]);
+  if ($nick eq $'nick[$serverno]) {
+    &writelog($serverno, '', "$nick has left channel $vchan ($params[1])");
+  }
+  &writelog($serverno, $params[0], "$nick has left channel $vchan ($params[1])");
+  if ($nick eq $'nick[$serverno]) {
+    delete $nameslist{$serverno, $params[0]};
+  } else {
+    $nameslist{$serverno, $params[0]} = &'remove($nameslist{$serverno, $params[0]}, $nick);
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub sp_privmsg {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($chan);
+  if ($params[1]) {
+    foreach $chan (split(/\,/, $params[0])) {
+      if (&'channel($chan)) {
+        &writelog($serverno, $chan, ">$'nick[$serverno]< $params[1]");
+      } else {
+        &writelog($serverno, '', ">$chan< $params[1]");
+      }
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_privmsg {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick);
+  if ($params[1]) {
+    $nick = &'prefix($prefix);
+    if (&'channel($params[0])) {
+      if (&'exist($nameslist{$serverno, $params[0]}, $nick)) {
+        &writelog($serverno, $params[0], "<$nick> $params[1]");
+      } else {
+        &writelog($serverno, $params[0], "($nick) $params[1]");
+      }
+    } else {
+      &writelog($serverno, '', "=$nick= $params[1]");
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_quit {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick);
+  $nick = &'prefix($prefix);
+  &writelog($serverno, $nick, "$nick has left IRC ($params[0])");
+  foreach $chan (&'array($'channellist[$serverno])) {
+    $nameslist{$serverno, $chan} = &'remove($nameslist{$serverno, $chan}, $nick);
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_topic {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick, $vchan);
+  $nick = &'prefix($prefix);
+  $vchan = &'alias($params[0]);
+  &writelog($serverno, $params[0], "New topic on $vchan set by $nick: $params[1]");
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_301 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  &writelog($serverno, '', "AWAY: $params[2]");
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_302 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick, $name);
+  if ($params[1]) {
+    ($nick, $name) = split(/\*?\=[\+\-]/, $params[1]);
+    if ($nick eq $'nick[$serverno]) {
+      &writelog($serverno, '', "*** You are $name");
+    } else {
+      &writelog($serverno, '', "$nick is <$name>");
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_303 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  if ($params[1]) {
+    &writelog($serverno, '', "No one you requested is on now.");
+  } else {
+    &writelog($serverno, '', "Following people(s) are on: $params[1]");
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_305 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  &writelog($serverno, '', "*** $params[1]");
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_306 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  &writelog($serverno, '', "*** $params[1]");
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_311 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  &writelog($serverno, '', "$params[1] is <$params[2]\@$params[3]> $params[5]");
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_312 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  &writelog($serverno, '', "on via server $params[2] ($params[3])");
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_313 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  &writelog($serverno, '', "STATUS: $params[2]");
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_314 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  &writelog($serverno, '', "$params[1] was <$params[2]\@$params[3]> $params[5]");
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_317 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($day, $hour, $min, $sec);
+  $sec = $params[2];
+  $day = int($sec / 86400);
+  $sec %= 86400;
+  $hour = int($sec / 3600);
+  $sec %= 3600;
+  $min = int($sec / 60);
+  $sec %= 60;
+  if ($day) {
+    &writelog($serverno, '', "IDLE for $day days $hour hours");
+  } elsif ($hour) {
+    &writelog($serverno, '', "IDLE for $hour hours $min minutes");
+  } elsif ($min) {
+    &writelog($serverno, '', "IDLE for $min minutes $sec seconds");
+  } else {
+    &writelog($serverno, '', "IDLE for $sec seconds");
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_319 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($str);
+  $str = 'channels:';
+  foreach $chan (split(/\s+/, $params[2])) {
+    if ($chan =~ /^[\@\+]/) {
+      $str .= ' ' . substr($chan, 0, 1) . &'alias(substr($chan, 1));
+    } else {
+      $str .= ' ' . &'alias($chan);
+    }
+  }
+  &writelog($serverno, '', $str);
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_322 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($vchan);
+  $vchan = &'alias($params[1]);
+  &writelog($serverno, '', "Topic for $vchan ($params[2] users): $params[3]");
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_324 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($vchan);
+  $vchan = &'alias($params[1]);
+  &writelog($serverno, '', "Mode for $vchan: $params[2]");
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_331 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($vchan);
+  $vchan = &'alias($params[1]);
+  &writelog($serverno, $params[1], "No topic is set for $vchan");
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_332 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($vchan);
+  $vchan = &'alias($params[1]);
+  &writelog($serverno, $params[1], "Topic for $vchan: $params[2]");
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_341 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($vchan);
+  $vchan = &'alias($params[2]);
+  &writelog($serverno, '', "*** Inviting user $params[1] to channel $vchan");
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_351 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  &writelog($serverno, '', "*** $params[2] is running IRC version $params[1] ($params[3]");
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_352 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($vchan, $name);
+  $vchan = &'alias($params[1]);
+  $name = (split(/\s+/, $params[7]))[1] || '';
+  &writelog($serverno, '', "$params[6] $vchan $params[5] <$params[2]\@$params[3]> $name");
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_353 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  if (&'exist($'channellist[$serverno], $params[2])) {
+    foreach $name (split(/\s+/, $params[3])) {
+      $name =~ tr/\+\@//d;
+      $nameslist{$serverno, $params[2]} = &'add($nameslist{$serverno, $params[2]}, $name);
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_364 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($info);
+  $info = (split(/\s+/, $params[3]))[1] || '';
+  &writelog($serverno, '', "$params[1] $info");
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_367 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($vchan);
+  $vchan = &'alias($params[1]);
+  &writelog($serverno, '', "Banned on $vchan: $params[2]");
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_371 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  &writelog($serverno, '', "*** $params[1]");
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_372 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  &writelog($serverno, '', "*** $params[1]");
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_381 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  &writelog($serverno, '', "OPER: $params[1]");
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_391 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  &writelog($serverno, '', "TIME: $params[2] ($params[1])");
+  return ($prefix, $cmd, @params);
+}
+
+sub open_port {
+  local($userno) = @_;
+  local($lno);
+  foreach $port (&get_port($userno)) {
+    next if &'exist($portlist, $port);
+    $lno = &'socket('L');
+    if (&'listen($lno, $port)) {
+      $httplistenlist = &'add($httplistenlist, $lno);
+      $portlist = &'add($portlist, $port);
+    } else {
+      &'close($lno);
+    }
+  }
+}
+
+sub close_port {
+  local($userno) = @_;
+  local($i, $uselist);
+  for ($i = 0; $i < @'username; $i++) {
+    next unless $i != $userno;
+    next unless &'exist($'modulelist[$i], 'sys_web');
+    $uselist = &'add($uselist, &get_port($i));
+  }
+  foreach $lno (&'array($httplistenlist)) {
+    $port = (&'sockname($lno))[0];
+    next if &'exist($uselist, $port);
+    &'close($lno);
+    $httplistenlist = &'remove($httplistenlist, $lno);
+    $portlist = &'remove($portlist, $port);
+  }
+}
+
+sub get_port {
+  local($userno) = @_;
+  local($host, $id, $mask, $port, $list);
+  $list = '';
+  foreach $client (&'property($userno, 'client')) {
+    ($host, $id) = split(/\s+/, $client, 2);
+    ($mask, $port) = split(/\;/, $host);
+    $list = &'add($list, $port);
+  }
+  return (&'array($list));
+}
+
+sub writelog {
+  local($serverno, $chan, $msg) = @_;
+  local($userno);
+  $userno = $'userno[$serverno];
+  if ($chan eq '') {
+    &channellog($serverno, $chan, $msg);
+  } elsif (&'channel($chan)) {
+    &channellog($serverno, $chan, $msg);
+  } else {
+    foreach $rchan (&'array($'channellist[$serverno])) {
+      if (&'exist($nameslist{$serverno, $rchan}, $chan)) {
+        &channellog($serverno, $rchan, $msg);
+      }
+    }
+  }
+}
+
+sub channellog {
+  local($serverno, $chan, $msg) = @_;
+  local($userno, @list, $header, $line);
+  $userno = $'userno[$serverno];
+  $header = &'property($userno, 'header');
+  $header = $HEADER unless defined($header);
+  $header = &'date($header);
+  @list = &'array($message{$userno, $chan});
+  push(@list, &quote("$header $msg") . '<BR>');
+  $line = &'property($userno, 'line');
+  $line = $LINE unless defined($line);
+  while (@list > $line) {
+    shift(@list);
+  }
+  $message{$userno, $chan} = &'list(@list);
+}
+
+sub http_listen {
+  local($lno) = @_;
+  local($cno, $i, $host, $id, $mask, $port, $name);
+  $cno = &'socket('C');
+  if (&'accept($cno, $lno)) {
+    for ($i = 0; $i < @'username; $i++) {
+      foreach $client (&'property($i, 'client')) {
+        ($host, $id) = split(/\s+/, $client, 2);
+        ($mask, $port) = split(/\;/, $host);
+        next unless $port == (&'sockname($lno))[0];
+        next unless &'match($cno, $mask);
+        $httpclientlist = &'add($httpclientlist, $cno);
+        $userno[$cno] = $i;
+        $rbuf[$cno] = '';
+        $request[$cno] = '';
+        return;
+      }
+    }
+    &'close($cno);
+  } else {
+    &'close($cno);
+  }
+}
+
+sub http_client {
+  local($cno) = @_;
+  local($tmp, $socket, $buf, $next, $rest, $method, $url, $ver, $name, $val);
+  $tmp = '';
+  $socket = $'socket[$cno];
+  $buf = &'property($userno[$cno], 'buffer') || $BUFFER;
+  if (sysread($socket, $tmp, $buf)) {
+    $rbuf[$cno] .= $tmp;
+    while ((($next, $rest) = split(/\r\n/, $rbuf[$cno], 2)) == 2) {
+      $rbuf[$cno] = $rest;
+      if ($next) {
+        $request[$cno] = &'add($request[$cno], $next);
+      } else {
+        ($method, $url, $ver) = split(/\s+/, (&'array($request[$cno]))[0]);
+        if ("\L$method\E" eq 'get') {
+          &process($cno, (split(/\?/, $url), ''));
+        } elsif ("\L$method\E" eq 'post') {
+          foreach $line (&'array($request[$cno])) {
+            ($name, $val) = split(/\s*:\s*/, $line, 2);
+            next unless $val;
+            next unless "\L$name\E" eq 'content-length';
+            if (length($rest) < $val) {
+              sysread($socket, $rest, $val - length($rest), length($rest));
+            }
+            &process($cno, $url, substr($rest, 0, $val));
+            last;
+          }
+        } else {
+          print $socket 'HTTP/1.0 501 Not Implemented', "\r\n";
+          print $socket "\r\n";
+        }
+        $httpclientlist = &'remove($httpclientlist, $cno);
+        &'close($cno);
+        last;
+      }
+    }
+  } else {
+    $httpclientlist = &'remove($httpclientlist, $cno);
+    &'close($cno);
+  }
+}
+
+sub process {
+  local($cno, $path, $query) = @_;
+  local($socket, $dir, $file, $idx);
+  $socket = $'socket[$cno];
+  $path = substr($path, 1);
+  if (($idx = rindex($path, '/')) != -1) {
+    $dir = substr($path, 0, $idx - 1);
+    $file = substr($path, $idx + 1);
+  } else {
+    $dir = '';
+    $file = $path;
+  }
+  if (&check_auth($userno[$cno], &'array($request[$cno]))) {
+    if ($dir eq '') {
+      if ($file eq '') {
+        &top($cno, $query);
+      } elsif ($file eq 'channel') {
+        &channel($cno, $query);
+      } elsif ($file eq 'message') {
+        &message($cno, $query);
+      } elsif ($file eq 'input') {
+        &input($cno, $query);
+      } else {
+        print $socket 'HTTP/1.0 404 Not Fonud', "\r\n";
+        print $socket "\r\n";
+      }
+    } else {
+      print $socket 'HTTP/1.0 404 Not Fonud', "\r\n";
+      print $socket "\r\n";
+    }
+  } else {
+    print $socket 'HTTP/1.0 401 Unauthorized', "\r\n";
+    print $socket 'WWW-Authenticate: Basic realm="authentication"', "\r\n";
+    print $socket "\r\n";
+  }
+}
+
+sub check_auth {
+  local($userno, @request) = @_;
+  local($name, $val, $type, $str, $pass, $host, $id);
+  foreach $data (@request) {
+    ($name, $val) = split(/\s*\:\s*/, $data, 2);
+    next unless $val;
+    next unless "\L$name\E" eq 'authorization';
+    ($type, $str) = split(/\s+/, $val, 2);
+    if ("\L$type\E" eq 'basic') {
+      $pass = &base64($str, 2);
+    } else {
+      $pass = '';
+    }
+    foreach $client (&'property($userno, 'client')) {
+      ($host, $id) = split(/\s+/, $client, 2);
+      next unless (!$id || $id eq $pass);
+      return 1;
+    }
+  }
+  return 0;
+}
+
+sub top {
+  local($cno, $query) = @_;
+  local($socket);
+  $socket = $'socket[$cno];
+  print $socket 'HTTP/1.0 200 Ok', "\r\n";
+  print $socket 'Content-Type: text/html', "\r\n";
+  print $socket "\r\n";
+  print $socket '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Frameset//EN">', "\r\n";
+  print $socket '<HTML><HEAD>', "\r\n";
+  print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=EUC-JP">', "\r\n";
+  print $socket '<TITLE>plum webchat interface</TITLE>', "\r\n";
+  print $socket '</HEAD>', "\r\n";
+  print $socket '<FRAMESET ROWS="80%,20%">', "\r\n";
+  print $socket '<FRAMESET COLS="20%,80%">', "\r\n";
+  print $socket '<FRAME TITLE="channel" NAME="channel" SRC="channel">', "\r\n";
+  print $socket '<FRAME TITLE="message" NAME="message" SRC="message">', "\r\n";
+  print $socket '</FRAMESET>', "\r\n";
+  print $socket '<FRAME TITLE="input" NAME="input" SRC="input">', "\r\n";
+  print $socket '<NOFRAMES>', "\r\n";
+  print $socket '<BODY>this page requires frame</BODY>', "\r\n";
+  print $socket '</NOFRAMES>', "\r\n";
+  print $socket '</FRAMESET>', "\r\n";
+  print $socket '</HTML>', "\r\n";
+}
+
+sub server {
+  local($userno) = @_;
+  foreach $sno (&'array($'serverlist)) {
+    return $sno if $'userno[$sno] == $userno;
+  }
+  return 0;
+}
+
+sub channel {
+  local($cno, $query) = @_;
+  local($sno, $socket, $vchan);
+  $sno = &server($userno[$cno]);
+  $socket = $'socket[$cno];
+  print $socket 'HTTP/1.0 200 Ok', "\r\n";
+  print $socket 'Content-Type: text/html', "\r\n";
+  print $socket "\r\n";
+  print $socket '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">', "\r\n";
+  print $socket '<HTML><HEAD>', "\r\n";
+  print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=EUC-JP">', "\r\n";
+  print $socket '<TITLE>channel frame</TITLE></HEAD><BODY>', "\r\n";
+  print $socket '<A HREF="message" TARGET="message">*PRIVATE*</A><BR>', "\r\n";
+  foreach $chan (&'array($'channellist[$sno])) {
+    $vchan = &'alias($chan);
+    print $socket '<A HREF="message?channel=', &encode($vchan), '" TARGET="message">', $vchan, '</A><BR>', "\r\n";
+  }
+  print $socket '</BODY></HTML>', "\r\n";
+}
+
+sub message {
+  local($cno, $query) = @_;
+  local($socket, %param, $sno, $userno, $var, $val, $chan, $vchan, @list, $str);
+  $sno = &server($userno[$cno]);
+  $userno = $'userno[$sno];
+  if ($query) {
+    foreach $param (split(/\&/, $query)) {
+      ($var, $val) = split(/\=/, $param, 2);
+      $param{$var} = &decode($val);
+    }
+    if ($param{'channel'}) {
+      $chan = &'real($param{'channel'});
+    }
+  }
+  if (!$chan || !&'exist($'channellist[$sno], $chan)) {
+    $chan = '';
+  }
+  $vchan = &'alias($chan);
+  $socket = $'socket[$cno];
+  print $socket 'HTTP/1.0 200 Ok', "\r\n";
+  print $socket 'Content-Type: text/html', "\r\n";
+  print $socket "\r\n";
+  print $socket '<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">', "\r\n";
+  print $socket '<HTML><HEAD>', "\r\n";
+  print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=EUC-JP">', "\r\n";
+  print $socket '<TITLE>message frame</TITLE></HEAD><BODY><CODE>', "\r\n";
+  if ($chan) {
+    $str = '*** ' . $vchan . ' = ' . join(' ', reverse(&'array($'nameslist{$sno, $chan})));
+    print $socket '', &quote($str), '<BR>', "\r\n";
+    if ($'topic{$sno, $chan}) {
+      $str = '*** Topic for ' . $vchan . ':' . $'topic{$sno, $chan};
+      print $socket '', &quote($str), '<BR>', "\r\n";
+    }
+  }
+  @list = &'array($message{$userno, $chan});
+  print $socket join("\r\n", @list), "\r\n";
+  print $socket '</CODE></BODY></HTML>', "\r\n";
+}
+
+sub input {
+  local($cno, $query) = @_;
+  local($socket, %param, $cmd, $var, $val, $method);
+  $socket = $'socket[$cno];
+  if ($query) {
+    foreach $param (split(/\&/, $query)) {
+      ($var, $val) = split(/\=/, $param, 2);
+      $param{$var} = &decode($val);
+    }
+  }
+  if ($param{'command'}) {
+    $cmd = "\L$param{'command'}\E";
+  } else {
+    $cmd = '*';
+  }
+  $method = &'property($userno[$cno], 'method') || $METHOD;
+  $method = "\U$method\E";
+  if ($cmd eq '*') {
+    &send($cno, $method, %param);
+  } else {
+    $sub = "send_\L$cmd\E";
+    if (defined(&$sub)) {
+      &$sub($cno, $method, %param);
+    } else {
+      &send($cno, $method);
+    }
+  }
+}
+
+sub send {
+  local($cno, $method, %param) = @_;
+  local($socket, $msg, @msg);
+  $socket = $'socket[$cno];
+  $msg = &kanji_euc($userno[$cno], $param{'message'} || '');
+  if ($msg) {
+    @msg = &'parse($msg);
+    &'s_print(&server($userno[$cno]), @msg);
+    print $socket 'HTTP/1.0 204 No Content', "\r\n";
+    print $socket "\r\n";
+  } else {
+    print $socket 'HTTP/1.0 200 Ok', "\r\n";
+    print $socket 'Content-Type: text/html', "\r\n";
+    print $socket "\r\n";
+    print $socket '<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">', "\r\n";
+    print $socket '<HTML><HEAD>', "\r\n";
+    print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=EUC-JP">', "\r\n";
+    print $socket '<TITLE>input frame</TITLE></HEAD><BODY>', "\r\n";
+    print $socket '', &links($cno, '*'), "\r\n";
+    print $socket '<HR>', "\r\n";
+    print $socket '<FORM ACTION="input" METHOD="', $method, '">', "\r\n";
+    print $socket '<INPUT TYPE="text" NAME="message" SIZE="60">', "\r\n";
+    print $socket '<INPUT TYPE="hidden" NAME="command" VALUE="*">', "\r\n";
+    print $socket '<INPUT TYPE="submit" VALUE="SEND">', "\r\n";
+    print $socket '</FORM>', "\r\n";
+    print $socket '</BODY></HTML>', "\r\n";
+  }
+}
+
+sub send_join {
+  local($cno, $method, %param) = @_;
+  local($socket, $chan);
+  $socket = $'socket[$cno];
+  $chan = &kanji_euc($userno[$cno], $param{'channel'} || '');
+  if ($chan) {
+    &'s_print(&server($userno[$cno]), '', 'JOIN', &'real($chan));
+    print $socket 'HTTP/1.0 204 No Content', "\r\n";
+    print $socket "\r\n";
+  } else {
+    print $socket 'HTTP/1.0 200 Ok', "\r\n";
+    print $socket 'Content-Type: text/html', "\r\n";
+    print $socket "\r\n";
+    print $socket '<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">', "\r\n";
+    print $socket '<HTML><HEAD>', "\r\n";
+    print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=EUC-JP">', "\r\n";
+    print $socket '<TITLE>input join frame</TITLE></HEAD><BODY>', "\r\n";
+    print $socket '', &links($cno, 'join'), "\r\n";
+    print $socket '<HR>', "\r\n";
+    print $socket '<FORM ACTION="input" METHOD="', $method, '">', "\r\n";
+    print $socket '<INPUT TYPE="text" NAME="channel" SIZE="20">', "\r\n";
+    print $socket '<INPUT TYPE="hidden" NAME="command" VALUE="join">', "\r\n";
+    print $socket '<INPUT TYPE="submit" VALUE="SEND">', "\r\n";
+    print $socket '</FORM>', "\r\n";
+    print $socket '</BODY></HTML>', "\r\n";
+  }
+}
+
+sub send_part {
+  local($cno, $method, %param) = @_;
+  local($socket, $chan, $msg);
+  $socket = $'socket[$cno];
+  $chan = &kanji_euc($userno[$cno], $param{'channel'} || '');
+  $msg = &kanji_euc($userno[$cno], $param{'message'} || '');
+  if ($chan) {
+    &'s_print(&server($userno[$cno]), '', 'PART', &'real($chan), $msg);
+    print $socket 'HTTP/1.0 204 No Content', "\r\n";
+    print $socket "\r\n";
+  } else {
+    print $socket 'HTTP/1.0 200 Ok', "\r\n";
+    print $socket 'Content-Type: text/html', "\r\n";
+    print $socket "\r\n";
+    print $socket '<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">', "\r\n";
+    print $socket '<HTML><HEAD>', "\r\n";
+    print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=EUC-JP">', "\r\n";
+    print $socket '<TITLE>input part frame</TITLE></HEAD><BODY>', "\r\n";
+    print $socket '', &links($cno, 'part'), "\r\n";
+    print $socket '<HR>', "\r\n";
+    print $socket '<FORM ACTION="input" METHOD="', $method, '">', "\r\n";
+    print $socket '<SELECT NAME="channel">', "\r\n";
+    foreach $chan (&'array($'channellist[&server($userno[$cno])])) {
+      print $socket '<OPTION VALUE="', $chan, '">', $chan, "\r\n";
+    }
+    print $socket '</SELECT>', "\r\n";
+    print $socket '<INPUT TYPE="text" NAME="message" SIZE="60">', "\r\n";
+    print $socket '<INPUT TYPE="hidden" NAME="command" VALUE="part">', "\r\n";
+    print $socket '<INPUT TYPE="submit" VALUE="SEND">', "\r\n";
+    print $socket '</FORM>', "\r\n";
+    print $socket '</BODY></HTML>', "\r\n";
+  }
+}
+
+sub send_privmsg {
+  local($cno, $method, %param) = @_;
+  local($socket, $chan, $msg);
+  $socket = $'socket[$cno];
+  $chan = &kanji_euc($userno[$cno], $param{'channel'} || '');
+  $msg = &kanji_euc($userno[$cno], $param{'message'} || '');
+  $nick = $param{'nickname'} || '';
+  if (defined($param{'message'})) {
+    if ($nick) {
+      &privmsg(&server($userno[$cno]), $nick, $msg);
+    } elsif ($chan eq '*PRIVATE*') {
+      &privmsg(&server($userno[$cno]), $'nick[&server($userno[$cno])], $msg);
+    } elsif ($chan ne '*PRIVATE*') {
+      &privmsg(&server($userno[$cno]), &'real($chan), $msg);
+    }
+    print $socket 'HTTP/1.0 204 No Content', "\r\n";
+    print $socket "\r\n";
+  } else {
+    print $socket 'HTTP/1.0 200 Ok', "\r\n";
+    print $socket 'Content-Type: text/html', "\r\n";
+    print $socket "\r\n";
+    print $socket '<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">', "\r\n";
+    print $socket '<HTML><HEAD>', "\r\n";
+    print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=EUC-JP">', "\r\n";
+    print $socket '<TITLE>input privmsg frame</TITLE></HEAD><BODY>', "\r\n";
+    print $socket '', &links($cno, 'privmsg'), "\r\n";
+    print $socket '<HR>', "\r\n";
+    print $socket '<FORM ACTION="input" METHOD="', $method, '">', "\r\n";
+    print $socket '<SELECT NAME="channel">', "\r\n";
+    print $socket '<OPTION VALUE="*PRIVATE*">*PRIVATE*', "\r\n";
+    foreach $chan (&'array($'channellist[&server($userno[$cno])])) {
+      print $socket '<OPTION VALUE="', $chan, '">', $chan, "\r\n";
+    }
+    print $socket '</SELECT>', "\r\n";
+    print $socket '<INPUT TYPE="text" NAME="nickname" SIZE="20">', "\r\n";
+    print $socket '<INPUT TYPE="text" NAME="message" SIZE="60">', "\r\n";
+    print $socket '<INPUT TYPE="hidden" NAME="command" VALUE="privmsg">', "\r\n";
+    print $socket '<INPUT TYPE="submit" VALUE="SEND">', "\r\n";
+    print $socket '</FORM>', "\r\n";
+    print $socket '</BODY></HTML>', "\r\n";
+  }
+}
+
+sub send_topic {
+  local($cno, $method, %param) = @_;
+  local($socket, $chan, $msg);
+  $socket = $'socket[$cno];
+  $chan = &kanji_euc($userno[$cno], $param{'channel'} || '');
+  $msg = &kanji_euc($userno[$cno], $param{'message'} || '');
+  if ($chan) {
+    &'s_print(&server($userno[$cno]), '', 'TOPIC', &'real($chan), $msg);
+    print $socket 'HTTP/1.0 204 No Content', "\r\n";
+    print $socket "\r\n";
+  } else {
+    print $socket 'HTTP/1.0 200 Ok', "\r\n";
+    print $socket 'Content-Type: text/html', "\r\n";
+    print $socket "\r\n";
+    print $socket '<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">', "\r\n";
+    print $socket '<HTML><HEAD>', "\r\n";
+    print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=EUC-JP">', "\r\n";
+    print $socket '<TITLE>input topic frame</TITLE></HEAD><BODY>', "\r\n";
+    print $socket '', &links($cno, 'topic'), "\r\n";
+    print $socket '<HR>', "\r\n";
+    print $socket '<FORM ACTION="input" METHOD="', $method, '">', "\r\n";
+    print $socket '<SELECT NAME="channel">', "\r\n";
+    foreach $chan (&'array($'channellist[&server($userno[$cno])])) {
+      print $socket '<OPTION VALUE="', $chan, '">', $chan, "\r\n";
+    }
+    print $socket '</SELECT>', "\r\n";
+    print $socket '<INPUT TYPE="text" NAME="message" SIZE="60">', "\r\n";
+    print $socket '<INPUT TYPE="hidden" NAME="command" VALUE="topic">', "\r\n";
+    print $socket '<INPUT TYPE="submit" VALUE="SEND">', "\r\n";
+    print $socket '</FORM>', "\r\n";
+    print $socket '</BODY></HTML>', "\r\n";
+  }
+}
+
+sub send_nick {
+  local($cno, $method, %param) = @_;
+  local($socket, $nick);
+  $socket = $'socket[$cno];
+  $nick = $param{'nickname'} || '';
+  if ($nick) {
+    &'s_print(&server($userno[$cno]), '', 'nick', $nick);
+    print $socket 'HTTP/1.0 204 No Content', "\r\n";
+    print $socket "\r\n";
+  } else {
+    print $socket 'HTTP/1.0 200 Ok', "\r\n";
+    print $socket 'Content-Type: text/html', "\r\n";
+    print $socket "\r\n";
+    print $socket '<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">', "\r\n";
+    print $socket '<HTML><HEAD>', "\r\n";
+    print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=EUC-JP">', "\r\n";
+    print $socket '<TITLE>input nick frame</TITLE></HEAD><BODY>', "\r\n";
+    print $socket '', &links($cno, 'nick'), "\r\n";
+    print $socket '<HR>', "\r\n";
+    print $socket '<FORM ACTION="input" METHOD="', $method, '">', "\r\n";
+    print $socket '<INPUT TYPE="text" NAME="nickname" SIZE="20">', "\r\n";
+    print $socket '<INPUT TYPE="hidden" NAME="command" VALUE="nick">', "\r\n";
+    print $socket '<INPUT TYPE="submit" VALUE="SEND">', "\r\n";
+    print $socket '</FORM>', "\r\n";
+    print $socket '</BODY></HTML>', "\r\n";
+  }
+}
+
+sub send_kick {
+  local($cno, $method, %param) = @_;
+  local($socket, $chan, $nick, $msg);
+  $socket = $'socket[$cno];
+  $chan = &kanji_euc($userno[$cno], $param{'channel'} || '');
+  $msg = &kanji_euc($userno[$cno], $param{'message'} || '');
+  $nick = $param{'nickname'} || '';
+  if ($chan && $nick) {
+    &'s_print(&server($userno[$cno]), '', 'KICK', &'real($chan), $nick, $msg);
+    print $socket 'HTTP/1.0 204 No Content', "\r\n";
+    print $socket "\r\n";
+  } else {
+    print $socket 'HTTP/1.0 200 Ok', "\r\n";
+    print $socket 'Content-Type: text/html', "\r\n";
+    print $socket "\r\n";
+    print $socket '<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">', "\r\n";
+    print $socket '<HTML><HEAD>', "\r\n";
+    print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=EUC-JP">', "\r\n";
+    print $socket '<TITLE>input kick frame</TITLE></HEAD><BODY>', "\r\n";
+    print $socket '', &links($cno, 'kick'), "\r\n";
+    print $socket '<HR>', "\r\n";
+    print $socket '<FORM ACTION="input" METHOD="', $method, '">', "\r\n";
+    print $socket '<SELECT NAME="channel">', "\r\n";
+    foreach $chan (&'array($'channellist[&server($userno[$cno])])) {
+      print $socket '<OPTION VALUE="', $chan, '">', $chan, "\r\n";
+    }
+    print $socket '</SELECT>', "\r\n";
+    print $socket '<INPUT TYPE="text" NAME="nickname" SIZE="20">', "\r\n";
+    print $socket '<INPUT TYPE="text" NAME="message" SIZE="60">', "\r\n";
+    print $socket '<INPUT TYPE="hidden" NAME="command" VALUE="kick">', "\r\n";
+    print $socket '<INPUT TYPE="submit" VALUE="SEND">', "\r\n";
+    print $socket '</FORM>', "\r\n";
+    print $socket '</BODY></HTML>', "\r\n";
+  }
+}
+
+sub send_mode {
+  local($cno, $method, %param) = @_;
+  local($socket, $chan, $mode);
+  $socket = $'socket[$cno];
+  $chan = &kanji_euc($userno[$cno], $param{'channel'} || '');
+  $mode = $param{'mode'} || '';
+  if ($chan && $mode) {
+    &'s_print(&server($userno[$cno]), '', 'MODE', &'real($chan), $mode);
+    print $socket 'HTTP/1.0 204 No Content', "\r\n";
+    print $socket "\r\n";
+  } else {
+    print $socket 'HTTP/1.0 200 Ok', "\r\n";
+    print $socket 'Content-Type: text/html', "\r\n";
+    print $socket "\r\n";
+    print $socket '<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">', "\r\n";
+    print $socket '<HTML><HEAD>', "\r\n";
+    print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=EUC-JP">', "\r\n";
+    print $socket '<TITLE>input mode frame</TITLE></HEAD><BODY>', "\r\n";
+    print $socket '', &links($cno, 'mode'), "\r\n";
+    print $socket '<HR>', "\r\n";
+    print $socket '<FORM ACTION="input" METHOD="', $method, '">', "\r\n";
+    print $socket '<SELECT NAME="channel">', "\r\n";
+    foreach $chan (&'array($'channellist[&server($userno[$cno])])) {
+      print $socket '<OPTION VALUE="', $chan, '">', $chan, "\r\n";
+    }
+    print $socket '</SELECT>', "\r\n";
+    print $socket '<INPUT TYPE="text" NAME="mode" SIZE="60">', "\r\n";
+    print $socket '<INPUT TYPE="hidden" NAME="command" VALUE="mode">', "\r\n";
+    print $socket '<INPUT TYPE="submit" VALUE="SEND">', "\r\n";
+    print $socket '</FORM>', "\r\n";
+    print $socket '</BODY></HTML>', "\r\n";
+  }
+}
+
+sub send_invite {
+  local($cno, $method, %param) = @_;
+  local($socket, $chan, $nick);
+  $socket = $'socket[$cno];
+  $chan = &kanji_euc($userno[$cno], $param{'channel'} || '');
+  $nick = $param{'nickname'} || '';
+  if ($chan && $nick) {
+    &'s_print(&server($userno[$cno]), '', 'INVITE', &'real($chan), $nick);
+    print $socket 'HTTP/1.0 204 No Content', "\r\n";
+    print $socket "\r\n";
+  } else {
+    print $socket 'HTTP/1.0 200 Ok', "\r\n";
+    print $socket 'Content-Type: text/html', "\r\n";
+    print $socket "\r\n";
+    print $socket '<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">', "\r\n";
+    print $socket '<HTML><HEAD>', "\r\n";
+    print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=EUC-JP">', "\r\n";
+    print $socket '<TITLE>input invite frame</TITLE></HEAD><BODY>', "\r\n";
+    print $socket '', &links($cno, 'invite'), "\r\n";
+    print $socket '<HR>', "\r\n";
+    print $socket '<FORM ACTION="input" METHOD="', $method, '">', "\r\n";
+    print $socket '<SELECT NAME="channel">', "\r\n";
+    foreach $chan (&'array($'channellist[&server($userno[$cno])])) {
+      print $socket '<OPTION VALUE="', $chan, '">', $chan, "\r\n";
+    }
+    print $socket '</SELECT>', "\r\n";
+    print $socket '<INPUT TYPE="text" NAME="nickname" SIZE="20">', "\r\n";
+    print $socket '<INPUT TYPE="hidden" NAME="command" VALUE="invite">', "\r\n";
+    print $socket '<INPUT TYPE="submit" VALUE="SEND">', "\r\n";
+    print $socket '</FORM>', "\r\n";
+    print $socket '</BODY></HTML>', "\r\n";
+  }
+}
+
+sub send_away {
+  local($cno, $method, %param) = @_;
+  local($socket, $msg);
+  $socket = $'socket[$cno];
+  $msg = &kanji_euc($userno[$cno], $param{'message'} || '');
+  if (defined($param{'message'})) {
+    &'s_print(&server($userno[$cno]), '', 'AWAY', $msg);
+    print $socket 'HTTP/1.0 204 No Content', "\r\n";
+    print $socket "\r\n";
+  } else {
+    print $socket 'HTTP/1.0 200 Ok', "\r\n";
+    print $socket 'Content-Type: text/html', "\r\n";
+    print $socket "\r\n";
+    print $socket '<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">', "\r\n";
+    print $socket '<HTML><HEAD>', "\r\n";
+    print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=EUC-JP">', "\r\n";
+    print $socket '<TITLE>input away frame</TITLE></HEAD><BODY>', "\r\n";
+    print $socket '', &links($cno, 'away'), "\r\n";
+    print $socket '<HR>', "\r\n";
+    print $socket '<FORM ACTION="input" METHOD="', $method, '">', "\r\n";
+    print $socket '<INPUT TYPE="text" NAME="message" SIZE="60">', "\r\n";
+    print $socket '<INPUT TYPE="hidden" NAME="command" VALUE="away">', "\r\n";
+    print $socket '<INPUT TYPE="submit" VALUE="SEND">', "\r\n";
+    print $socket '</FORM>', "\r\n";
+    print $socket '</BODY></HTML>', "\r\n";
+  }
+}
+
+sub send_whois {
+  local($cno, $method, %param) = @_;
+  local($socket, $nick);
+  $socket = $'socket[$cno];
+  $nick = $param{'nickname'} || '';
+  if ($nick) {
+    &'s_print(&server($userno[$cno]), '', 'WHOIS', $nick);
+    print $socket 'HTTP/1.0 204 No Content', "\r\n";
+    print $socket "\r\n";
+  } else {
+    print $socket 'HTTP/1.0 200 Ok', "\r\n";
+    print $socket 'Content-Type: text/html', "\r\n";
+    print $socket "\r\n";
+    print $socket '<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">', "\r\n";
+    print $socket '<HTML><HEAD>', "\r\n";
+    print $socket '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=EUC-JP">', "\r\n";
+    print $socket '<TITLE>input whois frame</TITLE></HEAD><BODY>', "\r\n";
+    print $socket '', &links($cno, 'whois'), "\r\n";
+    print $socket '<HR>', "\r\n";
+    print $socket '<FORM ACTION="input" METHOD="', $method, '">', "\r\n";
+    print $socket '<INPUT TYPE="text" NAME="nickname" SIZE="20">', "\r\n";
+    print $socket '<INPUT TYPE="hidden" NAME="command" VALUE="whois">', "\r\n";
+    print $socket '<INPUT TYPE="submit" VALUE="SEND">', "\r\n";
+    print $socket '</FORM>', "\r\n";
+    print $socket '</BODY></HTML>', "\r\n";
+  }
+}
+
+sub links {
+  local($cno, $cmd) = @_;
+  local($socket, $ret);
+  $socket = $'socket[$cno];
+  $ret = '';
+  foreach $item ('*', 'join', 'part', 'privmsg', 'topic', 'nick', 'kick', 'mode', 'invite', 'away', 'whois') {
+    $ret .= '[';
+    if ($item ne $cmd) {
+      $ret .= '<A HREF="input?command=' .  $item . '">';
+    }
+    $ret .= "\U$item\E";
+    if ($item ne $cmd) {
+      $ret .= '</A>';
+    }
+    $ret .= ']';
+  }
+  return $ret;
+}
+
+sub privmsg {
+  local($serverno, $to, $msg) = @_;
+  &'s_print($serverno, '', 'PRIVMSG', $to, $msg);
+  foreach $cno (&'array($'clientlist)) {
+    next unless $'server[$cno] == $serverno;
+    &'c_print($cno, &'user($cno), 'PRIVMSG', $to, $msg);
+  }
+}
+
+sub quote {
+  local($str) = @_;
+  $str =~ s/\&/\&amp\;/g;
+  $str =~ s/\</\&lt\;/g;
+  $str =~ s/\>/\&gt\;/g;
+  $str =~ s/\"/\&quot\;/g;
+  return $str;
+}
+
+sub encode {
+  local($str) = @_;
+  local($i, $c, $n, $ret);
+  $ret = '';
+  for ($i = 0; $i < length($str); $i++) {
+    $c = substr($str, $i, 1);
+    $n = ord($c);
+    if ($n == 0x20) { 
+      $ret .= '+';
+    } elsif (index("<>\"#%{}|\\^~[]`;/?:@&=+", $c) != -1 || $n > 0x7e || $n < 0x20) {
+      $ret .= sprintf('%%%02X', $n);
+    } else {
+      $ret .= $c;
+    }
+  }
+  return $ret;
+}
+
+sub decode {
+  local($str) = @_;
+  local($i, $c, $ret);
+  $ret = '';
+  for ($i = 0; $i < length($str); $i++) {
+    $c = substr($str, $i, 1);
+    if ($c eq '%') {
+      $ret .= pack('C', hex(substr($str, $i + 1, 2)));
+      $i += 2;
+    } elsif ($c eq '+') {
+      $ret .= ' ';
+    } else {
+      $ret .= $c;
+    }
+  }
+  return $ret;
+}
+
+sub base64 {
+  local($str) = @_;
+  local($i, $c, $n, $bit);
+  $bit = '';
+  for ($i = 0; $i < length($str); $i++) {
+    $c = substr($str, $i, 1);
+    next if $c eq '=';
+    if (($n = index('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/', $c)) != -1) {
+      $bit .= substr(unpack('B8', pack('C', $n)), -6);
+    }
+  }
+  return pack('B*', substr($bit, 0, int(length($bit) / 8) * 8));
+}
+
+sub kanji_euc {
+  local($userno, $line) = @_;
+  local($code);
+  if (&'property($userno, 'kanji')) {
+    foreach $kanji (&'property($userno, 'kanji')) {
+      foreach $code (split(/\,/, "\L$kanji\E")) {
+        if ($code eq 'euc') {
+          $line = &'euc_euc($line);
+        } elsif ($code eq 'jis') {
+          $line = &'jis_euc($line);
+        } elsif ($code eq 'sjis') {
+          $line = &'sjis_euc($line);
+        }
+      }
+    }
+  } else {
+    foreach $code (split(/\,/, "\L$KANJI\E")) {
+      if ($code eq 'euc') {
+        $line = &'euc_euc($line);
+      } elsif ($code eq 'jis') {
+        $line = &'jis_euc($line);
+      } elsif ($code eq 'sjis') {
+        $line = &'sjis_euc($line);
+      }
+    }
+  }
+  return $line;
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>sys/web.plm</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+sys/web.plm - WebブラウザなどでIRCを行うためのインターフェイス
+
+
+<HR><H3>説明</H3>
+
+HTTPプロトコルを利用することで、WebブラウザなどからIRCを行います。
+フレームを用いて表示を分割しているので、フレームに対応した
+Webブラウザが必要です。
+
+<HR><H3>プロパティ</H3>
+
+<DL>
+<DT>  sys.web.method {post|get}
+</DT>
+<DD>    フォームのデータを送信するときに使用するメソッドを指定します。
+        デフォルトではgetになっています。
+</DD>
+<DT>  sys.web.client* ホストマスク:ポート番号 ユーザ名:パスワード
+</DT>
+<DD>    HTTPプロトコルによって通信を行うポート、
+        接続可能なクライアントのマスクと、利用可能なユーザを指定します。
+</DD>
+<DT>  sys.web.header へッダ
+</DT>
+<DD>    ログの時刻のフォーマットを指定します。
+        %ではじまる文字があると、対応する時間に変換されます。
+</DD>
+<DT>  sys.web.line 行数
+</DT>
+<DD>    メッセージのログを残す行数を指定します。デフォルトでは50行です。
+</DD>
+<DT>  sys.web.kanji* ({euc|jis|sjis})
+</DT>
+<DD>    フォームから入力された文字列の漢字コードを指定します。
+        デフォルトではjis,sjisです。
+</DD>
+</DL>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
++ sys/web.plm
+sys.web.method: get
+sys.web.client: *.jp:8080 userid:passwd
+sys.web.header: %H:%M
+sys.web.line: 50
+sys.web.kanji: jis,sjis
+</PRE>
+
+ポート番号8080でHTTPプロトコルを使用した通信を行います。
+ユーザIDとして「userid」、パスワードとして「passwd」を
+指定することで接続することができます。
+ただし接続可能なのは接続元のホストが「*.jp」にマッチする場合だけです。
+
+</BODY></HTML>
