@@ -16,22 +16,22 @@ sub ss_privmsg {
   if ($action) {
     $type = '' unless $type;
     foreach $str (&'property($userno, 'get')) {
-      next unless $str =~ /$action/;
+      next unless $action =~ /$str/;
       &get_alias($serverno, $prefix, $params[0], "\L$type\E", @arg);
       return ($prefix, $cmd, @params);
     }
     foreach $str (&'property($userno, 'add')) {
-      next unless $str =~ /$action/;
+      next unless $action =~ /$str/;
       &add_alias($serverno, $prefix, $params[0], "\L$type\E", @arg);
       return ($prefix, $cmd, @params);
     }
     foreach $str (&'property($userno, 'remove')) {
-      next unless $str =~ /$action/;
+      next unless $action =~ /$str/;
       &remove_alias($serverno, $prefix, $params[0], "\L$type\E", @arg);
       return ($prefix, $cmd, @params);
     }
     foreach $str (&'property($userno, 'change')) {
-      next unless $str =~ /$action/;
+      next unless $action =~ /$str/;
       &change_alias($serverno, $prefix, $params[0], "\L$type\E", @arg);
       return ($prefix, $cmd, @params);
     }
