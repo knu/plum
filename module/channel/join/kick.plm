@@ -1,4 +1,3 @@
-<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
 # $Id$
 # copyright (c)1997-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
 
@@ -74,46 +73,3 @@ sub check_mask {
   return 0;
 }
 
-__END__
---><HTML><HEAD>
-<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
-<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
-<TITLE>channel/join/kick.plm</TITLE></HEAD><BODY>
-
-オンラインドキュメント
-
-
-<HR><H3>名前</H3>
-
-channel/join/kick.plm - チャンネルからキックされても入り直す
-
-
-<HR><H3>説明</H3>
-
-チャンネルからキックされたときに、再びそのチャンネルに入ります。
-
-
-<HR><H3>プロパティ</H3>
-
-<DL>
-<DT>  channel.join.kick.mask* ユーザマスク [(チャンネル名)]
-</DT>
-<DD>    キックした人がここで指定したものにマッチしたら、
-        キックされたチャンネルに再び入ります。
-</DD>
-</DL>
-
-
-<HR><H3>設定例</H3>
-
-<PRE>
-+ channel/join/kick.plm
-channel.join.kick.mask: -*!*@* #まどか:*.jp
-channel.join.kick.mask: *!*@*
-</PRE>
-
-「#まどか:*.jp」からキックされたときは何もしませんが、
-それ以外のチャンネルからキックされたときはそのチャンネルに
-再び入ります。
-
-</BODY></HTML>

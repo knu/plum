@@ -1,4 +1,3 @@
-<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
 # $Id$
 # copyright (c)1998-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
 
@@ -35,49 +34,3 @@ sub cpss_dcc {
   return ($prefix, $cmd, @params);
 }
 
-__END__
---><HTML><HEAD>
-<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
-<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
-<TITLE>ctcp/dcc/forward.plm</TITLE></HEAD><BODY>
-
-オンラインドキュメント
-
-
-<HR><H3>名前</H3>
-
-ctcp/dcc/forward.plm - CTCP DCCを指定したユーザに転送する
-
-
-<HR><H3>説明</H3>
-
-CTCP DCCが送られてきたとき、それを指定したユーザに転送します。
-ただし転送するときに送り主が変わるため、転送されたCTCP DCCを
-キャンセルすることはできません。
-
-
-<HR><H3>プロパティ</H3>
-
-<DL>
-<DT>  ctcp.dcc.forward.nick* (ニックネーム)
-</DT>
-<DD>    CTCP DCCを転送するニックネーム。前から順番に見ていき、
-        同じチャンネルに指定したニックネームのユーザがいれば、
-        そのユーザに転送します。指定したニックネームのユーザが
-        いなければ転送は行いません。
-</DD>
-</DL>
-
-
-<HR><H3>設定例</H3>
-
-<PRE>
-+ ctcp/dcc/forward.plm
-ctcp.dcc.forward.nick: pupu_j,pupu_d
-ctcp.dcc.forward.nick: pupu_ppp
-</PRE>
-
-CTCP DCCが送られてきたときに、pupu_j、pupu_d、pupu_pppの
-どれかのニックネームのユーザがいれば、そのユーザにCTCP DCCを転送します。
-
-</BODY></HTML>

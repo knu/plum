@@ -1,4 +1,3 @@
-<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
 # $Id$
 # copyright (c)1998-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
 
@@ -28,48 +27,3 @@ sub ss_366 {
   return ($prefix, $cmd, @params);
 }
 
-__END__
---><HTML><HEAD>
-<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
-<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
-<TITLE>channel/mode/set.plm</TITLE></HEAD><BODY>
-
-オンラインドキュメント
-
-
-<HR><H3>名前</H3>
-
-channel/mode/set.plm - チャンネルを作成したときにチャンネルモードを設定する
-
-
-<HR><H3>説明</H3>
-
-自分がチャンネルに入る以前にはチャンネルが存在せず、
-自分がチャンネルに入ることによってチャンネルを作成したとき、
-そのチャンネルのチャンネルモードを設定します。
-
-
-<HR><H3>プロパティ</H3>
-
-<DL>
-<DT>  channel.mode.set.mode* (チャンネル名) モード
-</DT>
-<DD>    チャンネルとそのチャンネルに設定するチャンネルモードを指定します。
-</DD>   
-</DL>
-
-
-<HR><H3>設定例</H3>
-
-<PRE>
-+ channel/mode/set.plm
-channel.mode.set.mode: #ぷらむ +nt
-channel.mode.set.mode: #plum:*.jp,#plum +pmk plum
-</PRE>
-
-チャンネル「#ぷらむ」を作成したときに、チャンネルモードとして
-「+nt」を設定します。
-また「#plum:*.jp」もしくは「#plum」を作成したときは、
-チャンネルモードとして「+pmk plum」を設定します。
-
-</BODY></HTML>

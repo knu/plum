@@ -1,4 +1,3 @@
-<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
 # $Id$
 # copyright (c)1998-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
 
@@ -33,17 +32,17 @@ sub ss_privmsg {
   ($req, @reply) = split(/\s+/, $params[1]);
   if (@reply) {
     foreach $add (&'property($userno, 'add')) {
-      next unless $req eq $add;
+      next unless &match($req, $add);
       &add_file($userno, @reply);
       return ($prefix, $cmd, @params);
     }
     foreach $remove (&'property($userno, 'remove')) {
-      next unless $req eq $remove;
+      next unless &match($req, $remove);
       &remove_file($userno, @reply);
       return ($prefix, $cmd, @params);
     }
     foreach $change (&'property($userno, 'change')) {
-      next unless $req eq $change;
+      next unless &match($req, $change);
       &change_file($userno, @reply);
       return ($prefix, $cmd, @params);
     }
@@ -53,8 +52,7 @@ sub ss_privmsg {
     foreach $str (&'array($message[$userno])) {
       ($req, $rep) = &parse($str);
       foreach $text (&'array($req)) {
-        $regex = &'regex($text);
-        next unless $params[1] =~ /$regex/;
+        next unless &match($params[1], $text);
         @list = &'array($rep);
         $str = $list[rand(@list)];
         %alias = &get_alias_user($userno, $prefix);
@@ -79,6 +77,19 @@ sub ss_privmsg {
     }
   }
   return ($prefix, $cmd, @params);
+}
+
+sub match {
+  local($str, $pattern) = @_;
+  if (&'exist($'kanjilist, 'sjis')) {
+    $str = &'euc_sjis($str);
+    $pattern = &'euc_sjis($pattern);
+  }
+  if ($str =~ /$pattern/) {
+    return 1;
+  } else {
+    return 0;
+  }
 }
 
 sub privmsg {
@@ -319,109 +330,3 @@ sub euc_code {
   return $line;
 }
 
-__END__
---><HTML><HEAD>
-<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
-<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
-<TITLE>auto/reply.plm</TITLE></HEAD><BODY>
-
-オンラインドキュメント
-
-
-<HR><H3>名前</H3>
-
-auto/reply.plm - 特定の発言に反応したメッセージを発言する
-
-
-<HR><H3>説明</H3>
-
-特定の発言に反応して、それに対するメッセージを発言します。
-一つの発言に対して複数のメッセージを指定することができ、
-その中からランダムでどれか一つのメッセージを発言します。
-メッセージはファイルで指定し、ファイルのフォーマットは
-以下のようになっています。
-
-<PRE>
-こんばんわ : こんばんわ〜☆ こんばん・わん〜
-ごはん* : あたしも行く〜
-*ぷらむ* : よんだぁ? はーい☆
-</PRE>
-
-反応は一行に一つ記述し、反応する発言とそれに対するメッセージは
-「:」とその前後に1つ以上の空白をつけて区切って指定します。
-また、発言とメッセージのそれぞれは1つ以上の空白で区切ります。
-反応する発言にはワイルドカードとして「*」が指定できます。
-
-
-<HR><H3>プロパティ</H3>
-
-<DL>
-<DT>  auto.reply.file ファイル名[;({jis|euc|sjis})]
-</DT>
-<DD>    反応するメッセージを保存するファイル名を指定します。
-        ファイルは指定した漢字コードで保存されます。
-        漢字コードを複数指定した場合は、最初に指定した漢字コードで
-        保存され、省略した場合は「jis」を指定したことと同じです。
-        また、「euc」と「sjis」を同時に指定することはできません。
-</DD>
-<DT>  auto.random.alias ファイル名[;({jis|euc|sjis})]
-</DT>
-<DD>    エイリアスを参照するファイルを指定します。
-        このファイルはauto/alias.plmで使うものと同じものです。
-        ファイルは指定した漢字コードで保存されている必要があります。
-</DD>
-<DT>  auto.reply.format* フォーマット
-</DT>
-<DD>    メッセージを発言する際のフォーマットを指定します。
-        フォーマットに#(nick)のように指定することでエイリアス中の
-        対応する値で置き換えます。また#(message)でメッセージの内容に、
-        #(nick.now)で現在のニックネームに、#(channel)でチャンネル名に
-        それぞれ置き換えます。
-</DD>
-<DT>  auto.reply.rate 確率
-</DT>
-<DD>    発言に反応する確率を指定します。0を指定すると全く反応せず、
-        100を指定すると全ての発言に反応します。
-</DD>
-<DT>  auto.reply.add* 文字列
-</DT>
-<DD>    反応するメッセージを追加するための文字列を指定します。
-        文字列には反応する発言とそれに対するメッセージを
-        空白で区切って指定します。
-</DD>
-<DT>  auto.reply.remove* 文字列
-</DT>
-<DD>    反応するメッセージを削除するための文字列を指定します。
-        文字列には反応する発言とそれに対するメッセージを
-        空白で区切って指定します。
-</DD>
-<DT>  auto.reply.change* 文字列
-</DT>
-<DD>    反応するメッセージを変更するための文字列を指定します。
-        文字列には反応する発言とそれに対するメッセージを
-        空白で区切って指定します。
-</DD>
-</DL>
-
-
-<HR><H3>設定例</H3>
-
-<PRE>
-+ auto/reply.plm
-auto.reply.file: reply.txt;jis
-auto.reply.format: #(name): #(message)
-auto.reply.rate: 100
-auto.reply.add: メッセージ追加
-auto.reply.remove: メッセージ削除
-auto.reply.change: メッセージ変更
-</PRE>
-
-「reply.txt」に書かれた内容に基づいて、発言に反応してそれに対する
-メッセージを発言します。reply.txtはjisで書かれている必要があります。
-また、「メッセージ追加 こんにちは こんにちは〜☆」のように発言すれば、
-新たな反応を追加することができます。
-同様に、「メッセージ削除 こんにちは こんにちは〜☆」や、
-「メッセージ変更 こんにちは こんにち・わん〜」のように発言することで、
-反応を削除したり変更することができます。
-
-</BODY></HTML>

@@ -1,4 +1,3 @@
-<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
 # $Id$
 # copyright (c)1998-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
 
@@ -105,55 +104,3 @@ sub ss_mode {
   return ($prefix, $cmd, @params);
 }
 
-__END__
---><HTML><HEAD>
-<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
-<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
-<TITLE>channel/join/connect.plm</TITLE></HEAD><BODY>
-
-オンラインドキュメント
-
-
-<HR><H3>名前</H3>
-
-channel/join/connect.plm - サーバに接続したときに指定したチャンネルに入る
-
-
-<HR><H3>説明</H3>
-
-サーバに接続したときに、指定したチャンネルに入ります。
-サーバとの接続が切れて再び接続し直したときは、
-指定したチャンネルとは関係なく、
-接続が切れる前に入っていたチャンネルに入ります。
-
-
-<HR><H3>プロパティ</H3>
-
-<DL>
-<DT>  channel.join.connect.channel* (チャンネル) (キー)
-</DT>
-<DD>    サーバに接続したときに入るチャンネルを指定します。
-        チャンネルのキーが指定されているときは、そのキーを使います。
-</DD>
-</DL>
-
-
-<HR><H3>設定例</H3>
-
-<PRE>
-+ channel/join/connect.plm
-channel.join.connect.channel: #まどか mdk
-</PRE>
-
-サーバに接続したときに、「#まどか」に「mdk」というキーで入ります。
-
-<PRE>
-+ channel/join/connect.plm
-channel.join.connect.channel: #まどか:*.jp,#ぷらむ:*.jp
-channel.join.connect.channel: #ぷらむ
-</PRE>
-
-サーバに接続したときに、「#まどか:*.jp」、「#ぷらむ:*.jp」、
-「#ぷらむ」の3つのチャンネルに入ります。
-
-</BODY></HTML>

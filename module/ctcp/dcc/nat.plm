@@ -1,4 +1,3 @@
-<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
 # $Id$
 # copyright (c)1998-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
 
@@ -70,68 +69,3 @@ sub check_private {
   return 0;
 }
 
-__END__
---><HTML><HEAD>
-<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
-<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
-<TITLE>ctcp/dcc/nat.plm</TITLE></HEAD><BODY>
-
-オンラインドキュメント
-
-
-<HR><H3>名前</H3>
-
-ctcp/dcc/nat.plm - NATを経由してDCCを利用する
-
-
-<HR><H3>説明</H3>
-
-NATを使用している場合に、NATの内側からDCCの送信が行えるようにします。
-プライベートなIPアドレスとグローバルなIPアドレスの対応があらかじめ
-わかっている場合はplumをどこで実行しても構いませんが、
-ダイアルアップルータなどを使用していてIPアドレスの対応が
-わからない場合は、plumをNATのすぐ外側で実行するか、
-plumをNATの内側で実行して直接サーバに接続する必要があります。
-このモジュールでDCCが送信できるようになるのはNATの場合だけで、
-IP masqueradeの場合はこのモジュールを使ってもDCCは送信できません。
-
-
-<HR><H3>プロパティ</H3>
-
-<DL>
-<DT>  ctcp.dcc.nat.mapping* プライベートIP グローバルIP
-</DT>
-<DD>    それぞれのマシンに対応するIPアドレスのマッピングを指定します。
-        プライベートIPから送られてきたDCCをグローバルIPに変換して
-        送信先の相手に送ります。
-</DD>
-<DT>  ctcp.dcc.nat.private* 先頭アドレス 終了アドレス
-</DT>
-<DD>    プライベートなIPアドレスの範囲を指定します。
-        送ろうとするDCCがこの範囲内のものからであれば、
-        IPアドレスを変換します。
-</DD>
-</DL>
-
-
-<HR><H3>設定例</H3>
-
-<PRE>
-+ ctcp/dcc/nat.plm
-ctcp.dcc.nat.mapping: 192.168.1.1 133.6.108.1
-ctcp.dcc.nat.mapping: 192.168.1.2 133.6.108.2
-</PRE>
-
-「192.168.1.1」から送られてきたDCCを「133.6.108.1」から送ったように
-見せかけて送信先の相手に送ります。また「192.168.1.2」から送られてきた
-DCCを「133.6.108.2」から送られてきたように見せかけます。
-
-<PRE>
-+ ctcp/dcc/nat.plm
-ctcp.dcc.nat.private: 192.168.0.0 192.168.255.255
-</PRE>
-
-「192.168.0.0」から「192.168.255.255」の間から送られてきたDCCを
-グローバルなIPアドレスに変換して送信先の相手に送ります。
-
-</BODY></HTML>

@@ -1,4 +1,3 @@
-<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
 # $Id$
 # copyright (c)1997-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
 
@@ -21,34 +20,3 @@ sub cs_show {
   return ();
 }
 
-__END__
---><HTML><HEAD>
-<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
-<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
-<TITLE>sys/show.plm</TITLE></HEAD><BODY>
-
-オンラインドキュメント
-
-
-<HR><H3>名前</H3>
-
-sys/show.plm - 任意のperlの文を実行して結果をクライアントに送る
-
-
-<HR><H3>説明</H3>
-
-showというコマンドを追加します。
-showコマンドの引数は1つで、任意のperlの文を指定します。
-この文はplumによって実行され、その結果をNOTICEでクライアントに送ります。
-
-
-<HR><H3>プロパティ</H3>
-
-
-<HR><H3>設定例</H3>
-
-<PRE>
-+ sys/show.plm
-</PRE>
-
-</BODY></HTML>

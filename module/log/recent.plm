@@ -1,4 +1,3 @@
-<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
 # $Id$
 # copyright (c)1997-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
 
@@ -229,55 +228,3 @@ sub writelog {
   $recent[$userno] = &'list(@log);
 }
 
-__END__
---><HTML><HEAD>
-<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
-<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
-<TITLE>log/recent.plm</TITLE></HEAD><BODY>
-
-オンラインドキュメント
-
-
-<HR><H3>名前</H3>
-
-log/recent.plm - クライアントを接続したときに最近のメッセージを送る
-
-
-<HR><H3>説明</H3>
-
-最近のメッセージを指定した数だけ保存しておき、
-クライアントを接続したときに、それを送ります。
-
-
-<HR><H3>プロパティ</H3>
-
-<DL>
-<DT>  log.recent.header へッダ
-</DT>
-<DD>    ログの時刻のフォーマットを指定します。
-        %ではじまる文字があると、対応する時間に変換されます。
-</DD>
-<DT>  log.recent.line 行数
-</DT>
-<DD>    ログを残す行数を指定します。デフォルトでは50行です。
-</DD>
-<DT>  log.recent.command ({invite|join|kick|mode|nick|notice|part|privmsg|quit|topic})
-</DT>
-<DD>    保存するメッセージの種類を指定します。
-        デフォルトでは「privmsg」だけです。
-</DD>
-</DL>
-
-
-<HR><H3>設定例</H3>
-
-<PRE>
-log.recent.header: %H%M%S
-log.recent.command: notice,privmsg,topic
-</PRE>
-
-へッダを「%H%M%S」にし、ログの種類を「notice」、「privmsg」、「topic」
-の3種類にします。
-「%H」、「%M」、「%S」はそれぞれ現在の時、分、秒に変換されます。
-
-</BODY></HTML>

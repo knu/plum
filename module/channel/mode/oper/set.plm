@@ -1,4 +1,3 @@
-<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
 # $Id$
 # copyright (c)1997-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
 
@@ -187,66 +186,3 @@ sub check_mask {
   return 0;
 }
 
-__END__
---><HTML><HEAD>
-<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
-<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
-<TITLE>channel/mode/oper/set.plm</TITLE></HEAD><BODY>
-
-オンラインドキュメント
-
-
-<HR><H3>名前</H3>
-
-channel/mode/oper/set.plm - 特定の人をチャンネルオペレータにする
-
-
-<HR><H3>説明</H3>
-
-チャンネルに入ってきた人が指定された人なら、
-その人をチャンネルオペレータにします。
-実際にはチャンネルに入ってきたときにすぐにチャンネルオペレータ
-にするわけではなく、一定時間待ってからチャンネルオペレータにします。
-
-
-<HR><H3>プロパティ</H3>
-
-<DL>
-<DT>  channel.mode.oper.set.delay 待ち時間
-</DT>
-<DD>    チャンネルオペレータにするまでの待ち時間です。
-        誰かがチャンネルに入ってくると、
-        ここで指定されたの数だけ内部でカウントし、
-        その後でその人をチャンネルオペレータにします。
-        デフォルトでは20となっています。
-</DD>
-<DT>  channel.mode.oper.set.mask* ユーザマスク [(チャンネル名)]
-</DT>
-<DD>    チャンネルに入ってきた人がここで指定したものにマッチしたら、
-        その人をチャンネルオペレータにします。
-</DD>
-</DL>
-
-
-<HR><H3>設定例</H3>
-
-<PRE>
-+ channel/mode/oper/set.plm
-channel.mode.oper.set.mask: +pupu_j!*@*
-channel.mode.oper.set.mask: +pupu_d!*@*
-</PRE>
-
-チャンネルに入ってきた人が「pupu_j!*@*」か「pupu_d!*@*」に
-マッチした場合、その人をチャンネルオペレータにします。
-
-<PRE>
-+ channel/mode/oper/set.plm
-channel.mode.oper.set.delay: 0
-channel.mode.oper.set.mask: -*!*@*.com
-channel.mode.oper.set.mask: +*!*@* %まどか,#ぷらむ
-</PRE>
-
-「%まどか」か「#ぷらむ」に入ってきた人が「*!*@*.com」にマッチしなければ、
-その人をすぐにチャンネルオペレータにします。
-
-</BODY></HTML>

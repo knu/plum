@@ -1,4 +1,3 @@
-<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
 # $Id$
 # copyright (c)1998-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
 
@@ -156,34 +155,3 @@ sub ss_375 {
   return ($prefix, $cmd, @params);
 }
 
-__END__
---><HTML><HEAD>
-<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
-<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
-<TITLE>server/info.plm</TITLE></HEAD><BODY>
-
-オンラインドキュメント
-
-
-<HR><H3>名前</H3>
-
-server/info.plm - クライアントの接続時にサーバ情報を送る
-
-
-<HR><H3>説明</H3>
-
-クライアントを接続したときに、現在接続しているサーバの情報を送ります。
-これらの情報はplumがサーバに接続した時や、
-ユーザが明示的に新しい情報を問い合わせたときに更新されます。
-
-
-<HR><H3>プロパティ</H3>
-
-
-<HR><H3>設定例</H3>
-
-<PRE>
-+ server/info.plm
-</PRE>
-
-</BODY></HTML>

@@ -1,4 +1,3 @@
-<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
 # $Id$
 # copyright (c)1998-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
 
@@ -136,69 +135,3 @@ sub code_jis {
   return $line;
 }
 
-__END__
---><HTML><HEAD>
-<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
-<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
-<TITLE>log/mail.plm</TITLE></HEAD><BODY>
-
-オンラインドキュメント
-
-
-<HR><H3>名前</H3>
-
-log/mail.plm - ログファイルを指定したアドレスへメールで送信する
-
-
-<HR><H3>説明</H3>
-
-ログファイルを指定したアドレスへメールで送信します。
-
-
-<HR><H3>プロパティ</H3>
-
-<DL>
-<DT>  log.mail.from アドレス
-</DT>
-<DD>    送信元として使用するアドレスを指定します。
-        メールの送信がエラーになったときは、ここで指定したアドレスへ
-        エラーのメールが送られます。
-</DD>
-<DT>  log.mail.smtpserver ホスト名[;ポート番号]
-</DT>
-<DD>    使用するSMTPサーバを指定します。
-        サーバに接続できないときや送信に失敗したときは何もしません。
-</DD>
-<DT>  log.mail.directory ディレクトリ名
-</DT>
-<DD>    ログファイルの存在するディレクトリを指定します。
-        ディレクトリはplumを実行したディレクトリからの相対パスになります。
-        UNIXなら「~/」や「~user」という指定もできます。
-</DD>
-<DT>  log.mail.file* ファイル名[;({jis|euc|sjis})] (アドレス)
-</DT>
-<DD>    送信するファイルとそれを送るアドレスを指定します。
-        ファイル名に%で始まる文字があると、対応する日付に変換され、
-        その名前が変わるたびにメールでファイルを送信します。
-</DD>
-</DL>
-
-
-<HR><H3>設定例</H3>
-
-<PRE>
-+ log/mail.plm
-log.mail.from: plum@plum.or.jp
-log.mail.smtpserver: mail.plum.or.jp;25
-log.mail.file: log%m%d hogehoge@plum.gr.jp
-log.mail.file: plum%m;euc hoehoe@plum.gr.jp,hogehoge@plum.or.jp
-</PRE>
-
-「plum@plum.or.jp」を送信元として、ログをメールで送信します。
-このとき、SMTPサーバとして「mail.plum.or.jp」のポート「25」を使用します。
-送信するファイルは2つで、「hogehoge@plum.gr.jp」宛に「log%m%d」を
-「hoehoe@plum.gr.jp」と「hogehoge@plum.or.jp」宛に「plum%m」を送信します。
-log%m%dとplum%mはそれぞれ日付が展開され、ファイルの日付が変わったときに
-メールで送信します。そのため、log%m%dは1日1回、plum%mは1月に1回送信されます。
-
-</BODY></HTML>

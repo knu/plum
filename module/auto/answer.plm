@@ -1,4 +1,3 @@
-<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
 # $Id$
 # copyright (c)1997-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
 
@@ -166,73 +165,3 @@ sub code_euc {
   return $line;
 }
 
-__END__
---><HTML><HEAD>
-<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
-<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
-<TITLE>auto/answer.plm</TITLE></HEAD><BODY>
-
-オンラインドキュメント
-
-
-<HR><H3>名前</H3>
-
-auto/answer.plm - 特定の発言に反応して対応する発言をする
-
-
-<HR><H3>説明</H3>
-
-特定の文字列が発言されると、それに対応する文字列を発言します。
-すべての発言に反応するため、同じ発言を何度も繰り返す可能性が
-あるので注意して下さい。
-
-
-<HR><H3>プロパティ</H3>
-
-<DL>
-<DT>  auto.answer.alias ファイル名[;({jis|euc|sjis})]
-</DT>
-<DD>    ユーザ名のエイリアスを定義するファイルを指定します。
-        このファイルはauto/alias.plmで使うものと同じものです。
-        ファイルは指定した漢字コードで保存されている必要があります。
-</DD>
-<DT>  auto.answer.reply* 文字列 フォーマット
-</DT>
-<DD>    反応する発言と、それに対する返事を指定します。反応する発言には
-        空白を含めることはできません。返事に#(nick)のように書くことで、
-        エイリアスの対応するデータで置き換えることができます。
-        また、エイリアス以外にも#(nick.now)で現在のニックネームに、
-        #(channel)で発言のあったチャンネル名に置換します。
-        また、括弧内を「|」で区切って複数指定した場合、
-        最初に定義されている値で置き換えます。
-</DD>
-</DL>
-
-
-<HR><H3>設定例</H3>
-
-<PRE>
-+ auto/answer.plm
-auto.answer.alias: alias.txt
-auto.answer.reply: こんにちは こんにちは〜☆
-auto.answer.reply: こんばんは #(name|nick|nick.now)さん、こんばんは〜☆
-</PRE>
-
-「こんにちは」という発言があったときに「こんにちは〜☆」と発言します。
-また、「こんばんは」という発言があったときに、
-発言した人のエイリアスを「alias.txt」から参照して、
-例えば「ぷらむさん、こんばんわ〜☆」のように発言します。
-
-<PRE>
-+ auto/answer.plm
-auto.answer.reply: へるぷ 伝言機能と小包機能のヘルプです
-auto.answer.reply: へるぷ でんごん nick message : nick宛にメッセージを届けます
-auto.answer.reply: へるぷ こづつみ nick message : nick宛にファイルを届けます
-auto.answer.reply: こづつみへるぷ DCCを送ってから宛先を教えて下さいね
-</PRE>
-
-「へるぷ」と発言すると、3行にわたるヘルプメッセージを発言します。
-また、「こづつみへるぷ」と発言すると、
-「DCCを先に送ってから宛先を教えて下さいね」と発言します。
-
-</BODY></HTML>

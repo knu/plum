@@ -1,4 +1,3 @@
-<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
 # $Id$
 # copyright (c)1997-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
 
@@ -42,50 +41,3 @@ sub server_write {
   return $line;
 }
 
-__END__
---><HTML><HEAD>
-<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
-<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
-<TITLE>server/kanji.plm</TITLE></HEAD><BODY>
-
-オンラインドキュメント
-
-
-<HR><H3>名前</H3>
-
-server/kanji.plm - サーバとの入出力で漢字コードを変換する
-
-
-<HR><H3>説明</H3>
-
-サーバからJIS以外で入力された漢字コードをJISに変換します。
-またサーバに対して出力する漢字コードを指定したものにします。
-
-
-<HR><H3>プロパティ</H3>
-
-<DL>
-<DT>  server.kanji.input* ({jis|euc|sjis})
-</DT>
-<DD>    サーバからの入力が指定した漢字コードのものであれば、
-        それをjisに変換します。eucとsjisは同時に指定できません。
-</DD>
-<DT>  server.kanji.output {jis|euc|sjis}
-</DT>
-<DD>    サーバに出力する漢字コードを指定したものにします。
-</DD>
-</DL>
-
-
-<HR><H3>設定例</H3>
-
-<PRE>
-+ server/kanji.plm
-server.kanji.input: sjis,jis
-server.kanji.output: sjis
-</PRE>
-
-サーバからの入力がsjisだったときに、それをjisに変換します。
-またサーバに対する出力をsjisにします。
-
-</BODY></HTML>

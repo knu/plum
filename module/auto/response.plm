@@ -1,4 +1,3 @@
-<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
 # $Id$
 # copyright (c)1998-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
 
@@ -67,15 +66,11 @@ sub match_response {
   foreach $line (@list) {
     ($var, $arg) = split(/\s+/, $line, 2);
     next unless "\L$var\E" eq 'pattern';
-    if (&'exist($'kanjilist, 'euc')) {
-      return 1 if $value =~ /$pat/;
-    } elsif (&'exist($'kanjilist, 'sjis')) {
-      $pat = &'jis_sjis($arg);
-      return 1 if &'jis_sjis($value) =~ /$pat/;
-    } else {
-      $pat = &'jis_euc($arg);
-      return 1 if &'jis_euc($value) =~ /$pat/;
+    if (&'exist($'kanjilist, 'sjis')) {
+      $value = &'euc_sjis($arg);
+      $pat = &'euc_sjis($arg);
     }
+    return 1 if $value =~ /$pat/;
   }
   return 0;
 }
@@ -242,82 +237,3 @@ sub euc_code {
   return $line;
 }
 
-__END__
---><HTML><HEAD>
-<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
-<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
-<TITLE>auto/response.plm</TITLE></HEAD><BODY>
-
-オンラインドキュメント
-
-
-<HR><H3>名前</H3>
-
-auto/response.plm - メッセージに反応して発言を行う
-
-
-<HR><H3>説明</H3>
-
-
-ユーザの発言に反応して、それに対する発言を行います。
-反応とその発言はファイルに以下のようなフォーマットで記述します。
-
-<PRE>
-pattern: ^こんにち(は|わ)〜?$
-rate: 100
-response: こんにちは〜
-response: #(name|nick|nick.now)さん、いらっしゃ〜い
-
-pattern: (ねる|おやすみ)
-rate: 50
-response: #(name|nick|nick.now)さん、おやすみなさい
-response: #(nick.now): だめ☆
-response: えっ、もう寝ちゃうんですか〜?(;-;)
-</PRE>
-
-それぞれのパターンは正規表現で、大文字小文字は区別します。
-また、rateに続くresponseの連続した行のうちから一行を選択して、
-rateパーセントの確率で発言を行います。
-
-
-<HR><H3>プロパティ</H3>
-
-<DL>
-<DT>  auto.response.file ファイル名[;({euc|jis|sjis})]
-</DT>
-<DD>    反応する発言と、それに対する発言を記述するファイルです。
-        ファイルの漢字コードがjis以外の場合は漢字コードを
-       指定する必要があります。
-</DD>
-<DT>  auto.response.alias ファイル名[;({euc|jis|sjis})]
-</DT>
-<DD>    エイリアスを参照するファイルを指定します。
-        このファイルの内容に従って、メッセージ中のフォーマットと、
-        auto.response.formatを展開します。
-</DD>
-<DT>  auto.response.format* フォーマット
-</DT>
-<DD>    発言時のフォーマットを指定します。すべての発言に対して、
-        このフォーマットで発言を行います。#(nick)のように書くことで、
-        エイリアスの対応する値で置き換えます。エイリアス以外の値では、
-        #(nick.now)でニックネーム、#(channel)でチャンネル、#(message)で
-        発言しようとしているメッセージに置き換えます。
-        デフォルトでは「#(message)」です。
-</DD>
-</DL>
-
-
-<HR><H3>設定例</H3>
-
-<PRE>
-+ auto/response.plm
-auto.response.file: response.txt;euc
-auto.response.alias: alias.txt
-</PRE>
-
-反応を記述するファイルとして「response.txt」を、
-エイリアスを参照するファイルとして「alias.txt」を使用します。
-「response.txt」は漢字コードを「euc」で記述します。
-また「alias.txt」は漢字コードを「jis」で記述します。
-
-</BODY></HTML>

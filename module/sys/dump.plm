@@ -1,4 +1,3 @@
-<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
 # $Id$
 # copyright (c)1997-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
 
@@ -31,33 +30,3 @@ sub initialize {
   exit(0);
 }
 
-__END__
---><HTML><HEAD>
-<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
-<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
-<TITLE>sys/dump.plm</TITLE></HEAD><BODY>
-
-オンラインドキュメント
-
-
-<HR><H3>名前</H3>
-
-sys/dump.plm - plumが内部で使用する情報を表示する
-
-
-<HR><H3>説明</H3>
-
-plumが内部で使用する各種の変数の情報などを表示します。
-このモジュールを組み込むと、plum自身の実行は行なわれません。
-
-
-<HR><H3>プロパティ</H3>
-
-
-<HR><H3>設定例</H3>
-
-<PRE>
-+ sys/dump.plm
-</PRE>
-
-</BODY></HTML>

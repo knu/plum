@@ -1,4 +1,3 @@
-<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
 # $Id$
 # copyright (c)1997-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
 
@@ -165,70 +164,3 @@ sub check_mask {
   return 0;
 }
 
-__END__
---><HTML><HEAD>
-<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
-<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
-<TITLE>ctcp/dcc.get.plm</TITLE></HEAD><BODY>
-
-オンラインドキュメント
-
-
-<HR><H3>名前</H3>
-
-ctcp/dcc/get.plm - DCC SENDに反応して送られてきたファイルを受け取る
-
-
-<HR><H3>説明</H3>
-
-DCC SENDリクエストが送られてきたとき、
-それに反応して送られてきたファイルを自動的に受信します。
-
-
-<HR><H3>プロパティ</H3>
-
-<DL>
-<DT>  ctcp.dcc.get.directory ディレクトリ
-</DT>
-<DD>    受信したファイルを置くディレクトリを指定します
-        ディレクトリが存在しないときや、
-        ディレクトリに書き込みができないときはファイルを受信しません。
-        デフォルトではカレントディレクトリです。
-</DD>
-<DT>  ctcp.dcc.get.mask* ユーザマスク [(チャンネル名)]
-</DT>
-<DD>    ファイルを送信してきた人がここで指定されたものにマッチしたら、
-        送られてきたファイルを受信します。
-</DD>
-<DT>  ctcp.dcc.get.mode ファイルモード
-</DT>
-<DD>    ファイルを受信したとき、そのファイルのファイルのモードを
-        ここで指定した値にします。
-</DD>
-</DL>
-
-
-<HR><H3>設定例</H3>
-
-<PRE>
-+ ctcp/dcc/get.plm
-ctcp.dcc.get.mask: *!*@*
-</PRE>
-
-DCC SENDでファイルが送信されてきたとき、
-それが誰から送られてきたかにかかわらず、そのファイルを受信します。
-受信したファイルはカレントディレクトリに作成されます。
-
-<PRE>
-+ ctcp/dcc/get.plm
-ctcp.dcc.get.directory: dcc
-ctcp.dcc.get.mask: *!*@*.jp
-</PRE>
-
-DCC SENDでファイルが送信されてきたとき、
-送信してきた人が「*!*@*.jp」にマッチしたら、そのファイルを受信します。
-受信したファイルは「dcc」というディレクトリの中に作成されます。
-「dcc」という名前のディレクトリが存在しない場合や、
-書き込みができない場合はファイルは受信しません。
-
-</BODY></HTML>

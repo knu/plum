@@ -1,4 +1,3 @@
-<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
 # $Id$
 # copyright (c)1998-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
 
@@ -1495,35 +1494,3 @@ sub exist {
   return 0;
 }
 
-__END__
---><HTML><HEAD>
-<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
-<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
-<TITLE>sys/multicast.plm</TITLE></HEAD><BODY>
-
-オンラインドキュメント
-
-
-<HR><H3>名前</H3>
-
-sys/multicast.plm - 複数のサーバを単一のサーバのようにエミュレートする
-
-
-<HR><H3>説明</H3>
-
-複数の設定ファイルを使ってサーバに接続し、それぞれの設定のサーバを
-別の設定のクライアントからアクセスできるようにします。
-このモジュールを入れると、すべてのチャンネル名は「チャンネル名@設定名」
-という名前に変換されます。
-
-
-<HR><H3>プロパティ</H3>
-
-
-<HR><H3>設定例</H3>
-
-<PRE>
-+ sys/multicast.plm
-</PRE>
-
-</BODY></HTML>

@@ -1,4 +1,3 @@
-<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
 # $Id$
 # copyright (c)1998-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
 
@@ -140,19 +139,19 @@ sub ss_privmsg {
   $userno = $'userno[$serverno];
   if ($params[1]) {
     foreach $get (&'property($userno, 'get')) {
-      next unless $params[1] eq $get;
+      next unless &match($params[1], $get);
       &get($serverno, $prefix, $params[0]);
       return ($prefix, $cmd, @params);
     }
     foreach $check (&'property($userno, 'check')) {
-      next unless $params[1] eq $check;
+      next unless &match($params[1], $check);
       &check($serverno, $prefix, $params[0]);
       return ($prefix, $cmd, @params);
     }
     ($str, $who, $text) = split(/\s+/, $params[1], 3);
     if ($text) {
       foreach $send (&'property($userno, 'send')) {
-        next unless $str eq $send;
+        next unless &match($str, $send);
         &send($serverno, $prefix, $params[0], $who, $text);
         return ($prefix, $cmd, @params);
       }
@@ -160,6 +159,19 @@ sub ss_privmsg {
   }
   &receive($serverno, $prefix);
   return ($prefix, $cmd, @params);
+}
+
+sub match {
+  local($str, $pattern) = @_;
+  if (&'exist($'kanjilist, 'sjis')) {
+    $str = &'euc_sjis($str);
+    $pattern = &'euc_sjis($pattern);
+  }
+  if ($str =~ /$pattern/) {
+    return 1;
+  } else {
+    return 0;
+  }
 }
 
 sub cpss_dcc {
@@ -785,181 +797,3 @@ sub euc_code {
   return $line;
 }
 
-__END__
---><HTML><HEAD>
-<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
-<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
-<TITLE>auto/package.plm</TITLE></HEAD><BODY>
-
-オンラインドキュメント
-
-
-<HR><H3>名前</H3>
-
-auto/package.plm - 指定した人にDCCでファイルを届ける
-
-
-<HR><H3>説明</H3>
-
-指定した人にメッセージをつけてDCCでファイルを届けます。
-DCCでファイルの送信要求を出したあと、
-送り先を指定することでファイルを送信することができます。
-ファイルが届いているかどうかの確認はユーザがチャンネルに入ってきたときと、
-ニックネームを変更したときに行います。
-そのため、同じチャンネルに入らないユーザに対しては
-ファイルを送ることはできません。
-
-
-<HR><H3>プロパティ</H3>
-
-<DL>
-<DT>  auto.package.file ファイル名[;({jis|euc|sjis})]
-</DT>
-<DD>    受け取ったファイルや送り先の情報を格納するファイルを指定します。
-        ファイルは指定した漢字コードで保存されます。
-        漢字コードを複数指定した場合は、最初に指定した漢字コードで
-        保存され、省略した場合は「jis」を指定したことと同じです。
-        また、「euc」と「sjis」を同時に指定することはできません。
-</DD>
-<DT>  auto.package.directory ディレクトリ名
-</DT>
-<DD>    受け取ったファイルを保存するディレクトリを指定します。
-        正しく送信されたファイルは消されます。
-</DD>
-<DT>  auto.package.alias ファイル名[;({jis|euc|sjis})]
-</DT>
-<DD>    エイリアスを参照するファイル名を指定します。
-        このファイルはauto/alias.plmで使用するものと同じものです。
-        ファイルは指定した漢字コードで保存されている必要があります。
-</DD>
-<DT>  auto.package.get* 文字列
-</DT>
-<DD>    ファイルを受け取るための文字列です。
-        ここで指定した文字列を発言すると、メッセージとともに
-        DCCでファイルが送られてきます。
-</DD>
-<DT>  auto.package.send* 文字列
-</DT>
-<DD>    ファイルを送るための文字列です。DCCの送信待ちの状態で
-        ここで指定した文字列と、それに続く送り先とメッセージを発言すると、
-        指定した送り先にファイルを送信します。
-</DD>
-<DT>  auto.package.check* 文字列
-</DT>
-<DD>    ファイルが届いているかどうか確認するための文字列を指定します。
-        ここで指定した文字列と同じ文字列が発言されると、
-        その人に対して送られたファイルがあるかどうか確認し、
-        その結果を発言します。
-</DD>
-<DT>  auto.package.date 文字列
-</DT>
-<DD>    auto.package.formatで指定することのできる値のうち、
-        #(date)で置換される日付のフォーマットを指定します。
-        デフォルトでは「%m/%d %H:%M」となっています。
-</DD>
-<DT>  auto.package.format* フォーマット
-</DT>
-<DD>    送り先にファイルを送るときに、どのような形式で発言するかを
-        指定します。フォーマットに#(nick)のように書くことで、
-        ファイルを受けとる人のエイリアスの対応する値で置き換えます。
-        また、ファイルを送った人のエイリアスは#(from.nick)のような形式
-        で置換することができます。エイリアス以外の情報としては、
-        #(date)でファイルを送った日付と時刻を、#(message)で
-        ファイルの内容をそれぞれ置き換えます。
-        また、括弧内を「|」で区切って複数指定した場合、
-        最初に定義されている値で置き換えます。
-</DD>
-<DT>  auto.package.accept* フォーマット
-</DT>
-<DD>    ファイルを正しく受け取るったときに、ここで指定したものを
-        発言します。フォーマットに#(nick)のように指定することで、
-        ファイルの送り元のエイリアスの対応する値で置き換えます。
-        また、#(to)でファイルの送り先として指定した名前を、
-        #(to.nick)のように「to.」を付けることで、ファイルの送り先の
-        エイリアスの対応する値で置き換えます。
-</DD>
-<DT>  auto.package.receive* フォーマット
-</DT>
-<DD>    チャンネルに入ってきた時や、ニックネームを変更した時に、
-        その人に対するメッセージが届いていれば、ここで指定したものを
-        発言します。フォーマットに#(nick)のように指定することで、
-        ファイルの送り元のエイリアスの対応する値で置き換えます。
-        また、#(number)で届いているファイル数に置き換えます。
-</DD>
-<DT>  auto.package.norequest* フォーマット
-</DT>
-<DD>    DCCの送信要求を出さずにファイルを送ろうとした場合に
-        ここで指定したものを発言します。
-        フォーマットに#(nick)のように指定することで、
-        ファイルの送り元のエイリアスの対応する値で置き換えます。
-</DD>
-<DT>  auto.package.unknown* フォーマット
-</DT>
-<DD>    ファイルを送る相手がわからないときに、ここで指定したものを
-        発言します。フォーマットに#(nick)のように指定することで、
-        ファイルの送り元のエイリアスの対応する値で置き換えます。
-        また、#(to)でファイルを送ろうとした相手の名前に置き換えます。
-</DD>
-<DT>  auto.package.nothing* フォーマット
-</DT>
-<DD>    ファイルを受け取ろうとしたが、ファイルが届いていなかったとき、
-        ここで指定したものを発言します。フォーマットに#(nick)のように
-        指定することで、エイリアスの対応する値で置き換えます。
-</DD>
-<DT>  auto.package.exists* フォーマット
-</DT>
-<DD>    ファイルが届いているかどうか確認したときに、
-        届いているファイルがあれば、ここで指定したものを発言します。
-</DD>
-<DT>  auto.package.geterror* フォーマット
-</DT>
-<DD>    ユーザがファイルを受信しているときにエラーが発生した場合、
-        ここで指定したものを発言します。フォーマットに#(nick)のように
-        指定することで、エイリアスの対応する値で置き換えます。
-        また、#(file)で転送中のファイル名に置き換えます。
-</DD>
-<DT>  auto.package.senderror* フォーマット
-</DT>
-<DD>    ユーザがファイルを送信しているときにエラーが発生した場合、
-        ここで指定したものを発言します。フォーマットに#(nick)のように
-        指定することで、エイリアスの対応する値で置き換えます。
-        また、#(file)で転送中のファイル名に置き換えます。
-</DD>
-</DL>
-
-
-<HR><H3>設定例</H3>
-
-<PRE>
-+ auto/package.plm
-auto.package.file: package.txt;jis
-auto.package.directory: DCC
-auto.package.alias: alias.txt;jis,euc
-auto.package.get: 小包送って
-auto.package.send: 小包
-auto.package.format: #(from.name|from.nick.now)さんから「#(message)」(#(date))
-auto.package.date: %m月%d日%H時%M分
-auto.package.accept: 小包を受け取りました
-auto.package.receive: #(number)個の小包が届いています。「小包送って」でお届けします。
-auto.package.norequest: #(name|nick.now): DCC要求がありません
-auto.package.unknown: #(to)さんというのは誰ですか?
-auto.package.nothing: #(name|nick)さん宛の小包は届いていません
-auto.package.geterror: #(nick.now): #(file)の送信に失敗しました
-auto.package.senderror: #(nick.now): #(file)の受信に失敗しました
-</PRE>
-
-DCCでファイルの送信要求を出したあと、「小包 pupu ほげほげ」
-のように発言すると、「ほげほげ」というメッセージとともに
-DCCで送信したファイルをpupuというニックネームの人に送ります。
-また「alias.txt」の中に適当な情報を指定することによって、
-「小包 ぷぷ ほげほげ」のような使い方もできます。
-また、このとき送られたファイルはDCCというディレクトリの中に保存されます。
-
-<BR><BR>
-
-ファイルが届いているときにチャンネルに入ったり、ニックネームを変更すると、
-「小包が届いています。「小包送って」でお届けします」と言って知らせます。
-このとき「小包送って」と発言すると、送り主の名前とメッセージを発言して、
-DCCでファイルを送ってきます。
-
-</BODY></HTML>

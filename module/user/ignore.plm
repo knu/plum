@@ -1,4 +1,3 @@
-<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
 # $Id$
 # copyright (c)1997-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
 
@@ -77,57 +76,3 @@ sub maskcommand {
   return &'exist($mask, $cmd);
 }
 
-__END__
---><HTML><HEAD>
-<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
-<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
-<TITLE>user/ignore.plm</TITLE></HEAD><BODY>
-
-オンラインドキュメント
-
-
-<HR><H3>名前</H3>
-
-user/ignore.plm - 指定したユーザの発言を無視する
-
-
-<HR><H3>説明</H3>
-
-指定したユーザの発言をクライアントに送らないようにします。
-
-
-<HR><H3>プロパティ</H3>
-
-<DL>
-<DT>  user.ignore.mask* ユーザマスク [(チャンネル名)]
-</DT>
-<DD>    発言した人がここで指定したものにマッチした場合、
-        その人の発言を無視し、クライアントに送らないようにします。
-</DD>
-<DT>  user.ignore.command* ({privmsg|notice})
-</DT>
-<DD>    無視するメッセージの種類を指定します。
-        デフォルトではPRIVMSGとNOTICEの両方を無視します。
-</DD>
-</DL>
-
-
-<HR><H3>設定例</H3>
-
-<PRE>
-+ user/ignore.plm
-user.ignore.mask: -*!*@*.jp
-user.ignore.mask: *!*@*
-</PRE>
-
-「*!*@*.jp」にマッチしない人の発言をすべて無視します。
-
-<PRE>
-+ user/ignore.plm
-user.ignore.mask: dummy!*@*
-user.ignore.command: privmsg
-</PRE>
-
-「dummy」というニックネームのユーザの、PRIVMSGでの発言を無視します。
-
-</BODY></HTML>

@@ -1,4 +1,3 @@
-<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
 # $Id$
 # copyright (c)1997-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
 
@@ -75,59 +74,3 @@ sub euc_code {
   return $line;
 }
 
-__END__
---><HTML><HEAD>
-<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
-<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
-<TITLE>log/server.plm</TITLE></HEAD><BODY>
-
-オンラインドキュメント
-
-
-<HR><H3>名前</H3>
-
-log/server.plm - サーバからの入力をログとして保存する
-
-
-<HR><H3>説明</H3>
-
-サーバからの入力をすべてログに保存します。
-
-
-<HR><H3>プロパティ</H3>
-
-<DL>
-<DT>  log.server.directory ディレクトリ
-</DT>
-<DD>    ログを保存するディレクトリを指定します。
-        デフォルトではカレントディレクトリに保存します。
-</DD>
-<DT>  log.server.file ファイル名
-</DT>
-<DD>    ログのファイル名を指定します。
-        %ではじまる文字があると、対応する日付に変換されます。
-        デフォルトでは「logserver」というファイルに保存します。
-</DD>
-<DT>  log.server.header へッダ
-</DT>
-<DD>    ログに出力する時刻のフォーマットを指定します。
-        %ではじまる文字があると、対応する時間に変換されます。
-</DD>
-<DT>  log.server.mode ファイルモード
-</DT>
-<DD>    ログのファイルモードを指定します。
-</DD>
-</DL>
-
-
-<HR><H3>設定例</H3>
-
-<PRE>
-+ log/server.plm
-log.server.file: server%Y%m%d
-</PRE>
-
-サーバからの入力を「server%m%d」に保存します。
-「%Y」、「%m」、「%d」はそれぞれ現在の年、月、日に変換されます。
-
-</BODY></HTML>

@@ -1,4 +1,3 @@
-<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
 # $Id$
 # copyright (c)1998-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
 
@@ -1255,70 +1254,3 @@ sub kanji_euc {
   return $line;
 }
 
-__END__
---><HTML><HEAD>
-<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
-<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
-<TITLE>sys/web.plm</TITLE></HEAD><BODY>
-
-オンラインドキュメント
-
-
-<HR><H3>名前</H3>
-
-sys/web.plm - WebブラウザなどでIRCを行うためのインターフェイス
-
-
-<HR><H3>説明</H3>
-
-HTTPプロトコルを利用することで、WebブラウザなどからIRCを行います。
-フレームを用いて表示を分割しているので、フレームに対応した
-Webブラウザが必要です。
-
-<HR><H3>プロパティ</H3>
-
-<DL>
-<DT>  sys.web.method {post|get}
-</DT>
-<DD>    フォームのデータを送信するときに使用するメソッドを指定します。
-        デフォルトではgetになっています。
-</DD>
-<DT>  sys.web.client* ホストマスク:ポート番号 ユーザ名:パスワード
-</DT>
-<DD>    HTTPプロトコルによって通信を行うポート、
-        接続可能なクライアントのマスクと、利用可能なユーザを指定します。
-</DD>
-<DT>  sys.web.header へッダ
-</DT>
-<DD>    ログの時刻のフォーマットを指定します。
-        %ではじまる文字があると、対応する時間に変換されます。
-</DD>
-<DT>  sys.web.line 行数
-</DT>
-<DD>    メッセージのログを残す行数を指定します。デフォルトでは50行です。
-</DD>
-<DT>  sys.web.kanji* ({euc|jis|sjis})
-</DT>
-<DD>    フォームから入力された文字列の漢字コードを指定します。
-        デフォルトではjis,sjisです。
-</DD>
-</DL>
-
-
-<HR><H3>設定例</H3>
-
-<PRE>
-+ sys/web.plm
-sys.web.method: get
-sys.web.client: *.jp:8080 userid:passwd
-sys.web.header: %H:%M
-sys.web.line: 50
-sys.web.kanji: jis,sjis
-</PRE>
-
-ポート番号8080でHTTPプロトコルを使用した通信を行います。
-ユーザIDとして「userid」、パスワードとして「passwd」を
-指定することで接続することができます。
-ただし接続可能なのは接続元のホストが「*.jp」にマッチする場合だけです。
-
-</BODY></HTML>

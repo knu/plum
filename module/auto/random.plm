@@ -1,4 +1,3 @@
-<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
 # $Id$
 # copyright (c)1997-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
 
@@ -27,12 +26,12 @@ sub ss_privmsg {
   ($req, $reply) = split(/\s+/, $params[1], 2);
   if ($reply) {
     foreach $add (&'property($userno, 'add')) {
-      next unless $req eq $add;
+      next unless &match($req, $add);
       &add_file($userno, $reply);
       return ($prefix, $cmd, $params[0], $params[1]);
     }
     foreach $remove (&'property($userno, 'remove')) {
-      next unless $req eq $remove;
+      next unless &match($req, $remove);
       &remove_file($userno, $reply);
       return ($prefix, $cmd, @params);
     }
@@ -40,8 +39,7 @@ sub ss_privmsg {
   $rate = &'property($userno, 'rate') || $RATE;
   if (rand(100) < $rate) {
     foreach $req (&'property($userno, 'request')) {
-      $regex = &'regex($req);
-      next unless $params[1] =~ /$regex/;
+      next unless &match($params[1], $req);
       @list = &'array($message[$userno]);
       $str = $list[rand(@list)];
       last unless $str;
@@ -66,6 +64,19 @@ sub ss_privmsg {
     }
   }
   return ($prefix, $cmd, @params);
+}
+
+sub match {
+  local($str, $pattern) = @_;
+  if (&'exist($'kanjilist, 'sjis')) {
+    $str = &'euc_sjis($str);
+    $pattern = &'euc_sjis($pattern);
+  }
+  if ($str =~ /$pattern/) {
+    return 1;
+  } else {
+    return 0;
+  }
 }
 
 sub privmsg {
@@ -259,94 +270,3 @@ sub euc_code {
   return $line;
 }
 
-__END__
---><HTML><HEAD>
-<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
-<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
-<TITLE>auto/random.plm</TITLE></HEAD><BODY>
-
-オンラインドキュメント
-
-
-<HR><H3>名前</H3>
-
-auto/random.plm - 特定の発言に反応してランダムな発言をする
-
-
-<HR><H3>説明</H3>
-
-特定のメッセージが発言されると、指定されたメッセージの中から
-どれか1つをランダムに選択して発言します。
-
-
-<HR><H3>プロパティ</H3>
-
-<DL>
-<DT>  auto.random.file ファイル名[;({jis|euc|sjis})]
-</DT>
-<DD>    ランダムに発言するメッセージの書かれたファイルを指定します。
-        ファイルの中では1行に1つのメッセージを書いて下さい。
-        ファイルは指定した漢字コードで保存されます。
-        漢字コードを複数指定した場合は、最初に指定した漢字コードで
-        保存され、省略した場合は「jis」を指定したことと同じです。
-        また、「euc」と「sjis」を同時に指定することはできません。
-</DD>
-<DT>  auto.random.alias ファイル名[;({jis|euc|sjis})]
-</DT>
-<DD>    エイリアスを参照するファイルを指定します。
-        このファイルが指定されていると、誰に対する発言かを
-        ニックネームではなく、対応する名前で発言します。
-</DD>
-<DT>  auto.random.request* 文字列
-</DT>
-<DD>    反応する発言を指定します。
-        ここで指定したメッセージのどれか1つと一致した場合に
-        ランダムに選択されたメッセージを発言します。
-</DD>
-<DT>  auto.random.format* フォーマット
-</DT>
-<DD>    メッセージを発言する際のフォーマットを指定します。
-        フォーマットに#(nick)のように指定することでエイリアス中の
-        対応する値で置き換えます。また#(message)でメッセージの内容に、
-        #(nick.now)で現在のニックネームに、#(channel)でチャンネル名に
-        それぞれ置き換えます。
-</DD>
-<DT>  auto.random.rate 確率
-</DT>
-<DD>    発言に反応する確率を指定します。0を指定すると全く反応せず、
-        100を指定すると全ての発言に反応するようになります。
-        デフォルトでは100になっています。
-</DD>
-<DT>  auto.random.add* 文字列
-</DT>
-<DD>    メッセージを追加する文字列を指定します。
-        ここで指定した文字列を発言すると、新しいメッセージを追加します。
-</DD>
-<DT>  auto.random.remove* 文字列
-</DT>
-<DD>    メッセージを削除する文字列を指定します。
-        ここで指定した文字列を発言すると、一致するメッセージを削除します。
-</DD>
-</DL>
-
-
-<HR><H3>設定例</H3>
-
-<PRE>
-+ auto/random.plm
-auto.random.request: 今日の運勢は?
-auto.random.request: うらない
-auto.random.file: random.txt;jis
-auto.random.format: #(name|nick|nick.now)さんの運勢は「#(message)」だよっ
-auto.random.rate: 100
-auto.random.add: うらない追加
-auto.random.remove: うらない削除
-</PRE>
-
-「今日の運勢は?」か「うらない」のどちらかの発言があったときに、
-「random.txt」の中に書かれたメッセージの中のどれか1つを発言します。
-random.txtはjisで書かれていないといけません。
-また、「うらない追加 大吉です☆」などのように発言することで、
-新しいメッセージを追加することができます。
-
-</BODY></HTML>

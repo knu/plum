@@ -1,4 +1,3 @@
-<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
 # $Id$
 # copyright (c)1997-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
 
@@ -42,57 +41,3 @@ sub client_write {
   return $line;
 }
 
-__END__
---><HTML><HEAD>
-<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
-<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
-<TITLE>client/kanji.plm</TITLE></HEAD><BODY>
-
-オンラインドキュメント
-
-
-<HR><H3>名前</H3>
-
-client/kanji.plm - クライアントとの入出力で漢字コードを変換する
-
-
-<HR><H3>説明</H3>
-
-クライアントからjis以外で入力された漢字コードをjisに変換します。
-またクライアントに対して出力する漢字コードを指定したものにします。
-
-
-<HR><H3>プロパティ</H3>
-
-<DL>
-<DT>  client.kanji.input* ({jis|euc|sjis})
-</DT>
-<DD>    クライアントからの入力が指定した漢字コードのものであれば、
-        それをjisに変換します。eucとsjisは同時に指定できません。
-</DD>
-<DT>  client.kanji.output {jis|euc|sjis}
-</DT>
-<DD>    クライアントに出力する漢字コードを指定したものにします。
-</DD>
-</DL>
-
-
-<HR><H3>設定例</H3>
-
-<PRE>
-+ client/kanji.plm
-client.kanji.input: euc
-</PRE>
-
-クライアントからの入力がeucだったときに、それをjisに変換します。
-
-<PRE>
-+ client/kanji.plm
-client.kanji.input: sjis,jis
-client.kanji.output: sjis
-</PRE>
-
-クライアントからの入力がsjisだったときに、それをjisに変換します。
-またクライアントに対する出力をsjisにします。
-
-</BODY></HTML>

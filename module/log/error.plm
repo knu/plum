@@ -1,4 +1,3 @@
-<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
 # $Id$
 # copyright (c)1997-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
 
@@ -20,32 +19,3 @@ sub initialize {
   }
 }
 
-__END__
---><HTML><HEAD>
-<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
-<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
-<TITLE>log/error.plm</TITLE></HEAD><BODY>
-
-オンラインドキュメント
-
-
-<HR><H3>名前</H3>
-
-log/error.plm - エラーをログとして保存する
-
-
-<HR><H3>説明</H3>
-
-標準出力とエラー出力を「logerror」というファイルに保存します。
-
-
-<HR><H3>プロパティ</H3>
-
-
-<HR><H3>設定例</H3>
-
-<PRE>
-+ log/error.plm
-</PRE>
-
-</BODY></HTML>
