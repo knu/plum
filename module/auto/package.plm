@@ -1,0 +1,965 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1998-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package auto_package;
+
+$_ = 'auto_package';
+
+sub initialize {
+  $BUFFER = 65536;
+  $DIRECTORY = '.';
+  $CLIENTINFO = 'DCC';
+  $TIMEOUT = 3600;
+  $INTERVAL = 3600;
+  $DATE = '%m/%d %H:%M';
+  $FORMAT = '#(date) #(from.name|from.nick|from.nick.now) >> #(message)';
+}
+
+sub main_loop {
+  local($userno) = @_;
+  local($timeout);
+  $timeout = &'property($userno, 'timeout') || $TIMEOUT;
+  foreach $sno (&'array($dccserverlist)) {
+    next unless $'userno[$server[$sno]] == $userno;
+    if (vec($'rout, $'fileno[$sno], 1)) {
+      &dcc_server($sno);
+      vec($'rout, $'fileno[$sno], 1) = 0;
+    } elsif (time() - $'access[$sno] > $timeout) {
+      &'close($sno);
+      $dccserverlist = &'remove($dccserverlist, $sno);
+      &msg_send($sno, 'senderror');
+      unlink($name[$sno]);
+    }
+  }
+  foreach $cno (&'array($dccclientlist)) {
+    next unless $'userno[$server[$cno]] == $userno;
+    if (vec($'rout, $'fileno[$cno], 1)) {
+      &dcc_client($cno);
+      vec($'rout, $'fileno[$cno], 1) = 0;
+    } elsif (time() - $'access[$cno] > $timeout) {
+      &'close($cno);
+      $dccclientlist = &'remove($dccclientlist, $cno);
+      &add_msg($'userno[$server[$cno]], $info[$cno]);
+      &msg_get($cno, 'geterror');
+    }
+  }
+  foreach $lno (&'array($dcclistenlist)) {
+    next unless $'userno[$server[$lno]] == $userno;
+    if (vec($'rout, $'fileno[$lno], 1)) {
+      &dcc_listen($lno);
+      vec($'rout, $'fileno[$lno], 1) = 0;
+    } elsif (time() - $'access[$lno] > $timeout) {
+      &'close($lno);
+      $dcclistenlist = &'remove($dcclistenlist, $lno);
+      &add_msg($'userno[$server[$lno]], $info[$lno]);
+      &msg_get($lno, 'geterror');
+    }
+  }
+}
+
+sub module_disable {
+  local($userno) = @_;
+  local($no, $nick);
+  foreach $sno (&'array($dccserverlist)) {
+    &'close($sno);
+    $dccserverlist = &'remove($dccserverlist, $sno);
+  }
+  foreach $cno (&'array($dccclientlist)) {
+    &'close($cno);
+    $dccclientlist = &'remove($dccclientlist, $cno);
+    &add_msg($userno, $info[$cno]);
+  }
+  foreach $lno (&'array($dcclistenlist)) {
+    &'close($lno);
+    $dcclistenlist = &'remove($dcclistenlist, $lno);
+    &add_msg($userno, $info[$lno]);
+  }
+  foreach $key (keys(%lasttime)) {
+    ($no, $nick) = split(/$;/, $key, 2);
+    next unless $'userno[$no] == $userno;
+    delete $lasttime{$key};
+  }
+}
+
+sub server_close {
+  local($serverno) = @_;
+  local($no, $nick);
+  $dcclist[$serverno] = '';
+  foreach $key (keys(%lasttime)) {
+    ($no, $nick) = split(/$;/, $key, 2);
+    next unless $no == $serverno;
+    delete $lasttime{$key};
+  }
+}
+
+sub ss_join {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  &receive($serverno, $prefix);
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_nick {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick);
+  $nick = &'prefix($prefix);
+  $lasttime{$serverno, $params[0]} = $lasttime{$serverno, $nick};
+  delete $lasttime{$serverno, $nick};
+  $user = $params[0] . substr($prefix, index($prefix, '!'));
+  &receive($serverno, $user);
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_part {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  &receive($serverno, $prefix);
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_topic {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  &receive($serverno, $prefix);
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_kick {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  &receive($serverno, $prefix);
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_mode {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  &receive($serverno, $prefix);
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_privmsg {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($userno, $str, $who, $text);
+  $userno = $'userno[$serverno];
+  if ($params[1]) {
+    foreach $get (&'property($userno, 'get')) {
+      next unless $params[1] eq $get;
+      &get($serverno, $prefix, $params[0]);
+      return ($prefix, $cmd, @params);
+    }
+    foreach $check (&'property($userno, 'check')) {
+      next unless $params[1] eq $check;
+      &check($serverno, $prefix, $params[0]);
+      return ($prefix, $cmd, @params);
+    }
+    ($str, $who, $text) = split(/\s+/, $params[1], 3);
+    if ($text) {
+      foreach $send (&'property($userno, 'send')) {
+        next unless $str eq $send;
+        &send($serverno, $prefix, $params[0], $who, $text);
+        return ($prefix, $cmd, @params);
+      }
+    }
+  }
+  &receive($serverno, $prefix);
+  return ($prefix, $cmd, @params);
+}
+
+sub cpss_dcc {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local(@msg, $from);
+  @msg = split(/\s+/, $params[1]);
+  if ("\L$msg[0]\E" eq 'send') {
+    foreach $dcc (&'array($dcclist[$serverno])) {
+      $from = (split(/\s+/, $dcc))[0];
+      next if $from ne $prefix;
+      $dcclist[$serverno] = &'remove($dcclist[$serverno], $dcc);
+    }
+    $dcclist[$serverno] = &'add($dcclist[$serverno], join(' ', $prefix, @params));
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub dcc_server {
+  local($sno) = @_;
+  local($buf, $socket, $tmp, $size, $length);
+  $buf = &'property($'userno[$server[$sno]], 'buffer') || $BUFFER;
+  if ($size[$sno] - $done[$sno] > $buf) {
+    $size = $size[$sno] - $done[$sno];
+  } else {
+    $size = $buf;
+  }
+  $tmp = '';
+  $socket = $'socket[$sno];
+  if ($length = sysread($socket, $tmp, $size)) {
+    if (open(FILE, ">>$name[$sno]")) {
+      select((select(FILE), $| = 1)[0]);
+      print FILE $tmp;
+      close(FILE);
+    }
+    $done[$sno] += $length;
+    print $socket pack('N', $done[$sno]);
+    if ($done[$sno] == $size[$sno]) {
+      &'close($sno);
+      $dccserverlist = &'remove($dccserverlist, $sno);
+      &add_msg($'userno[$server[$sno]], $info[$sno]);
+      &msg_send($sno, 'accept');
+    }
+  } else {
+    &'close($sno);
+    $dccserverlist = &'remove($dccserverlist, $sno);
+    &msg_send($sno, 'senderror');
+    unlink($name[$sno]);
+  }
+}
+
+sub dcc_client {
+  local($cno) = @_;
+  local($tmp, $length);
+  $tmp = '';
+  if ($length = sysread($'socket[$cno], $tmp, 4)) {
+    if (unpack('N', $tmp) == $done[$cno]) {
+      if ($done[$cno] == $size[$cno]) {
+        &'close($cno);
+        $dccclientlist = &'remove($dccclientlist, $cno);
+        unlink($name[$cno]);
+      } else {
+        &dcc_send($cno);
+      }
+    }
+  } else {
+    &'close($cno);
+    $dccclientlist = &'remove($dccclientlist, $cno);
+    &add_msg($'userno[$server[$cno]], $info[$cno]);
+    &msg_get($cno, 'geterror');
+  }
+}
+
+sub dcc_listen {
+  local($lno) = @_;
+  local($cno);
+  $cno = &'socket('C');
+  if (&'accept($cno, $lno)) {
+    $dccclientlist = &'add($dccclientlist, $cno);
+    $info[$cno] = $info[$lno];
+    $name[$cno] = $name[$lno];
+    $size[$cno] = $size[$lno];
+    $done[$cno] = $done[$lno];
+    $pref[$cno] = $pref[$lno];
+    $chan[$cno] = $chan[$lno];
+    $server[$cno] = $server[$lno];
+    &dcc_send($cno);
+    &delete_msg($'userno[$server[$cno]], $info[$cno]);
+  } else {
+    &'close($cno);
+  }
+  &'close($lno);
+  $dcclistenlist = &'remove($dcclistenlist, $lno);
+}
+
+sub dcc_send {
+  local($cno) = @_;
+  local($buf, $size, $tmp, $socket);
+  $buf = &'property($'userno[$server[$cno]], 'buffer') || $BUFFER;
+  if ($size[$cno] - $done[$cno] < $buf) {
+    $size = $size[$cno] - $done[$cno];
+  } else {
+    $size = $buf;
+  }
+  if (open(FILE, $name[$cno])) {
+    $tmp = '';
+    seek(FILE, $done[$cno], 0);
+    if (read(FILE, $tmp, $size)) {
+      $socket = $'socket[$cno];
+      print $socket $tmp;
+      $done[$cno] += $size;
+    }
+    close(FILE);
+  }
+}
+
+sub receive {
+  local($serverno, $prefix) = @_;
+  local($userno, $nick, $time, $int, @msg, %alias);
+  $userno = $'userno[$serverno];
+  $nick = &'prefix($prefix);
+  @msg = &get_msg($userno, $prefix);
+  if (@msg) {
+    %alias = &get_alias_user($userno, $prefix);
+    $alias{'nick.now'} = $nick;
+    $time = time();
+    $alias{'number'} = @msg;
+    $lasttime{$serverno, $nick} = 0 unless $lasttime{$serverno, $nick};
+    $int = &'property($userno, 'interval') || $INTERVAL;
+    if ($time - $lasttime{$serverno, $nick} > $int) {
+      foreach $reply (&'property($userno, 'receive')) {
+        &privmsg($serverno, $nick, &'format($reply, %alias));
+      }
+    }
+    $lasttime{$serverno, $nick} = $time;
+  } else {
+    $lasttime{$serverno, $nick} = 0;
+  }
+}
+
+sub get {
+  local($serverno, $prefix, $chan) = @_;
+  local($userno, $nick, @msg, $to, @data, $size, %alias, %from, $date, @format, $lno, @params, $addr);
+  $userno = $'userno[$serverno];
+  $nick = &'prefix($prefix);
+  @msg = &get_msg($userno, $prefix);
+  %alias = &get_alias_user($userno, $prefix);
+  $alias{'nick.now'} = $nick;
+  if (&'channel($chan)) {
+    $alias{'channel'} = $chan;
+    $to = $chan;
+  } else {
+    $to = $nick;
+  }
+  if (@msg) {
+    foreach $line (@msg) {
+      @data = split(/\s+/, $line, 7);
+      %from = &get_alias_user($userno, $data[2], 'from');
+      $alias{'from.nick.now'} = &'prefix($data[2]);
+      if (&'channel($data[3])) {
+        $alias{'from.channel'} = $data[3];
+      }
+      $alias{'file'} = $data[4];
+      $alias{'message'} = $data[6];
+      $date = &'property($userno, 'date') || $DATE;
+      $alias{'date'} = &'date($date, $data[0]);
+      @format = &'property($userno, 'format');
+      if (@format) {
+        foreach $reply (@format) {
+          &privmsg($serverno, $nick, &'format($reply, %alias, %from));
+        }
+      } else {
+        &privmsg($serverno, $nick, &'format($FORMAT, %alias, %from));
+      }
+      $size = (stat($data[5]))[7];
+      if ($size) {
+        $lno = &'socket('L');
+        if (&'listen($lno, 0, 1)) {
+          $dcclistenlist = &'add($dcclistenlist, $lno);
+          @params = ();
+          push(@params, 'DCC');
+          push(@params, 'SEND');
+          push(@params, $data[4]);
+          $addr = (&'sockname($serverno))[1];
+          if (length($addr) == 4) {
+            push(@params, unpack('N', $addr));
+          } elsif (length($addr) == 16) {
+            push(@params, join(':', unpack('H4' x 8, $addr)));
+          }
+          push(@params, (&'sockname($lno))[0]);
+          push(@params, $size);
+          &'s_print($serverno, '', 'PRIVMSG', $nick, "\cA" . join(' ', @params) . "\cA");
+          $info[$lno] = $line;
+          $name[$lno] = $data[5];
+          $size[$lno] = $size;
+          $done[$lno] = 0;
+          $pref[$lno] = $prefix;
+          $chan[$lno] = $chan;
+          $server[$lno] = $serverno;
+        } else {
+          &'close($lno);
+          foreach $reply (&'property($userno, 'geterror')) {
+            &privmsg($serverno, $to, &'format($reply, %alias, %from));
+          }
+          return;
+        }
+      }
+      &delete_msg($userno, @msg);
+      return;
+    }
+  } else {
+    foreach $reply (&'property($userno, 'nothing')) {
+      &privmsg($serverno, $to, &'format($reply, %alias));
+    }
+  }
+  $lasttime{$serverno, $nick} = 0;
+}
+
+sub check {
+  local($serverno, $prefix, $chan) = @_;
+  local($userno, $nick, $time, @msg, %alias);
+  $userno = $'userno[$serverno];
+  $nick = &'prefix($prefix);
+  %alias = &get_alias_user($userno, $prefix);
+  $alias{'nick.now'} = $nick;
+  if (&'channel($chan)) {
+    $alias{'channel'} = $chan;
+    $to = $chan;
+  } else {
+    $to = $nick;
+  }
+  @msg = &get_msg($userno, $prefix);
+  if (@msg) {
+    $alias{'number'} = @msg;
+    foreach $reply (&'property($userno, 'exists')) {
+      &privmsg($serverno, $to, &'format($reply, %alias));
+    }
+    $lasttime{$serverno, $nick} = time();
+  } else {
+    foreach $reply (&'property($userno, 'nothing')) {
+      &privmsg($serverno, $to, &'format($reply, %alias));
+    }
+    $lasttime{$serverno, $nick} = 0;
+  }
+}
+
+sub send {
+  local($serverno, $prefix, $chan, $who, $text) = @_; 
+  local($userno, $nick, %alias, %to, $to, @arg, @params, $sno, $dir, $name);
+  $userno = $'userno[$serverno];
+  $nick = &'prefix($prefix);
+  %alias = &get_alias_user($userno, $prefix);
+  $alias{'nick.now'} = $nick;
+  $alias{'to'} = $who;
+  if (&'channel($chan)) {
+    $alias{'channel'} = $chan;
+    $to = $chan;
+  } else {
+    $to = $nick;
+  }
+  %to = &get_alias_name_nick($userno, $who, 'to');
+  if (%to || $who =~ /^[A-\}][\-\dA-\}]*$/ && length($who) <= 9) {
+    foreach $dcc (&'array($dcclist[$serverno])) {
+      @arg = split(/\s+/, $dcc, 3);
+      next unless $arg[0] eq $prefix;
+      $alias{'file'} = $params[1];
+      @params = split(/\s+/, $arg[2]);
+      $sno = &'socket('S');
+      if (&'connect($sno, $params[2], $params[3])) {
+        $dir = &'expand(&'property($userno, 'directory') || $DIRECTORY);
+        $name = "$dir/" . &newfile($dir, $params[1]);
+        $dcclist[$serverno] = &'remove($dcclist[$serverno], $dcc);
+        $info[$sno] = join(' ', time(), $who, $prefix, $chan, $params[1], $name, $text);
+        $name[$sno] = $name;
+        $size[$sno] = $params[4];
+        $done[$sno] = 0;
+        $pref[$sno] = $prefix;
+        $chan[$sno] = $chan;
+        $server[$sno] = $serverno;
+        $dccserverlist = &'add($dccserverlist, $sno);
+      } else {
+        &'close($sno);
+        foreach $reply (&'property($userno, 'senderror')) {
+          &privmsg($serverno, $to, &'format($reply, %alias, %to));
+        }
+      }
+      return;
+    }
+    foreach $reply (&'property($userno, 'norequest')) {
+      &privmsg($serverno, $to, &'format($reply, %alias, %to));
+    }
+  } else {
+    foreach $reply (&'property($userno, 'unknown')) {
+      &privmsg($serverno, $to, &'format($reply, %alias));
+    }
+  }
+}
+
+sub newfile {
+  local($dir, $file) = @_;
+  local($name, $ext);
+  $file =~ s/^.*[\\\/]([^\\\/]+)$/$1/;
+  $name = $file;
+  if (-e "$dir/$name") {
+    $ext = '';
+    if (rindex($file, '.') > 0) {
+      $ext = substr($file, rindex($file, '.'));
+      $file = substr($file, 0, rindex($file, '.'));
+    }
+    $num = 1;
+    $name = "$file-$num$ext";
+    while (-e "$dir/$name") {
+      $num++;
+      $name = "$file-$num$ext";
+    }
+  }
+  return $name;
+}
+
+sub privmsg {
+  local($serverno, $to, $msg) = @_;
+  &'s_print($serverno, '', 'PRIVMSG', $to, $msg);
+  foreach $cno (&'array($'clientlist)) {
+    next unless $'server[$cno] == $serverno;
+    &'c_print($cno, &'user($cno), 'PRIVMSG', $to, $msg);
+  }
+}
+
+sub msg_get {
+  local($cno, $prop) = @_;
+  local(@data, $to, %alias, %from);
+  @data = split(/\s+/, $info[$cno], 7);
+  if (&'channel($chan[$cno])) {
+    $to = $chan[$cno];
+  } else {
+    $to = &'prefix($pref[$cno]);
+  }
+  %alias = &get_alias_user($'userno[$server[$cno]], $pref[$cno]);
+  $alias{'nick.now'} = (&'prefix($pref[$cno]))[0];
+  if (&'channel($data[3])) {
+    $alias{'channel'} = $data[3];
+  }
+  $alias{'file'} = $data[4];
+  %from = &get_alias_user($'userno[$server[$cno]], $data[1], 'from');
+  $alias{'from.nick.now'} = (&'prefix($data[1]))[0];
+  if (&'channel($data[2])) {
+    $alias{'from.channel'} = $data[2];
+  }
+  foreach $reply (&'property($'userno[$server[$cno]], $prop)) {
+    &privmsg($server[$cno], $to, &'format($reply, %alias, %from));
+  }
+}
+
+sub msg_send {
+  local($sno, $prop) = @_;
+  local(@data, $to, %alias, %to);
+  @data = split(/\s+/, $info[$sno], 7);
+  if (&'channel($chan[$sno])) {
+    $to = $chan[$sno];
+  } else {
+    $to = &'prefix($pref[$sno]);
+  }
+  %alias = &get_alias_user($'userno[$server[$sno]], $pref[$sno]);
+  $alias{'nick.now'} = (&'prefix($pref[$sno]))[0];
+  if (&'channel($data[3])) {
+    $alias{'channel'} = $data[3];
+  }
+  $alias{'file'} = $data[4];
+  $alias{'to'} = $data[1];
+  %to = &get_alias_name_nick($'userno[$server[$sno]], $data[1], 'to');
+  foreach $reply (&'property($'userno[$server[$sno]], $prop)) {
+    &privmsg($server[$sno], $to, &'format($reply, %alias, %to));
+  }
+}
+
+sub get_msg {
+  local($userno, $prefix) = @_;
+  local($nick, @list, $name, $code, $line, @data, %alias, $regex);
+  @list = ();
+  $nick = &'prefix($prefix);
+  ($name, $code) = &filename(&'property($userno, 'file'));
+  if (open(FILE, $name)) {
+    while (defined($line = <FILE>)) {
+      $line =~ tr/\r\n//d;
+      next unless $line;
+      $line = &code_euc($line, $code) if $code;
+      @data = split(/\s+/, $line, 7);
+      if (&check_alias($userno, $prefix, $data[1])) {
+        push(@list, $line);
+      }
+    }
+    close(FILE);
+  }
+  return @list;
+}
+
+sub add_msg {
+  local($userno, $msg) = @_;
+  local($name, $code);
+  ($name, $code) = &filename(&'property($userno, 'file'));
+  $msg = &euc_code($msg, $code) if $code;
+  if (open(FILE, ">>$name")) {
+    print FILE $msg, "\n";
+    close(FILE);
+  }
+}
+
+sub delete_msg {
+  local($userno, @list) = @_;
+  local($name, $code, $list, @msg);
+  @msg = ();
+  ($name, $code) = &filename(&'property($userno, 'file'));
+  if (open(FILE, $name)) {
+    $list = &'list(@list);
+    while (defined($line = <FILE>)) {
+      $line =~ tr/\r\n//d;
+      next unless $line;
+      $line = &code_euc($line, $code) if $code;
+      next if &'exist($list, $line);
+      push(@msg, $line);
+    }
+    close(FILE);
+    if (open(FILE, ">$name")) {
+      foreach $line (@msg) {
+        $line = &euc_code($line, $code) if $code;
+        print FILE $line, "\n";
+      }
+      close(FILE);
+    }
+  }
+}
+
+sub get_alias_user {
+  local($userno, $from, $prefix) = @_;
+  local($file, @list);
+  $file = &'property($userno, 'alias');
+  foreach $list (&split_list('nick', &read_file($file))) {
+    @list = &'array($list);
+    if (&match_alias_user($from, @list)) {
+      return &parse_alias($prefix, @list);
+    }
+  }
+  return ();
+}
+
+sub get_alias_name_nick {
+  local($userno, $from, $prefix) = @_;
+  local($file, @list);
+  $file = &'property($userno, 'alias');
+  foreach $list (&split_list('nick', &read_file($file))) {
+    @list = &'array($list);
+    if (&match_alias_name_nick($from, @list)) {
+      return &parse_alias($prefix, @list);
+    }
+  }
+  return ();
+}
+
+sub check_alias {
+  local($userno, $from, $name) = @_;
+  local($file, @list, $nick);
+  $file = &'property($userno, 'alias');
+  foreach $list (&split_list('nick', &read_file($file))) {
+    @list = &'array($list);
+    if (&match_alias_name_nick($name, @list)) {
+      if (&match_alias_user($from, @list)) {
+        return 1;
+      } else {
+        return 0;
+      }
+    }
+  }
+  $nick = &'prefix($from);
+  if ("\L$name\E" eq "\L$nick\E") {
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
+sub match_alias_user {
+  local($from, @list) = @_;
+  local($var, $arg, $regex);
+  foreach $line (@list) {
+    ($var, $arg) = split(/\s+/, $line, 2);
+    next unless "\L$var\E" eq 'user';
+    $regex = &'regex($arg);
+    next unless $from =~ /$regex/i;
+    return 1;
+  }
+  return 0;
+}
+
+sub match_alias_name_nick {
+  local($from, @list) = @_;
+  local($var, $arg);
+  foreach $line (@list) {
+    ($var, $arg) = split(/\s+/, $line, 2);
+    if ("\L$var\E" eq 'name') {
+      foreach $name (split(/\s+/, $arg)) {
+        next unless $from eq $name;
+        return 1;
+      }
+    } elsif ("\L$var\E" eq 'nick') {
+      next unless &'exist(&'list(split(/\s+/, $arg)), $from);
+      return 1;
+    }
+  }
+  return 0;
+}
+
+sub parse_alias {
+  local($prefix, @list) = @_;
+  local(%alias, $var, $arg, $key);
+  %alias = ();
+  foreach $line (@list) {
+    ($var, $arg) = split(/\s+/, $line, 2);
+    $var = "\L$var\E";
+    if ($prefix) {
+      $key = $prefix . '.' . $var;
+    } else {
+      $key = $var;
+    }
+    next if defined($alias{$key});
+    if ($var eq 'nick') {
+      $alias{$key} = (split(/\,/, $arg))[0];
+    } elsif ($var eq 'name') {
+      $alias{$key} = (split(/\s+/, $arg))[0];
+    } else {
+      $alias{$key} = $arg;
+    }
+  }
+  return %alias;
+}
+
+sub split_list {
+  local($field, @list) = @_;
+  local($var, $arg, @array, @entry);
+  $field = "\L$field\E";
+  @array = ();
+  @entry = ();
+  foreach $line (@list) {
+    ($var, $arg) = split(/\s*\:\s*/, $line, 2);
+    if ($field eq "\L$var\E") {
+      push(@array, &'list(@entry)) if @entry;
+      @entry = ();
+    }
+    push(@entry, $var . ' ' . $arg);
+  }
+  push(@array, &'list(@entry)) if @entry;
+  return @array;
+}
+
+sub read_file {
+  local($file) = @_;
+  local($name, $code, $mtime, @data, $line);
+  ($name, $code) = &filename($file);
+  $mtime = (stat($name))[9];
+  if (defined($mtime)) {
+    $modify{$name} = -1 unless defined($modify{$name});
+    if ($modify{$name} != $mtime) {
+      if (open(TMP, $name)) {
+        @data = ();
+        while (defined($line = <TMP>)) {
+          $line =~ s/^\s+//;
+          next if $line =~ /^[\#\;]/;
+          $line =~ tr/\r\n//d;
+          next unless $line;
+          $line =~ s/\s+$//;
+          $line = &code_euc($line, $code) if $code;
+          push(@data, $line);
+        }
+        close(TMP);
+        $modify{$name} = $mtime;
+        $cache{$name} = &'list(@data);
+        return @data;
+      }
+    } else {
+      return &'array($cache{$name});
+    }
+  }
+  return ();
+}
+
+sub filename {
+  local($file) = @_;
+  local($idx, $name, $code);
+  return ('', '') unless $file;
+  if (($idx = rindex($file, ';')) != -1) {
+    $name = substr($file, 0, $idx);
+    $code = substr($file, $idx + 1);
+  } else {
+    $name = $file;
+    $code = '';
+  }
+  return (&'expand($name), $code);
+}
+
+sub code_euc {
+  local($line, $list) = @_;
+  foreach $code (split(/\,/, "\L$list\E")) {
+    if ($code eq 'euc') {
+      $line = &'euc_euc($line);
+    } elsif ($code eq 'jis') {
+      $line = &'jis_euc($line);
+    } elsif ($code eq 'sjis') {
+      $line = &'sjis_euc($line);
+    }
+  }
+  return $line;
+}
+
+sub euc_code {
+  local($line, $list) = @_;
+  local($code);
+  $code = (split(/\,/, "\L$list\E"))[0];
+  if ($code eq 'euc') {
+    $line = &'euc_euc($line);
+  } elsif ($code eq 'jis') {
+    $line = &'euc_jis($line);
+  } elsif ($code eq 'sjis') {
+    $line = &'euc_sjis($line);
+  }
+  return $line;
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>auto/package.plm</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+auto/package.plm - 指定した人にDCCでファイルを届ける
+
+
+<HR><H3>説明</H3>
+
+指定した人にメッセージをつけてDCCでファイルを届けます。
+DCCでファイルの送信要求を出したあと、
+送り先を指定することでファイルを送信することができます。
+ファイルが届いているかどうかの確認はユーザがチャンネルに入ってきたときと、
+ニックネームを変更したときに行います。
+そのため、同じチャンネルに入らないユーザに対しては
+ファイルを送ることはできません。
+
+
+<HR><H3>プロパティ</H3>
+
+<DL>
+<DT>  auto.package.file ファイル名[;({jis|euc|sjis})]
+</DT>
+<DD>    受け取ったファイルや送り先の情報を格納するファイルを指定します。
+        ファイルは指定した漢字コードで保存されます。
+        漢字コードを複数指定した場合は、最初に指定した漢字コードで
+        保存され、省略した場合は「jis」を指定したことと同じです。
+        また、「euc」と「sjis」を同時に指定することはできません。
+</DD>
+<DT>  auto.package.directory ディレクトリ名
+</DT>
+<DD>    受け取ったファイルを保存するディレクトリを指定します。
+        正しく送信されたファイルは消されます。
+</DD>
+<DT>  auto.package.alias ファイル名[;({jis|euc|sjis})]
+</DT>
+<DD>    エイリアスを参照するファイル名を指定します。
+        このファイルはauto/alias.plmで使用するものと同じものです。
+        ファイルは指定した漢字コードで保存されている必要があります。
+</DD>
+<DT>  auto.package.get* 文字列
+</DT>
+<DD>    ファイルを受け取るための文字列です。
+        ここで指定した文字列を発言すると、メッセージとともに
+        DCCでファイルが送られてきます。
+</DD>
+<DT>  auto.package.send* 文字列
+</DT>
+<DD>    ファイルを送るための文字列です。DCCの送信待ちの状態で
+        ここで指定した文字列と、それに続く送り先とメッセージを発言すると、
+        指定した送り先にファイルを送信します。
+</DD>
+<DT>  auto.package.check* 文字列
+</DT>
+<DD>    ファイルが届いているかどうか確認するための文字列を指定します。
+        ここで指定した文字列と同じ文字列が発言されると、
+        その人に対して送られたファイルがあるかどうか確認し、
+        その結果を発言します。
+</DD>
+<DT>  auto.package.date 文字列
+</DT>
+<DD>    auto.package.formatで指定することのできる値のうち、
+        #(date)で置換される日付のフォーマットを指定します。
+        デフォルトでは「%m/%d %H:%M」となっています。
+</DD>
+<DT>  auto.package.format* フォーマット
+</DT>
+<DD>    送り先にファイルを送るときに、どのような形式で発言するかを
+        指定します。フォーマットに#(nick)のように書くことで、
+        ファイルを受けとる人のエイリアスの対応する値で置き換えます。
+        また、ファイルを送った人のエイリアスは#(from.nick)のような形式
+        で置換することができます。エイリアス以外の情報としては、
+        #(date)でファイルを送った日付と時刻を、#(message)で
+        ファイルの内容をそれぞれ置き換えます。
+        また、括弧内を「|」で区切って複数指定した場合、
+        最初に定義されている値で置き換えます。
+</DD>
+<DT>  auto.package.accept* フォーマット
+</DT>
+<DD>    ファイルを正しく受け取るったときに、ここで指定したものを
+        発言します。フォーマットに#(nick)のように指定することで、
+        ファイルの送り元のエイリアスの対応する値で置き換えます。
+        また、#(to)でファイルの送り先として指定した名前を、
+        #(to.nick)のように「to.」を付けることで、ファイルの送り先の
+        エイリアスの対応する値で置き換えます。
+</DD>
+<DT>  auto.package.receive* フォーマット
+</DT>
+<DD>    チャンネルに入ってきた時や、ニックネームを変更した時に、
+        その人に対するメッセージが届いていれば、ここで指定したものを
+        発言します。フォーマットに#(nick)のように指定することで、
+        ファイルの送り元のエイリアスの対応する値で置き換えます。
+        また、#(number)で届いているファイル数に置き換えます。
+</DD>
+<DT>  auto.package.norequest* フォーマット
+</DT>
+<DD>    DCCの送信要求を出さずにファイルを送ろうとした場合に
+        ここで指定したものを発言します。
+        フォーマットに#(nick)のように指定することで、
+        ファイルの送り元のエイリアスの対応する値で置き換えます。
+</DD>
+<DT>  auto.package.unknown* フォーマット
+</DT>
+<DD>    ファイルを送る相手がわからないときに、ここで指定したものを
+        発言します。フォーマットに#(nick)のように指定することで、
+        ファイルの送り元のエイリアスの対応する値で置き換えます。
+        また、#(to)でファイルを送ろうとした相手の名前に置き換えます。
+</DD>
+<DT>  auto.package.nothing* フォーマット
+</DT>
+<DD>    ファイルを受け取ろうとしたが、ファイルが届いていなかったとき、
+        ここで指定したものを発言します。フォーマットに#(nick)のように
+        指定することで、エイリアスの対応する値で置き換えます。
+</DD>
+<DT>  auto.package.exists* フォーマット
+</DT>
+<DD>    ファイルが届いているかどうか確認したときに、
+        届いているファイルがあれば、ここで指定したものを発言します。
+</DD>
+<DT>  auto.package.geterror* フォーマット
+</DT>
+<DD>    ユーザがファイルを受信しているときにエラーが発生した場合、
+        ここで指定したものを発言します。フォーマットに#(nick)のように
+        指定することで、エイリアスの対応する値で置き換えます。
+        また、#(file)で転送中のファイル名に置き換えます。
+</DD>
+<DT>  auto.package.senderror* フォーマット
+</DT>
+<DD>    ユーザがファイルを送信しているときにエラーが発生した場合、
+        ここで指定したものを発言します。フォーマットに#(nick)のように
+        指定することで、エイリアスの対応する値で置き換えます。
+        また、#(file)で転送中のファイル名に置き換えます。
+</DD>
+</DL>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
++ auto/package.plm
+auto.package.file: package.txt;jis
+auto.package.directory: DCC
+auto.package.alias: alias.txt;jis,euc
+auto.package.get: 小包送って
+auto.package.send: 小包
+auto.package.format: #(from.name|from.nick.now)さんから「#(message)」(#(date))
+auto.package.date: %m月%d日%H時%M分
+auto.package.accept: 小包を受け取りました
+auto.package.receive: #(number)個の小包が届いています。「小包送って」でお届けします。
+auto.package.norequest: #(name|nick.now): DCC要求がありません
+auto.package.unknown: #(to)さんというのは誰ですか?
+auto.package.nothing: #(name|nick)さん宛の小包は届いていません
+auto.package.geterror: #(nick.now): #(file)の送信に失敗しました
+auto.package.senderror: #(nick.now): #(file)の受信に失敗しました
+</PRE>
+
+DCCでファイルの送信要求を出したあと、「小包 pupu ほげほげ」
+のように発言すると、「ほげほげ」というメッセージとともに
+DCCで送信したファイルをpupuというニックネームの人に送ります。
+また「alias.txt」の中に適当な情報を指定することによって、
+「小包 ぷぷ ほげほげ」のような使い方もできます。
+また、このとき送られたファイルはDCCというディレクトリの中に保存されます。
+
+<BR><BR>
+
+ファイルが届いているときにチャンネルに入ったり、ニックネームを変更すると、
+「小包が届いています。「小包送って」でお届けします」と言って知らせます。
+このとき「小包送って」と発言すると、送り主の名前とメッセージを発言して、
+DCCでファイルを送ってきます。
+
+</BODY></HTML>
