@@ -1,0 +1,133 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1997-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package log_server;
+
+$_ = 'log_server';
+
+sub initialize {
+  $DIRECTORY = '.';
+  $FILE = 'logserver';
+  $HEADER = '%H:%M';
+}
+
+sub server_read {
+  local($serverno, $line) = @_;
+  &writelog($'userno[$serverno], $line);
+  return ($line);
+}
+
+sub writelog {
+  local($userno, $line) = @_;
+  local($file, $dir, $name, $code, $header, $mode);
+  $file = &'property($userno, 'file') || $FILE;
+  ($name, $code) = &filename($file);
+  if ($name !~ /^[\\\/]/) {
+    $dir = &'expand(&'property($userno, 'directory') || $DIRECTORY);
+    $name = "$dir/$name";
+  }
+  $name = &'date($name);
+  $header = &'property($userno, 'header');
+  $header = $HEADER unless defined($header);
+  $header = &'date($header);
+  $line = &euc_code($line, $code) if $code;
+  if (!-e $name) {
+    if (open(FILE, ">$name")) {
+      close(FILE);
+      $mode = &'property($userno, 'mode');
+      if (defined($mode)) {
+        chmod(oct($mode), $name);
+      }
+    }
+  }
+  if (open(FILE, ">>$name")) {
+    print FILE $header, ' ', $line, "\n";
+    close(FILE);
+  }
+}
+
+sub filename {
+  local($file) = @_;
+  local($idx, $name, $code);
+  return ('', '') unless $file;
+  if (($idx = rindex($file, ';')) != -1) {
+    $name = substr($file, 0, $idx);
+    $code = substr($file, $idx + 1);
+  } else {
+    $name = $file;
+    $code = '';
+  }
+  return (&'expand($name), $code);
+}
+
+sub euc_code {
+  local($line, $list) = @_;
+  local($code);
+  $code = (split(/\,/, "\L$list\E"))[0];
+  if ($code eq 'euc') {
+    $line = &'euc_euc($line);
+  } elsif ($code eq 'jis') {
+    $line = &'euc_jis($line);
+  } elsif ($code eq 'sjis') {
+    $line = &'euc_sjis($line);
+  }
+  return $line;
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>log/server.plm</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+log/server.plm - サーバからの入力をログとして保存する
+
+
+<HR><H3>説明</H3>
+
+サーバからの入力をすべてログに保存します。
+
+
+<HR><H3>プロパティ</H3>
+
+<DL>
+<DT>  log.server.directory ディレクトリ
+</DT>
+<DD>    ログを保存するディレクトリを指定します。
+        デフォルトではカレントディレクトリに保存します。
+</DD>
+<DT>  log.server.file ファイル名
+</DT>
+<DD>    ログのファイル名を指定します。
+        %ではじまる文字があると、対応する日付に変換されます。
+        デフォルトでは「logserver」というファイルに保存します。
+</DD>
+<DT>  log.server.header へッダ
+</DT>
+<DD>    ログに出力する時刻のフォーマットを指定します。
+        %ではじまる文字があると、対応する時間に変換されます。
+</DD>
+<DT>  log.server.mode ファイルモード
+</DT>
+<DD>    ログのファイルモードを指定します。
+</DD>
+</DL>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
++ log/server.plm
+log.server.file: server%Y%m%d
+</PRE>
+
+サーバからの入力を「server%m%d」に保存します。
+「%Y」、「%m」、「%d」はそれぞれ現在の年、月、日に変換されます。
+
+</BODY></HTML>
