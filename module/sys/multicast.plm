@@ -1,0 +1,1529 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1998-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package sys_multicast;
+
+$_ = 'sys_multicast';
+
+sub initialize {
+}
+
+sub module_enable {
+  local($userno) = @_;
+  local($achan, $i);
+  foreach $cno (&'array($'clientlist)) {
+    next unless $'userno[$cno] == $userno;
+    foreach $chan (&'array($'channellist[$cno])) {
+      &'c_print($cno, &'user($cno), 'PART', $chan);
+    }
+    if (&'exist($'serverlist, $'server[$cno])) {
+      foreach $chan (&'array($'channellist[$'server[$cno]])) {
+        $achan = &alias($chan, $userno);
+        &'c_print($cno, &'user($cno), 'JOIN', $achan);
+        &'c_print($cno, $'servername[$cno], '332', $'nick[$cno], $achan, $'topic{$'server[$cno], $chan}) if $'topic{$'server[$cno], $chan};
+        &'c_print($cno, $'servername[$cno], '353', $'nick[$cno], '=', $achan, join(' ', reverse(&'array($'nameslist{$'server[$cno], $chan}))));
+        &'c_print($cno, $'servername[$cno], '366', $'nick[$cno], $achan, 'End of /NAMES list.');
+      }
+    }
+    for ($i = 1; $i < @'username; $i++) {
+      &join_channel($cno, $i);
+    }
+  }
+}
+
+sub module_disable {
+  local($userno) = @_;
+  foreach $cno (&'array($'clientlist)) {
+    next unless $'userno[$cno] == $userno;
+    foreach $chan (&'array($'channellist[$cno])) {
+      &'c_print($cno, &'user($cno), 'PART', $chan);
+    }
+    next unless $'server[$cno];
+    foreach $chan (&'array($'channellist[$'server[$cno]])) {
+      &'c_print($cno, &'user($cno), 'JOIN', $chan);
+      &'c_print($cno, $'servername[$cno], '332', $'nick[$cno], $chan, $'topic{$'server[$cno], $chan}) if $'topic{$'server[$cno], $chan};
+      &'c_print($cno, $'servername[$cno], '353', $'nick[$cno], '=', $chan, join(' ', reverse(&'array($'nameslist{$'server[$cno], $chan}))));
+      &'c_print($cno, $'servername[$cno], '366', $'nick[$cno], $chan, 'End of /NAMES list.');
+    }
+  }
+}
+
+sub client_open {
+  local($clientno) = @_;
+  local($name, $i);
+  for ($i = 1; $i < @'username; $i++) {
+    next unless $i != $'userno[$clientno];
+    &join_channel($clientno, $i);
+  }
+}
+
+sub server_close {
+  local($serverno) = @_;
+  local($userno);
+  $userno = $'userno[$serverno];
+  foreach $cno (&each_client($serverno)) {
+    foreach $chan (&'array($'channellist[$serverno])) {
+      &'c_print($cno, &'user($cno), 'PART', &alias($chan, $userno));
+    }
+  }
+}
+
+sub cs_away {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  local($i);
+  for ($i = 1; $i < @'username; $i++) {
+    next unless $i != $'userno[$clientno];
+    foreach $sno (&each_server($i)) {
+      &'s_print($sno, $prefix, $cmd, @params);
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub cp_invite {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  $params[1] = &alias(&real($params[1], $'userno[$clientno]));
+  return ($prefix, $cmd, @params);
+}
+
+sub cs_invite {
+  local($clientno, @message) = @_;
+  return &send_server($clientno, 3, @message);
+}
+
+sub ss_invite {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick, $orig, $chan);
+  $nick = &'prefix($prefix);
+  $orig = $params[0];
+  $chan = $params[1];
+  $params[1] = &alias($chan, $'userno[$serverno]);
+  foreach $cno (&each_client($serverno)) {
+    $params[0] = $'nick[$cno] if $orig eq $'nick[$serverno];
+    if ($nick eq $'nick[$serverno]) {
+      &'c_print($cno, &'user($cno), $cmd, @params);
+    } elsif ("\L$nick\E" eq "\L$'nick[$cno]\E") {
+      &'c_print($cno, &'user($cno), $cmd, @params);
+    } else {
+      &'c_print($cno, $prefix, $cmd, @params);
+    }
+  }
+  $params[0] = $orig;
+  $params[1] = $chan;
+  return ($prefix, $cmd, @params);
+}
+
+sub cs_ison {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  local($userno, @list);
+  @list = ();
+  if ($params[0]) {
+    foreach $nick (split(/\s+/, $params[0])) {
+      ($params[0], $userno) = &real($nick, $'userno[$clientno]);
+      if ($userno != $'userno[$clientno]) {
+        foreach $sno (&each_server($userno)) {
+          &'s_print($sno, $prefix, $cmd, @params);
+        }
+      } else {
+        push(@list, $params[0]);
+      }
+    }
+    return () unless @list;
+    $params[0] = join(' ', @list);
+  } 
+  return ($prefix, $cmd, @params);
+}
+
+sub cp_join {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  $params[0] = &alias(&real($params[0], $'userno[$clientno]));
+  return ($prefix, $cmd, @params);
+}
+
+sub cs_join {
+  local($clientno, @message) = @_;
+  return &send_server($clientno, 2, @message);
+}
+
+sub ss_join {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick, $chan);
+  $nick = &'prefix($prefix);
+  $chan = $params[0];
+  $params[0] = &alias($chan, $'userno[$serverno]);
+  foreach $cno (&each_client($serverno)) {
+    if ($nick eq $'nick[$serverno]) {
+      &'c_print($cno, &'user($cno), $cmd, @params);
+    } elsif ("\L$nick\E" eq "\L$'nick[$cno]\E") {
+      &'c_print($cno, &'user($serverno), $cmd, @params);
+    } else {
+      &'c_print($cno, $prefix, $cmd, @params);
+    }
+  }
+  $params[0] = $chan;
+  return ($prefix, $cmd, @params);
+}
+
+sub cp_kick {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  $params[0] = &alias(&real($params[0], $'userno[$clientno]));
+  return ($prefix, $cmd, @params);
+}
+
+sub cs_kick {
+  local($clientno, @message) = @_;
+  return &send_server($clientno, 2, @message);
+}
+
+sub ss_kick {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick, $chan, $who);
+  $nick = &'prefix($prefix);
+  $chan = $params[0];
+  $who = $params[1];
+  $params[0] = &alias($chan, $'userno[$serverno]);
+  foreach $cno (&each_client($serverno)) {
+    $params[1] = $'nick[$cno] if $who eq $'nick[$serverno];
+    if ($nick eq $'nick[$serverno]) {
+      &'c_print($cno, &'user($cno), $cmd, @params);
+    } elsif ("\L$nick\E" eq "\L$'nick[$cno]\E") {
+      &'c_print($cno, &'user($serverno), $cmd, @params);
+    } else {
+      &'c_print($cno, $prefix, $cmd, @params);
+    }
+  }
+  $params[0] = $chan;
+  $params[1] = $who;
+  return ($prefix, $cmd, @params);
+}
+
+sub cs_list {
+  local($clientno, @message) = @_;
+  return &send_server($clientno, 2, @message);
+}
+
+sub cp_mode {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  if (&'channel($params[0])) {
+    $params[0] = &alias(&real($params[0], $'userno[$clientno]));
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub cs_mode {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  local($userno, @list, $i);
+  if (@params) {
+    @list = ();
+    foreach $chan (split(/\,/, $params[0])) {
+      ($params[0], $userno) = &real($chan, $'userno[$clientno]);
+      if ($userno != $'userno[$clientno]) {
+        foreach $sno (&each_server($userno)) {
+          &'s_print($sno, $prefix, $cmd, @params);
+        }
+      } else {
+        push(@list, $params[0]);
+      }
+    }
+    return () unless @list;
+    $params[0] = join(',', @list);
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_mode {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($userno, $nick, $chan);
+  $userno = $'userno[$serverno];
+  $nick = &'prefix($prefix);
+  $chan = $params[0];
+  if (&'channel($chan)) {
+    $params[0] = &alias($chan, $userno);
+    foreach $cno (&each_client($serverno)) {
+      if ($nick eq $'nick[$serverno]) {
+        &'c_print($cno, &'user($cno), $cmd, @params);
+      } elsif ("\L$nick\E" eq "\L$'nick[$cno]\E") {
+        &'c_print($cno, &'user($serverno), $cmd, @params);
+      } else {
+        &'c_print($cno, $prefix, $cmd, @params);
+      }
+    }
+  } else {
+    foreach $cno (&each_client($serverno)) {
+      $params[0] = $'nick[$cno];
+      if ($nick eq $'nick[$serverno]) {
+        &'c_print($cno, &'user($cno), $cmd, @params);
+      } elsif ("\L$nick\E" eq "\L$'nick[$cno]\E") {
+        &'c_print($cno, &'user($serverno), $cmd, @params);
+      } else {
+        &'c_print($cno, $prefix, $cmd, @params);
+      }
+    }
+  }
+  $params[0] = $chan;
+  return ($prefix, $cmd, @params);
+}
+
+sub cs_names {
+  local($clientno, @message) = @_;
+  return &send_server($clientno, 2, @message);
+}
+
+sub cs_nick {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  local($i, $nick, $userno, @list);
+  @list = ();
+  if ($params[0]) {
+    foreach $nick (split(/\,/, $params[0])) {
+      ($params[0], $userno) = &real($nick, -1);
+      if ($userno == -1) {
+        for ($i = 1; $i < @'username; $i++) {
+          next unless $i != $'userno[$clientno];
+          foreach $sno (&each_server($i)) {
+            &'s_print($sno, $prefix, $cmd, @params);
+          }
+        }
+        push(@list, $params[0]);
+      } elsif ($userno == $'userno[$clientno]) {
+        push(@list, $params[0]);
+      } else {
+        foreach $sno (&each_server($userno)) {
+          &'s_print($sno, $prefix, $cmd, @params);
+        }
+      }
+    }
+    return () unless @list;
+    $params[0] = join(',', @list);
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_nick {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($userno, $nick);
+  $userno = $'userno[$serverno];
+  $nick = &'prefix($prefix);
+  if ($params[0] ne $'nick[$serverno]) {
+    foreach $cno (&each_client($serverno)) {
+      next unless &exist($cno, $nick);
+      if ("\L$nick\E" eq "\L$'nick[$cno]\E") {
+        &'c_print($cno, &'user($serverno), $cmd, @params);
+      } elsif ("\L$params[0]\E" eq "\L$'nick[$cno]\E") {
+        &'c_print($cno, $prefix, $cmd, $'nick[$serverno]);
+      } else {
+        &'c_print($cno, $prefix, $cmd, @params);
+      }
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub cp_notice {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  if (&'channel($params[0])) {
+    $params[0] = &alias(&real($params[0], $'userno[$clientno]));
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub cs_notice {
+  local($clientno, @message) = @_;
+  return &send_server($clientno, 2, @message);
+}
+
+sub ss_notice {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($userno, $nick, $chan);
+  $userno = $'userno[$serverno];
+  $nick = &'prefix($prefix);
+  $chan = $params[0];
+  if (&'channel($chan)) {
+    $params[0] = &alias($chan, $userno);
+    foreach $cno (&each_client($serverno)) {
+      if ($nick eq $'nick[$serverno]) {
+        &'c_print($cno, &'user($cno), $cmd, @params);
+      } elsif ("\L$nick\E" eq "\L$'nick[$cno]\E") {
+        &'c_print($cno, &'user($serverno), $cmd, @params);
+      } else {
+        &'c_print($cno, $prefix, $cmd, @params);
+      }
+    }
+  } else {
+    foreach $cno (&each_client($serverno)) {
+      $params[0] = $'nick[$cno];
+      if ($nick eq $'nick[$serverno]) {
+        &'c_print($cno, &'user($cno), $cmd, @params);
+      } elsif ("\L$nick\E" eq "\L$'nick[$cno]\E") {
+        &'c_print($cno, &'user($serverno), $cmd, @params);
+      } else {
+        &'c_print($cno, $prefix, $cmd, @params);
+      }
+    }
+  }
+  $params[0] = $chan;
+  return ($prefix, $cmd, @params);
+}
+
+sub cs_oper {
+  local($clientno, @message) = @_;
+  return &send_server($clientno, 2, @message);
+}
+
+sub cp_part {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  $params[0] = &alias(&real($params[0], $'userno[$clientno]));
+  return ($prefix, $cmd, @params);
+}
+
+sub cs_part {
+  local($clientno, @message) = @_;
+  return &send_server($clientno, 2, @message);
+}
+
+sub ss_part {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($userno, $nick, $chan);
+  $userno = $'userno[$serverno];
+  $nick = &'prefix($prefix);
+  $chan = $params[0];
+  $params[0] = &alias($chan, $userno);
+  foreach $cno (&each_client($serverno)) {
+    if ($nick eq $'nick[$serverno]) {
+      &'c_print($cno, &'user($cno), $cmd, @params);
+    } elsif ("\L$nick\E" eq "\L$'nick[$cno]\E") {
+      &'c_print($cno, &'user($serverno), $cmd, @params);
+    } else {
+      &'c_print($cno, $prefix, $cmd, @params);
+    }
+  }
+  $params[0] = $chan;
+  return ($prefix, $cmd, @params);
+}
+
+sub cp_privmsg {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  if (&'channel($params[0])) {
+    $params[0] = &alias(&real($params[0], $'userno[$clientno]));
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub cs_privmsg {
+  local($clientno, @message) = @_;
+  return &send_server($clientno, 2, @message);
+}
+
+sub ss_privmsg {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($userno, $chan, $nick);
+  $userno = $'userno[$serverno];
+  $nick = &'prefix($prefix);
+  $chan = $params[0];
+  if (&'channel($chan)) {
+    $params[0] = &alias($chan, $userno);
+    foreach $cno (&each_client($serverno)) {
+      if ($nick eq $'nick[$serverno]) {
+        &'c_print($cno, &'user($cno), $cmd, @params);
+      } elsif ("\L$nick\E" eq "\L$'nick[$cno]\E") {
+        &'c_print($cno, &'user($serverno), $cmd, @params);
+      } else {
+        &'c_print($cno, $prefix, $cmd, @params);
+      }
+    }
+  } else {
+    foreach $cno (&each_client($serverno)) {
+      $params[0] = $'nick[$cno];
+      if ($nick eq $'nick[$serverno]) {
+        &'c_print($cno, &'user($cno), $cmd, @params);
+      } elsif ("\L$nick\E" eq "\L$'nick[$cno]\E") {
+        &'c_print($cno, &'user($serverno), $cmd, @params);
+      } else {
+        &'c_print($cno, $prefix, $cmd, @params);
+      }
+    }
+  }
+  $params[0] = $chan;
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_quit {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick);
+  $nick = &'prefix($prefix);
+  foreach $cno (&each_client($serverno)) {
+    if ($nick eq $'nick[$serverno]) {
+      &'c_print($cno, &'user($cno), $cmd, @params);
+    } elsif ("\L$nick\E" eq "\L$'nick[$cno]\E") {
+      &'c_print($cno, &'user($serverno), $cmd, @params);
+    } else {
+      &'c_print($cno, $prefix, $cmd, @params);
+    }
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub cp_topic {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  $params[0] = &alias(&real($params[0], $'userno[$clientno]));
+  return ($prefix, $cmd, @params);
+}
+
+sub cs_topic {
+  local($clientno, @message) = @_;
+  return &send_server($clientno, 2, @message);
+}
+
+sub ss_topic {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($nick, $chan);
+  $nick = &'prefix($prefix);
+  $chan = $params[0];
+  $params[0] = &alias($chan, $'userno[$serverno]);
+  foreach $cno (&each_client($serverno)) {
+    if ($nick eq $'nick[$serverno]) {
+      &'c_print($cno, &'user($cno), $cmd, @params);
+    } elsif ("\L$nick\E" eq "\L$'nick[$cno]\E") {
+      &'c_print($cno, &'user($serverno), $cmd, @params);
+    } else {
+      &'c_print($cno, $prefix, $cmd, @params);
+    }
+  }
+  $params[0] = $chan;
+  return ($prefix, $cmd, @params);
+}
+
+sub cs_umode {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  local($nick, $i);
+  if ($params[0]) {
+    $nick = $params[0];
+    for ($i = 1; $i < @'username; $i++) {
+      next unless $i != $'userno[$clientno];
+      foreach $sno (&each_server($i)) {
+        $params[0] = $'nick[$sno] if "\L$'nick[$clientno]\E" eq "\L$nick\E";
+        &'s_print($sno, $prefix, $cmd, @params);
+      }
+    }
+    $params[0] = $nick;
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub cs_userhost {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  local($userno, @list);
+  @list = ();
+  if ($params[0]) {
+    foreach $nick (split(/\s+/, $params[0])) {
+      ($params[0], $userno) = &real($nick, $'userno[$clientno]);
+      if ($userno != $'userno[$clientno]) {
+        foreach $sno (&each_server($userno)) {
+          &'s_print($sno, $prefix, $cmd, @params);
+        }
+      } else {
+        push(@list, $params[0]);
+      }
+    }
+    return () unless @list;
+    $params[0] = join(' ', @list);
+  } 
+  return ($prefix, $cmd, @params);
+}
+
+sub cs_version {
+  local($clientno, @message) = @_;
+  return &send_server($clientno, 2, @message);
+}
+
+sub cs_who {
+  local($clientno, @message) = @_;
+  return &send_server($clientno, 2, @message);
+}
+
+sub cs_whois {
+  local($clientno, @message) = @_;
+  if (@message > 3) {
+    return &send_server($clientno, 3, @message);
+  } else {
+    return &send_server($clientno, 2, @message);
+  }
+}
+
+sub cs_whowas {
+  local($clientno, @message) = @_;
+  return &send_server($clientno, 2, @message);
+}
+
+sub ss_221 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_300 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_301 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_302 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_303 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_304 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_305 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_306 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_311 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_312 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_313 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_314 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_315 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_316 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_317 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_318 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_319 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_321 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub cp_322 {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  if (&'channel($params[1])) {
+    $params[1] = &alias(&real($params[1], $'userno[$clientno]));
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_322 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 3, @message);
+  return @message;
+}
+
+sub ss_323 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub cp_324 {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  $params[1] = &alias(&real($params[1], $'userno[$clientno]));
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_324 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 3, @message);
+  return @message;
+}
+
+sub cp_331 {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  $params[1] = &alias(&real($params[1], $'userno[$clientno]));
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_331 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 3, @message);
+  return @message;
+}
+
+sub cp_332 {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  $params[1] = &alias(&real($params[1], $'userno[$clientno]));
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_332 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 3, @message);
+  return @message;
+}
+
+sub cp_341 {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  $params[2] = &alias(&real($params[2], $'userno[$clientno]));
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_341 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 4, @message);
+  return @message;
+}
+
+sub ss_342 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_351 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub cp_352 {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  if (&'channel($params[1])) {
+    $params[1] = &alias(&real($params[1], $'userno[$clientno]));
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_352 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 3, @message);
+  return @message;
+}
+
+sub ss_353 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($userno, $chan, $list, $names);
+  $userno = $'userno[$serverno];
+  $chan = $params[2];
+  if (&'channel($chan)) {
+    $params[2] = &alias($chan, $userno);
+  }
+  $list = &'list(reverse(split(/\s+/, $params[3])));
+  foreach $cno (&each_client($serverno)) {
+    $params[0] = $'nick[$cno];
+    $names = $list;
+    if (&'exist($names, $'nick[$serverno], "+$'nick[$serverno]", "\@$'nick[$serverno]") && !&'exist($names, $'nick[$cno], "+$'nick[$cno]", "\@$'nick[$cno]")) {
+      $names = &'change($names, $'nick[$serverno], $'nick[$cno], "+$'nick[$serverno]", "+$'nick[$cno]", "\@$'nick[$serverno]", "\@$'nick[$cno]");
+    } elsif (&'exist($names, $'nick[$cno], "+$'nick[$cno]", "\@$'nick[$cno]") && !&'exist($names, $'nick[$serverno], "+$'nick[$serverno]", "\@$'nick[$serverno]")) {
+      $names = &'change($names, $'nick[$cno], $'nick[$serverno], "+$'nick[$cno]", "+$'nick[$serverno]", "\@$'nick[$cno]", "\@$'nick[$serverno]");
+    }
+    $params[3] = join(' ', reverse(&'array($names)));
+    &'c_print($cno, $prefix, $cmd, @params);
+  }
+  $params[0] = $'nick[$serverno];
+  $params[2] = $chan;
+  $params[3] = join(' ', reverse(&'array($list)));
+  return ($prefix, $cmd, @params);
+}
+
+sub cp_353 {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  if (&'channel($params[2])) {
+    $params[2] = &alias(&real($params[2], $'userno[$clientno]));
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_361 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_362 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_363 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_364 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_365 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub cp_366 {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  if (&'channel($params[1])) {
+    $params[1] = &alias(&real($params[1], $'userno[$clientno]));
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_366 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 3, @message);
+  return @message;
+}
+
+sub cp_367 {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  $params[1] = &alias(&real($params[1], $'userno[$clientno]));
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_367 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 3, @message);
+  return @message;
+}
+
+sub cp_368 {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  $params[1] = &alias(&real($params[1], $'userno[$clientno]));
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_368 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 3, @message);
+  return @message;
+}
+
+sub ss_369 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_372 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_373 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_374 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_375 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_376 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_381 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_382 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_383 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_384 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_385 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_391 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_392 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_393 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_394 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_395 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub cp_401 {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  if (&'channel($params[1])) {
+    $params[1] = &alias(&real($params[1], $'userno[$clientno]));
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_401 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 3, @message);
+  return @message;
+}
+
+sub ss_402 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub cp_403 {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  if (&'channel($params[1])) {
+    $params[1] = &alias(&real($params[1], $'userno[$clientno]));
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_403 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 3, @message);
+  return @message;
+}
+
+sub cp_404 {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  if (&'channel($params[1])) {
+    $params[1] = &alias(&real($params[1], $'userno[$clientno]));
+  }
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_404 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 3, @message);
+  return @message;
+}
+
+sub cp_405 {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  $params[1] = &alias(&real($params[1], $'userno[$clientno]));
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_405 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 3, @message);
+  return @message;
+}
+
+sub ss_406 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_407 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_408 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_409 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_411 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_412 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_413 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_414 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_415 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_416 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_421 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_422 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_423 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_424 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_431 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_432 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_433 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_434 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_435 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_436 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_437 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub cp_441 {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  $params[2] = &alias(&real($params[2], $'userno[$clientno]));
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_441 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 4, @message);
+  return @message;
+}
+
+sub cp_442 {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  $params[1] = &alias(&real($params[1], $'userno[$clientno]));
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_442 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 3, @message);
+  return @message;
+}
+
+sub cp_443 {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  $params[2] = &alias(&real($params[2], $'userno[$clientno]));
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_443 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 4, @message);
+  return @message;
+}
+
+sub ss_444 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_445 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_446 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_451 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_461 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_462 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_463 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_464 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_465 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_466 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub cp_467 {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  $params[1] = &alias(&real($params[1], $'userno[$clientno]));
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_467 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 3, @message);
+  return @message;
+}
+
+sub cp_471 {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  $params[1] = &alias(&real($params[1], $'userno[$clientno]));
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_471 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 3, @message);
+  return @message;
+}
+
+sub ss_472 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub cp_473 {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  $params[1] = &alias(&real($params[1], $'userno[$clientno]));
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_473 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 3, @message);
+  return @message;
+}
+
+sub cp_474 {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  $params[1] = &alias(&real($params[1], $'userno[$clientno]));
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_474 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 3, @message);
+  return @message;
+}
+
+sub cp_475 {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  $params[1] = &alias(&real($params[1], $'userno[$clientno]));
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_475 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 3, @message);
+  return @message;
+}
+
+sub ss_476 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_477 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_481 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub cp_482 {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  $params[1] = &alias(&real($params[1], $'userno[$clientno]));
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_482 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 3, @message);
+  return @message;
+}
+
+sub ss_483 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_484 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_491 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_492 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_501 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub ss_502 {
+  local($serverno, @message) = @_;
+  &send_numeric($serverno, 0, @message);
+  return @message;
+}
+
+sub join_channel {
+  local($cno, $userno) = @_;
+  local($nick, $name, $list);
+  $nick = $'nick[$cno];
+  foreach $sno (&each_server($userno)) {
+    foreach $chan (&'array($'channellist[$sno])) {
+      $name = &alias($chan, $'userno[$sno]);
+      &'c_print($cno, &'user($cno), 'JOIN', $name);
+      &'c_print($cno, $'servername[$cno], '332', $nick, $name, $'topic{$sno, $chan}) if $'topic{$sno, $chan};
+      $list = $'nameslist{$sno, $chan};
+      if (&'exist($list, $'nick[$sno], "+$'nick[$sno]", "\@$'nick[$sno]") && !&'exist($list, $'nick[$cno], "+$'nick[$cno]", "\@$'nick[$cno]")) {
+        $list = &'change($list, $'nick[$sno], $'nick[$cno], "+$'nick[$sno]", "+$'nick[$cno]", "\@$'nick[$sno]", "\@$'nick[$cno]");
+      } elsif (&'exist($list, $'nick[$cno], "+$'nick[$cno]", "\@$'nick[$cno]") && !&'exist($list, $'nick[$sno], "+$'nick[$sno]", "\@$'nick[$sno]")) {
+        $list = &'change($list, $'nick[$cno], $'nick[$sno], "+$'nick[$cno]", "+$'nick[$sno]", "\@$'nick[$cno]", "\@$'nick[$sno]");
+      }
+      &'c_print($cno, $'servername[$cno], '353', $nick, '=', $name, join(' ', reverse(&'array($list))));
+      &'c_print($cno, $'servername[$cno], '366', $nick, $name, 'End of /NAMES list.');
+    }
+  }
+}
+
+sub send_server {
+  local($cno, $idx, @message) = @_;
+  local($userno, @list);
+  if (@message > $idx) {
+    @list = ();
+    foreach $chan (split(/\,/, $message[$idx])) {
+      ($message[$idx], $userno) = &real($chan, $'userno[$cno]);
+      if ($message[$idx]) {
+        if ($userno != $'userno[$cno]) {
+          foreach $sno (&each_server($userno)) {
+            &'s_print($sno, @message);
+          }
+        } else {
+          push(@list, $message[$idx]);
+        }
+      } else {
+        splice(@message, $idx, 1);
+        foreach $sno (&each_server($userno)) {
+          &'s_print($sno, @message);
+        }
+        splice(@message, $idx, 0, '');
+      }
+    }
+    return () unless @list;
+    $message[$idx] = join(',', @list);
+  }
+  return @message;
+}
+
+sub send_numeric {
+  local($serverno, $idx, @message) = @_;
+  local($userno);
+  $userno = $'userno[$serverno];
+  if ($idx && &'channel($message[$idx])) {
+    $message[$idx] = &alias($message[$idx], $userno);
+  }
+  foreach $cno (&each_client($serverno)) {
+    $message[2] = $'nick[$cno];
+    &'c_print($cno, @message);
+  }
+}
+
+sub alias {
+  local($chan, $userno) = @_;
+  local($name, $mode);
+  ($name, $mode) = split(/\cG/, $chan || '');
+  $name = &'alias($name);
+  $name .= "\@$'username[$userno]";
+  $name = &'real($name);
+  $name .= "\cG$mode" if $mode;
+  return $name;
+}
+
+sub real {
+  local($chan, $userno) = @_;
+  local($name, $mode, $user, $idx, $i);
+  ($name, $mode) = split(/\cG/, $chan || '');
+  $name = &'alias($name || '');
+  if (($idx = rindex($name, '@')) != -1) {
+    $user = substr($name, $idx + 1);
+    for ($i = 1; $i < @'username; $i++) {
+      next unless "\L$'username[$i]\E" eq "\L$user\E";
+      $name = &'real(substr($name, 0, $idx));
+      $name .= "\cG$mode" if $mode;
+      return ($name, $i);
+    }
+  }
+  return ($chan, $userno);
+}
+
+sub each_server {
+  local($userno) = @_;
+  local(@list);
+  @list = ();
+  if (&'exist($'modulelist[$userno], 'sys_multicast')) {
+    foreach $sno (&'array($'serverlist)) {
+      next unless $userno == $'userno[$sno];
+      push(@list, $sno);
+    }
+  }
+  return @list;
+}
+
+sub each_client {
+  local($sno) = @_;
+  local(@list);
+  @list = ();
+  foreach $cno (&'array($'clientlist)) {
+    next unless $'server[$cno] != $sno;
+    next unless &'exist($'modulelist[$'userno[$cno]], 'sys_multicast');
+    push(@list, $cno);
+  }
+  return @list;
+}
+
+sub exist {
+  local($no, $nick) = @_;
+  foreach $chan (&'array($'channellist[$no])) {
+    if (&'exist($'nameslist{$no, $chan}, $nick, "+$nick", "\@$nick")) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>sys/multicast.plm</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+sys/multicast.plm - 複数のサーバを単一のサーバのようにエミュレートする
+
+
+<HR><H3>説明</H3>
+
+複数の設定ファイルを使ってサーバに接続し、それぞれの設定のサーバを
+別の設定のクライアントからアクセスできるようにします。
+このモジュールを入れると、すべてのチャンネル名は「チャンネル名@設定名」
+という名前に変換されます。
+
+
+<HR><H3>プロパティ</H3>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
++ sys/multicast.plm
+</PRE>
+
+</BODY></HTML>
