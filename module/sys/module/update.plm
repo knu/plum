@@ -1,0 +1,78 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1997-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package sys_module_update;
+
+$_ = 'sys_module_update';
+
+sub initialize {
+}
+
+sub main_loop {
+  local($userno) = @_;
+  local($sub, $path, @names, $mtime, $name, $pkg);
+  foreach $module (&'array($'modulelist[$userno])) {
+    next if $module eq 'plum';
+    next if $module eq 'sys_module_update';
+    $path = $'filename{$module};
+    $mtime = (stat($path))[9];
+    next unless defined($mtime);
+    $modify{$module} = $mtime unless $modify{$module};
+    next if $modify{$module} == $mtime;
+    $modify{$module} = $mtime;
+    if ($] < 5) {
+      eval "\@names = keys(\%_${module});";
+    } else {
+      eval "\@names = keys(\%${module}::);";
+    }
+    foreach $func (@names) {
+      $sub = "${module}'$func";
+      next unless defined(&$sub);
+      undef &$sub;
+    }
+    while (($name, $pkg) = each(%'package)) {
+      next unless $pkg eq $module;
+      &'import($name);
+      if ($module ne $'package{$name}) {
+        delete $modify{$module};
+       $'modulelist[$userno] = &'change($'modulelist[$userno], $module, $'package{$name});
+      }
+      foreach $cno (&'array($'clientlist)) {
+        next unless $'userno[$cno] == $userno;
+        &'c_print($cno, '', 'NOTICE', $'nick[$cno], "*** update module $name");
+      }
+    }
+  }
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>sys/module/update.plm</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+sys/module/update.plm - モジュールが変更されると自動的に組み込み直す
+
+
+<HR><H3>説明</H3>
+
+一定時間ごとに組み込んだモジュールが変更されていないかをチェックし、
+変更されていればそれを組み込み直します。
+
+
+<HR><H3>プロパティ</H3>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
++ sys/module/update.plm
+</PRE>
+
+</BODY></HTML>

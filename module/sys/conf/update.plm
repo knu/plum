@@ -1,0 +1,62 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1997-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package sys_conf_update;
+
+$_ = 'sys_conf_update';
+
+sub initialize {
+}
+
+sub main_loop {
+  local($userno) = @_;
+  local(@list, $mtime);
+  @list = ();
+  foreach $file (&'array($'filename[$userno])) {
+    $mtime = (stat($file))[9];
+    next unless defined($mtime);
+    $modify{$file} = $mtime unless $modify{$file};
+    next if $modify{$file} == $mtime;
+    $modify{$file} = $mtime;
+    push(@list, $file);
+  }
+  if (@list) {
+    &'reload($userno);
+    foreach $cno (&'array($'clientlist)) {
+      next unless $'userno[$cno] == $userno;
+      &'c_print($cno, '', 'NOTICE', $'nick[$cno], "*** update configuration " . join('/', @list));
+    }
+  }
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>sys/conf/update.plm</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+sys/conf/update.plm - plum.confが変更されると自動的に読み込み直す
+
+
+<HR><H3>説明</H3>
+
+一定時間ごとにplum.confが変更されていないかをチェックし、
+変更されていればそれを読み込んでモジュールとプロパティの再設定を行います。
+
+
+<HR><H3>プロパティ</H3>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
++ sys/conf/update.plm
+</PRE>
+
+</BODY></HTML>
