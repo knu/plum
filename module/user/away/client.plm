@@ -1,0 +1,94 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1997-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package user_away_client;
+
+$_ = 'user_away_client';
+
+sub initialize {
+}
+
+sub client_open {
+  local($clientno) = @_;
+  local($sno);
+  $sno = $'server[$clientno];
+  if (&'exist($'serverlist, $sno)) {
+    foreach $cno (&'array($'clientlist)) {
+      return if $'server[$cno] == $sno && $cno != $clientno;
+    }
+    &'s_print($sno, '', 'AWAY', '');
+  }
+}
+
+sub client_close {
+  local($clientno) = @_;
+  local($userno, $sno);
+  $userno = $'userno[$clientno];
+  $sno = $'server[$clientno];
+  if (&'exist($'serverlist, $sno)) {
+    $msg = &'property($userno, 'set');
+    return unless defined($msg);
+    foreach $cno (&'array($'clientlist)) {
+      return if $'server[$cno] == $sno;
+    }
+    &'s_print($sno, '', 'AWAY', $msg);
+  }
+}
+
+sub server_open {
+  local($serverno) = @_;
+  local($userno, $msg);
+  $userno = $'userno[$serverno];
+  $msg = &'property($userno, 'set');
+  return unless defined($msg);
+  foreach $cno (&'array($'clientlist)) {
+    return if $'server[$cno] == $serverno;
+  }
+  &'s_print($serverno, '', 'AWAY', $msg);
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>user/away/client.plm</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+user/away/client.plm - クライアントとの接続状態によってAWAYを設定する
+
+
+<HR><H3>説明</H3>
+
+plumにクライアントが接続されているかどうかによって、
+AWAYを設定したり取り消したりします。
+plumにクライアントが接続されていないときはAWAYを設定し、
+クライアントが接続されるとAWAYを取り消します。
+
+
+<HR><H3>プロパティ</H3>
+
+<DL>
+<DT>  user.away.client.set メッセージ
+</DT>
+<DD>     クライアントが接続されていないときに、
+         ここで指定したAMAYを設定します。
+</DD>
+</DL>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
++ user/away/client.plm
+user.away.client.set: いません
+</PRE>
+
+クライアントが接続されていないときに、「いません」というAWAYを設定します。
+クライアントが接続されると、このAWAYは取り消されます。
+
+</BODY></HTML>

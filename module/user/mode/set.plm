@@ -1,0 +1,58 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1997-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package user_mode_set;
+
+$_ = 'user_mode_set';
+
+sub initialize {
+}
+
+sub server_open {
+  local($serverno) = @_;
+  local($userno, $mode);
+  $userno = $'userno[$serverno];
+  $mode = &'property($userno, 'mode');
+  &'s_print($serverno, '', 'MODE', $'nick[$serverno], $mode) if defined($mode);
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>user/mode/set.plm</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+user/mode/set.plm - サーバに接続したときにユーザモードを設定する
+
+
+<HR><H3>説明</H3>
+
+サーバに接続したときに、指定されたユーザモードを設定します。
+
+
+<HR><H3>プロパティ</H3>
+
+<DL>
+<DT>  user.mode.set.mode モード
+</DT>
+<DD>    設定するユーザモードを指定します。
+</DD>
+</DL>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
++ usr/mode/set.plm
+user.mode.set.mode: +i
+</PRE>
+
+サーバと接続したときに、ユーザモードとして「+i」を設定します。
+
+</BODY></HTML>
