@@ -34,16 +34,16 @@ sub main_loop {
     $new = &'date($name);
     if ($filename{$name} && $new ne $filename{$name}) {
       if ($filename{$name} && -r $filename{$name}) {
-        $sno = &open($userno) unless $sno;
+        $sno = &socketopen($userno) unless $sno;
         &send($userno, $sno, $filename{$name}, $code, $adrs) if $sno;
       }
     }
     $filename{$name} = $new;
   }
-  &close($sno);
+  &socketclose($sno);
 }
 
-sub open {
+sub socketopen {
   local($userno) = @_;
   local($host, $port, $sno, $socket);
   ($host, $port) = split(/\;/, &'property($userno, 'smtpserver') || '');
@@ -65,7 +65,7 @@ sub open {
   return 0;
 }
 
-sub close {
+sub socketclose {
   local($sno) = @_;
   if ($sno) {
     $socket = $'socket[$sno];
