@@ -1,0 +1,70 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1998-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package server_timeout;
+
+$_ = 'server_timeout';
+
+sub initialize {
+  $LIMIT = 1800;
+}
+
+sub main_loop {
+  local($userno) = @_;
+  local($limit);
+  $limit = &'property($userno, 'limit') || $LIMIT;
+  foreach $sno (&'array($'serverlist)) {
+    next unless $'userno[$sno] == $userno;
+    if ($sno) {
+      if (time() - $'access[$sno] > $limit) {
+        &'s_close($sno);
+        &'close($sno);
+      } else {
+        &'alarm(time() - $'access[$sno] - $limit - 1);
+      }
+    }
+  }
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>server/timeout.plm</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+server/timeout.plm - 一定時間入力がないサーバとの接続を切断する
+
+
+<HR><H3>説明</H3>
+
+一定時間の間、サーバからの入力が全くなかった場合、
+そのサーバとの接続を切断します。
+
+
+<HR><H3>プロパティ</H3>
+
+<DL>
+<DT>  server.timeout.limit タイムアウト時間
+</DT>
+<DD>    サーバからの入力がここで指定された時間以上なかった場合は、
+        サーバとの接続を切断します。デフォルトでは30分になっています。
+</DD>
+</DL>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
++ server/timeout.plm
+server.timeout.limit: 1200
+</PRE>
+
+20分以上サーバからの入力がなかった場合、サーバとの接続を切断します。
+
+</BODY></HTML>
