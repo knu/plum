@@ -5,7 +5,7 @@
 package plum;
 
 $NAME = 'plum';
-$VERSION = '3.1.0b13';
+$VERSION = '3.1.0b14';
 
 $NIL = "\r";
 $NOTRAILING = &'list('004', '215', '221', '324', '341', '367', 'MODE');
@@ -38,6 +38,8 @@ if ($] < 5) {
 } else {
   eval 'use Socket';
   $SOCKET = 'Socket.pm' unless $@;
+  eval 'use Socket6';
+  $SOCKET = 'Socket6.pm' unless $@;
 }
 
 $PF_INET = eval '&PF_INET';
@@ -161,7 +163,7 @@ sub 'alarm {
 sub init {
   local(@args) = @_;
   local($line, $i, $userno, @key, $user, @lib);
-  if (defined(fileno('\'DATA'))) {
+  if (fileno('\'DATA')) {
     while (defined($line = <'DATA>)) {
       $line =~ tr/\r\n//d;
       if ($line =~ /^\@(\w+)\s+\d+\-\d+\s+(\S+)$/) {
@@ -1556,12 +1558,12 @@ sub property_change {
     }
   }
   foreach $lno (&'array($listenlist)) {
-    next unless exists($auth{$port[$lno]});
+    next unless defined($auth{$port[$lno]});
     &'close($lno);
     $listenlist = &'remove($listenlist, $lno);
   }
   foreach $lno (&'array($listenwaitlist)) {
-    next unless exists($auth{$port[$lno]});
+    next unless defined($auth{$port[$lno]});
     &'close($lno);
     $listenwaitlist = &'remove($listenwaitlist, $lno);
   }
@@ -1724,15 +1726,15 @@ sub l_init {
 
 sub s_init {
   local($userno) = @_;
-  local($server, $host, $pass, $name, $list, @port, $sno, $socket, $nick, $user, $name);
+  local($server, $host, $pass, $addr, $list, @port, $sno, $socket, $nick, $user, $uname, $mode, $name);
   return unless $serverlist[$userno];
   $server = (&'array($serverlist[$userno]))[$serverindex[$userno]];
   ($host, $pass) = split(/\s+/, $server);
-  ($name, $list) = split(/\;/, $host);
+  ($addr, $list) = split(/\;/, $host);
   return unless $host;
   @port = split(/\,/, $list || '');
   $sno = $default[$userno];
-  if (&'connect($sno, $name, $port[rand(@port)] || $PORT)) {
+  if (&'connect($sno, $addr, $port[rand(@port)] || $PORT)) {
     $'userno[$sno] = $userno;
     $status[$userno] = 1;
     $bufr[$sno] = '';
@@ -1742,8 +1744,9 @@ sub s_init {
     $lastnick[$userno] = '';
     &s_out($sno, '', 'NICK', $nick);
     $user = &'property($userno, 'user') || eval 'getlogin()' || eval '(getpwuid($<))[0]' || $nick;
+    ($uname, $mode) = split(/\;/, $user);
     $name = &'property($userno, 'name') || eval '((split(/\,/, (getpwuid($<))[6]))[0])' || $user;
-    &s_out($sno, '', 'USER', $user, '*', '*', $name);
+    &s_out($sno, '', 'USER', $uname, $mode || '0', '*', $name);
   } else {
     &'alarm(-$INTERVAL);
     $serverindex[$userno] = ($serverindex[$userno] + 1) % &'array($serverlist[$userno]);
