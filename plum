@@ -5,7 +5,7 @@
 package plum;
 
 $NAME = 'plum';
-$VERSION = '3.1.0b17';
+$VERSION = '3.1.0b18';
 
 $NIL = "\r";
 $NOTRAILING = &'list('004', '215', '221', '324', '341', '367', 'MODE');
@@ -303,7 +303,7 @@ sub require {
 sub 'property {
   local($userno, $name) = @_;
   local(@pkg, $list);
-  @pkg = split(/\_/, (caller())[0]);
+  @pkg = split(/_/, (caller())[0]);
   $list = $property{$userno, @pkg, $name};
   if (defined($list)) {
     if (wantarray) {
@@ -744,20 +744,15 @@ sub 'accept {
 }
 
 sub 'close {
-  local($no) = @_;
-  close($'socket[$no]) if fileno($'socket[$no]);
-  vec($'rin, $'fileno[$no], 1) = 0;
-  $'socket[$no] = '';
-  $'access[$no] = 0;
-  $'fileno[$no] = 0;
-  substr($sockethandle, $no, 1) = ' ';
-}
-
-sub 'recycle {
-  local($no) = @_;
+  local($no, $flag) = @_;
   close($'socket[$no]) if fileno($'socket[$no]);
   vec($'rin, $'fileno[$no], 1) = 0;
   $'fileno[$no] = 0;
+  if (!$flag) {
+    $'socket[$no] = '';
+    $'access[$no] = 0;
+    substr($sockethandle, $no, 1) = ' ';
+  }
 }
 
 sub 'sockname {
@@ -1816,7 +1811,7 @@ sub s_proc {
     }
   } else {
     $status[$userno] = 0;
-    &'recycle($sno);
+    &'close($sno, 1);
     &s_clear($userno);
     &'alarm(-$INTERVAL);
   }
@@ -1881,7 +1876,7 @@ sub server_close {
   if ($default[$'userno[$sno]] == $sno) {
     $status[$'userno[$sno]] = 0;
     $lastnick[$'userno[$sno]] = $'nick[$'userno[$sno]];
-    &'recycle($sno);
+    &'close($sno, 1);
   }
   &'alarm(-$INTERVAL);
 }
@@ -2389,7 +2384,7 @@ sub ctcp_event {
     $list = &'add($list, $ctcp);
     ($ccmd, $param) = split(/\s+/, $ctcp, 2);
     next unless $ccmd;
-    ($prefix, $ccmd, $chan, $param) = &$sub($'userno[$no], "$event\_\L$ccmd\E", $no, $prefix, $ccmd, $chan, $param);
+    ($prefix, $ccmd, $chan, $param) = &$sub($'userno[$no], $event . "_\L$ccmd\E", $no, $prefix, $ccmd, $chan, $param);
     next unless $ccmd;
     if ($param) {
       $ctmp .= "\cA$ccmd $param\cA";
