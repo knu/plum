@@ -1,0 +1,63 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1997-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package sys_dump;
+
+$_ = 'sys_dump';
+
+sub initialize {
+  print 'PLUM         : ', $plum'NAME, ' ', $plum'VERSION, "\n";
+  print 'PERL         : ', $^X, ' ', sprintf('%g', $]), "\n";
+  print 'ARGV         : ', join(' ', @ARGV), "\n";
+  print 'KANJI        : ', join(' ', &'array($plum'KANJI)), "\n";
+  print 'PROTO        : ', $plum'PROTO || '', "\n";
+  print 'SOCKET       : ', $plum'SOCKET, "\n";
+  print 'AF_INET      : ', defined($plum'AF_INET) ? $plum'AF_INET : '', "\n";
+  print 'PF_INET      : ', defined($plum'PF_INET) ? $plum'PF_INET : '', "\n";
+  print 'AF_INET6     : ', defined($plum'AF_INET6) ? $plum'AF_INET6 : '', "\n";
+  print 'PF_INET6     : ', defined($plum'PF_INET6) ? $plum'PF_INET6 : '', "\n";
+  print 'SOCK_STREAM  : ', defined($plum'SOCK_STREAM) ? $plum'SOCK_STREAM : '', "\n";
+  print 'SOMAXCONN    : ', defined($plum'SOMAXCONN) ? $plum'SOMAXCONN : '', "\n";
+  print 'INADDR_ANY   : ', defined($plum'INADDR_ANY) ? join('.', unpack('C4', $plum'INADDR_ANY)) : '', "\n";
+  print 'IN6ADDR_ANY  : ', defined($plum'IN6ADDR_ANY) ? join(':', unpack('H4' x 8, $plum'IN6ADDR_ANY)) : '', "\n";
+  print 'SOL_SOCKET   : ', defined($plum'SOL_SOCKET) ? $plum'SOL_SOCKET : '', "\n";
+  print 'SO_REUSEADDR : ', defined($plum'SO_REUSEADDR) ? $plum'SO_REUSEADDR : '', "\n";
+  print 'UID          : ', "$< $>\n";
+  print 'LOGIN        : ', eval 'getlogin()', ' ', eval '(getpwuid($<))[0]', "\n";
+  print 'NAME         : ', eval '((split(/\\,/, (getpwuid($<))[6]))[0])', "\n";
+  print 'HOME         : ', $ENV{'HOME'} || '', ' ', eval '(getpwuid($<))[7]', "\n";
+  print 'UMASK        : ', sprintf('%03o', umask()), "\n";
+  exit(0);
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>sys/dump.plm</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+sys/dump.plm - plumが内部で使用する情報を表示する
+
+
+<HR><H3>説明</H3>
+
+plumが内部で使用する各種の変数の情報などを表示します。
+このモジュールを組み込むと、plum自身の実行は行なわれません。
+
+
+<HR><H3>プロパティ</H3>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
+= sys/dump.plm
+</PRE>
+
+</BODY></HTML>
