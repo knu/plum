@@ -1,0 +1,33 @@
+# -*- perl -*-
+# $Id$
+# copyright (c)1998-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package sys_timer;
+
+$_ = 'sys_timer';
+
+sub initialize {
+  $FORMAT = '%Y/%m/%d %H:%M:%S'; 
+}
+
+sub main_loop {
+  local($userno) = @_;
+  local($now, $regex, $str, $date, $time, $exec, @addlist);
+  $now = &'date($FORMAT);
+  foreach $last (&'array($timerlist[$userno])) {
+    $regex = &'regex($last);
+    next if $now =~ /$regex/;
+    $timerlist[$userno] = &'remove($timerlist[$userno], $last);
+  }
+  foreach $timer (&'property($userno, 'exec')) {
+    ($date, $time, $exec) = split(/\s+/, $timer, 3);
+    $str = $date . ' ' . $time;
+    $regex = &'regex($str);
+    next unless $now =~ /$regex/;
+    push(@addlist, $str);
+    next if &'exist($timerlist[$userno], $str);
+    system(&'date($exec));
+  }
+  $timerlist[$userno] = &'add($timerlist[$userno], @addlist);
+  &'alarm(-60);
+}
