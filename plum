@@ -321,7 +321,7 @@ sub 'property {
 sub userno {
   local($user) = @_;
   local($i);
-  for ($i= 1; $i< @'username; $i++) {
+  for ($i= 1; $i < @'username; $i++) {
     if ($user eq $'username[$i]) {
       return $i;
     }
