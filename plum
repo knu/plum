@@ -5,7 +5,7 @@
 package plum;
 
 $NAME = 'plum';
-$VERSION = '3.1.0b10';
+$VERSION = '3.1.0b11';
 
 $NIL = "\r";
 $NOTRAILING = &'list('004', '215', '221', '324', '341', '367', 'MODE');
@@ -1415,7 +1415,7 @@ sub days {
 sub 'date {
   local($format, $time) = @_;
   local(@time, $char, $str, $i, $number);
-  $time = time() unless $time;
+  $time = time() unless defined($time);
   @time = localtime($time);
   $str = '';
   for ($i = 0; $i < length($format); $i++) {
@@ -1549,6 +1549,7 @@ sub property_change {
     foreach $client (&'property($i, 'client')) {
       ($mask, $pass) = split(/\s+/, $client);
       ($host, $port) = split(/\;/, $mask);
+      $port = $PORT unless $port;
       $auth{$port} = &'add($auth{$port}, join(';', $host, $i, $pass || ''));
     }
   }
