@@ -204,9 +204,9 @@ sub sp_privmsg {
   if ($params[1]) {
     foreach $chan (split(/\,/, $params[0])) {
       if (&'channel($chan)) {
-        &writelog($serverno, $chan, ">$'nick[$serverno]< $msg");
+        &writelog($serverno, $chan, ">$'nick[$serverno]< $params[1]");
       } else {
-        &writelog($serverno, '', ">$chan< $msg");
+        &writelog($serverno, '', ">$chan< $params[1]");
       }
     }
   }
