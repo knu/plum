@@ -6,7 +6,7 @@ package log_error;
 $_ = 'log_error';
 
 sub initialize {
-  $FILE = 'logerror';
+  $FILE = 'error.log';
   if (!-w $FILE) {
     if (!-f $FILE && open(FILE, ">$FILE")) {
       close(FILE);

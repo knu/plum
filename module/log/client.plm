@@ -7,7 +7,7 @@ $_ = 'log_client';
 
 sub initialize {
   $DIRECTORY = '.';
-  $FILE = 'logclient';
+  $FILE = 'client.log';
   $HEADER = '%H:%M';
 }
 

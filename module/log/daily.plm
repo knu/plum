@@ -7,7 +7,7 @@ $_ = 'log_daily';
 
 sub initialize {
   $DIRECTORY = '.';
-  $FILE = 'log%m%d';
+  $FILE = '%m%d.log';
   $HEADER = '%H:%M';
   $COMMAND = &'list('privmsg', 'join', 'part', 'kick' ,'invite', 'mode', 'nick', 'quit', 'topic');
 }
