@@ -334,18 +334,13 @@ sub userno {
 sub kanji_euc {
   local($userno, $line) = @_;
   local($code);
-  $code = '';
-  foreach $kanji (&'property($userno, 'kanji')) {
-    $code = &'add($code, split(/\,/, "\L$kanji\E"));
-  }
-  foreach $code (&'array($code)) {
-    if ($code eq 'euc') {
-      $line = &'euc_euc($line);
-    } elsif ($code eq 'jis') {
-      $line = &'jis_euc($line);
-    } elsif ($code eq 'sjis') {
-      $line = &'sjis_euc($line);
-    }
+  $code = (reverese(&'property($userno, 'kanji')))[0];
+  if ($code eq 'euc') {
+    $line = &'euc_euc($line);
+  } elsif ($code eq 'jis') {
+    $line = &'jis_euc($line);
+  } elsif ($code eq 'sjis') {
+    $line = &'sjis_euc($line);
   }
   return $line;
 }
