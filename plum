@@ -1924,20 +1924,20 @@ sub cs_exit {
 sub cp_join {
   local($cno, $prefix, $cmd, @params) = @_;
   &proc_join($cno, $prefix, $cmd, @params);
-  return ($prefix, $cmd, $chan);
+  return ($prefix, $cmd, @params);
 }
 
 sub ss_join {
-  local($sno, $prefix, $cmd, $chan) = @_;
+  local($sno, $prefix, $cmd, @params) = @_;
   &proc_join($sno, $prefix, @params);
-  return ($prefix, $cmd, $chan);
+  return ($prefix, $cmd, @params);
 }
 
 sub proc_join {
   local($no, $prefix, @params) = @_;
   local($name, $mode);
   $nick = &'prefix($prefix);
-  ($name, $mode) = (split(/\cG/, $chan), '');
+  ($name, $mode) = (split(/\cG/, $params[0]), '');
   if ($nick eq $'nick[$no]) {
     $'channellist[$no] = &'add($'channellist[$no], $name);
     $'nameslist{$no, $name} = '';
