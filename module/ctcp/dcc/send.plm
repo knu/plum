@@ -1,0 +1,187 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"><!-- $_ if 0; # -*- perl -*-
+# $Id$
+# copyright (c)1998-2000 Yoshinori Hasegawa <hasegawa@madoka.org>
+
+package ctcp_dcc_send;
+
+$_ = 'ctcp_dcc_send';
+
+sub initialize {
+  $SENDSIZE = 65536;
+  $TIMEOUT = 3600;
+}
+
+sub main_loop {
+  local($userno) = @_;
+  local($socket, $timeout, $length, $size, $tmp, $cno);
+  $timeout = &'property($userno, 'timeout') || $TIMEOUT;
+  foreach $cno (&'array($dccclientlist)) {
+    next unless $'userno[$client[$cno]] == $userno;
+    if (vec($'rout, $'fileno[$cno], 1)) {
+      &dcc_client($cno);
+      vec($'rout, $'fileno[$cno], 1) = 0;
+    } elsif (time() - $'access[$cno] > $timeout) {
+      &'close($cno);
+      $dccclientlist = &'remove($dccclientlist, $cno);
+      &'c_print($client[$cno], '', 'NOTICE', $'nick[$client[$cno]], "*** DCC sent file $file[$cno] ($done[$cno]/$size[$cno] bytes) to $nick[$cno]");
+    }
+  }
+  foreach $lno (&'array($dcclistenlist)) {
+    next unless $'userno[$client[$lno]] == $userno;
+    if (vec($'rout, $'fileno[$lno], 1)) {
+      &dcc_listen($lno);
+      vec($'rout, $'fileno[$lno], 1) = 0;
+    } elsif (time() - $'access[$lno] > $timeout) {
+      &'close($lno);
+      $dcclistenlist = &'remove($dcclistenlist, $lno);
+    }
+  }
+}
+
+sub module_disable {
+  local($userno) = @_;
+  foreach $cno (&'array($dccclientlist)) {
+    next unless $'userno[$client[$cno]] == $userno;
+    &'close($cno);
+    $dccclientlist = &'remove($dccclientlist, $cno);
+  }
+  foreach $lno (&'array($dcclistenlist)) {
+    next unless $'userno[$client[$lno]] == $userno;
+    &'close($lno);
+    $dcclistenlist = &'remove($dcclistenlist, $lno);
+  }
+}
+
+sub cs_send {
+  local($clientno, $prefix, $cmd, @params) = @_;
+  local($sno, $lno, $name, $size, $addr, $host, $port, $file);
+  $sno = $'server[$clientno];
+  if ($params[1]) {
+    $file = &'expand($params[1]);
+    $size = (stat($file))[7];
+    if ($size) {
+      foreach $nick (split(/\,/, $params[0])) {
+        $lno = &'socket('L');
+        if (&'listen($lno, 0, 1)) {
+          $name = $file;
+          $name =~ s/^.*[\\\/]([^\\\/]+)$/$1/;
+          $dcclistenlist = &'add($dcclistenlist, $lno);
+          $addr = (&'sockname($sno))[1];
+          if (length($addr) == 4) {
+            $host = unpack('N', $addr);
+          } elsif (length($addr) == 16) {
+            $host = join(':', unpack('H4 H4 H4 H4 H4 H4 H4 H4', $addr));
+          }
+          $port = (&'sockname($lno))[0];
+          $file[$lno] = $file;
+          $size[$lno] = $size;
+          $nick[$lno] = $nick;
+          $client[$lno] = $clientno;
+          &'s_print($sno, $prefix, 'PRIVMSG', $nick, "\cA" . join(' ', 'DCC', 'SEND', $name, $host, $port, $size) . "\cA");
+          &'c_print($clientno, '', 'NOTICE', $'nick[$clientno], "*** DCC SEND request file $file ($size bytes) to $nick");
+        } else {
+          &'close($lno);
+        }
+      }
+    }
+  }
+  return ();
+}
+
+sub dcc_client {
+  local($cno) = @_;
+  local($tmp, $socket, $length);
+  $tmp = '';
+  $socket = $'socket[$cno];
+  if ($length = sysread($socket, $tmp, 4)) {
+    if (unpack('N', $tmp) == $done[$cno]) {
+      if ($done[$cno] == $size[$cno]) {
+        &'close($cno);
+        $dccclientlist = &'remove($dccclientlist, $cno);
+        &'c_print($client[$cno], '', 'NOTICE', $'nick[$client[$cno]], "*** DCC sent file $file[$cno] ($size[$cno] bytes) to $nick[$cno]");
+      } else {
+        &dcc_send($cno);
+      }
+    }
+  } else {
+    &'close($cno);
+    $dccclientlist = &'remove($dccclientlist, $cno);
+    &'c_print($client[$cno], '', 'NOTICE', $'nick[$client[$cno]], "*** DCC sent file $file[$cno] ($size[$cno] bytes) to $nick[$cno]");
+  }
+}
+
+sub dcc_listen {
+  local($cno) = @_;
+  $cno = &'socket('C');
+  if (&'accept($cno, $lno)) {
+    $dccclientlist = &'add($dccclientlist, $cno);
+    $file[$cno] = $file[$lno];
+    $size[$cno] = $size[$lno];
+    $nick[$cno] = $nick[$lno];
+    $done[$cno] = 0;
+    $client[$cno] = $client[$lno];
+    &'c_print($client[$cno], '', 'NOTICE', $'nick[$client[$cno]], "*** DCC sending file $file[$cno] ($size[$cno] bytes) to $nick[$cno]");
+    &dcc_send($cno);
+  } else {
+    &'close($cno);
+  }
+  $dcclistenlist = &'remove($dcclistenlist, $lno);
+  &'close($lno);
+}
+
+sub dcc_send {
+  local($cno) = @_;
+  local($size, $tmp, $socket, $send);
+  $send = &'property($'userno[$client[$cno]], 'sendsize') || $SENDSIZE;
+  if ($size[$cno] - $done[$cno] < $send) {
+    $size = $size[$cno] - $done[$cno];
+  } else {
+    $size = $send;
+  }
+  if (open(FILE, $file[$cno])) {
+    $tmp = '';
+    seek(FILE, $done[$cno], 0);
+    if (read(FILE, $tmp, $size)) {
+      $socket = $'socket[$cno];
+      print $socket $tmp;
+      $done[$cno] += $size;
+    }
+    close(FILE);
+  }
+}
+
+__END__
+--><HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-2022-JP">
+<LINK REV="made" HREF="mailto:hasegawa@madoka.org">
+<TITLE>ctcp/dcc/send.plm</TITLE></HEAD><BODY>
+
+オンラインドキュメント
+
+
+<HR><H3>名前</H3>
+
+ctcp/dcc/send.plm - DCC SENDでファイルを送信する
+
+
+<HR><H3>説明</H3>
+
+このモジュールを入れると、SENDというコマンドが使えるようになり、
+このコマンドを使ってDCCでファイルを送信することができるようになります。
+SENDコマンドのパラメータはニックネームとファイル名で、
+以下のように使用します。
+
+<PRE>
+/SEND nick filename
+</PRE>
+
+<HR><H3>プロパティ</H3>
+
+
+<HR><H3>設定例</H3>
+
+<PRE>
++ ctcp/dcc/send.plm
+</PRE>
+
+</BODY></HTML>
