@@ -30,8 +30,20 @@ sub server_open {
       }
     }
   }
+  foreach $i (&'property($userno, 'operserv')) {
+    &'s_print($serverno, '', 'PRIVMSG', 'OperServ', $i);
+    sleep 0.5;
+  }
+  foreach $i (&'property($userno, 'nickserv')) {
+    &'s_print($serverno, '', 'PRIVMSG', 'NickServ', $i);
+    sleep 0.5;
+  }
   if ($joinlist[$userno]) {
     &'s_print($serverno, '', 'JOIN', join(',', &'array($joinlist[$userno])), join(',', &'array($keylist)));
+  }
+  foreach $i (&'property($userno, 'chanserv')) {
+    &'s_print($serverno, '', 'PRIVMSG', 'ChanServ', $i);
+    sleep 0.5;
   }
 }
 
@@ -121,10 +133,24 @@ channel/join/connect.plm - サーバに接続したときに指定したチャンネルに入る
 
 =over 4
 
+=item channel.join.connect.nickserv* (メッセージ)
+
+サーバに接続したときに nickserv に送るメッセージを指定します。
+メッセージはチャンネルに入る前に送られます。
+
+=item channel.join.connect.operserv* (メッセージ)
+
+サーバに接続したときに operserv に送るメッセージを指定します。
+メッセージはチャンネルに入る前に送られます。
+
 =item channel.join.connect.channel* (チャンネル) (キー)
 
 サーバに接続したときに入るチャンネルを指定します。
 チャンネルのキーが指定されているときは、そのキーを使います。
+
+=item channel.join.connect.chanserv* (メッセージ)
+
+チャンネルに入った直後に chanserv に送るメッセージを指定します。
 
 =back
 
@@ -141,5 +167,13 @@ channel/join/connect.plm - サーバに接続したときに指定したチャンネルに入る
 
 サーバに接続したときに、「#まどか:*.jp」、「#ぷらむ:*.jp」、
 「#ぷらむ」の3つのチャンネルに入ります。
+
+    + channel/join/connect.plm
+    channel.join.connect.nickserv: identify foobar
+    channel.join.connect.channel: #somechannel
+    channel.join.connect.chanserv: op #somechannel
+
+nickserv サービスに登録されたニックを認証し、 #somechannel に入った後、
+chanserv に op を要求します。
 
 =cut
