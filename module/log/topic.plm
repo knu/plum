@@ -1,0 +1,135 @@
+# $Id$
+
+package log_topic;
+
+sub initialize {
+  $DIRECTORY = '.';
+}
+
+$_ = 'log_topic';
+
+#sub ss_join {
+#  local($serverno, $prefix, $cmd, @params) = @_;
+#  local($nick, $chan, $mode);
+#  $nick = &'prefix($prefix);
+#  ($chan, $mode) = (split(/\cG/, $params[0]), '');
+#  if ($nick eq $'nick[$serverno]) {
+#      &'s_print($serverno, '', 'TOPIC', $chan);
+#  }
+#  return ($prefix, $cmd, @params);
+#}
+
+sub ss_topic {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($chan, $topic) = @params;
+
+  &write_topic($serverno, $chan, $topic);
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_331 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($chan) = ($params[1]);
+
+  &write_topic($serverno, $chan, '');
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_332 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($chan, $topic) = @params[1,2];
+
+  &write_topic($serverno, $chan, $topic);
+  return ($prefix, $cmd, @params);
+}
+
+sub write_topic {
+  local($serverno, $chan, $topic) = @_;
+  local($userno, $vchan, $conf, $name);
+  $userno = $'userno[$serverno];
+  if (&'channel($chan)) {
+    foreach $conf (&'property($userno, 'file')) {
+      ($file, $vchan) = split(/\s+/, $conf);
+      if (&'real($vchan) eq $chan) {
+        &do_write_topic($serverno, $file, $topic);
+        last;
+      }
+    }
+  }
+}
+
+sub do_write_topic {
+  local($serverno, $file, $topic) = @_;
+  local($userno, $dir, $name, $code, $mode);
+  local(*FILE);
+  $userno = $'userno[$serverno];
+  ($name, $code) = &filename($file);
+  if ($name !~ /^[\\\/]/) {
+    $dir = &'expand(&'property($userno, 'directory') || $DIRECTORY);
+    $name = "$dir/$name";
+  }
+  $topic = &jis_code($topic, $code) if $code;
+  $mode = &'property($userno, 'mode') if !-e $name;
+  if (open(FILE, "> $name")) {
+    print FILE $topic, "\n";
+    close(FILE);
+  }
+  chmod(oct($mode), $name) if defined($mode);
+}
+
+sub filename {
+  local($file) = @_;
+  local($idx, $name, $code);
+  return ('', '') unless $file;
+  if (($idx = rindex($file, ';')) != -1) {
+    $name = substr($file, 0, $idx);
+    $code = substr($file, $idx + 1);
+  } else {
+    $name = $file;
+    $code = '';
+  }
+  return (&'expand($name), $code);
+}
+
+sub jis_code {
+  local($line, $list) = @_;
+  local($code);
+  $code = (split(/\,/, "\L$list\E"))[0];
+  if ($code eq 'euc') {
+    $line = &'jis_euc($line);
+  } elsif ($code eq 'jis') {
+    $line = &'jis_jis($line);
+  } elsif ($code eq 'sjis') {
+    $line = &'jis_sjis($line);
+  }
+  return $line;
+}
+
+__END__
+
+=head1 名前
+
+log/topic.plm - チャンネルのトピックをファイルに保存する
+
+=head1 説明
+
+チャンネルのトピックをファイルに保存します。
+
+=head1 プロパティ
+
+=over 4
+
+=item log.server.file* チャンネル ファイル名
+
+指定したチャンネルのトピックを保存するファイル名を指定します。
+
+=back
+
+=head1 設定例
+
+    + log/topic.plm
+    log.topic.file: #somechannel log/somechannel.topic
+
+#somechannel のトピックを log/somechannel.topic に保存します。
+
+=cut
