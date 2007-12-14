@@ -238,7 +238,7 @@ sub 'load {
 
 sub 'merge {
   local($userno, $file) = @_;
-  local($line, $pkg, $dir, $name, $sub, $var, $arg, @key);
+  local($line, $pkg, $dir, $name, $sub, $var, $arg, @key, *CONF, $conf);
   if (open(CONF, $file)) {
     $'filename[$userno] = &'add($'filename[$userno], $file);
     while (defined($line = <CONF>)) {
@@ -255,6 +255,11 @@ sub 'merge {
         if ($pkg = $'package{$1}) {
           $'modulelist[$userno] = &'remove($'modulelist[$userno], $pkg);
         }
+      } elsif ($line =~ /^\.\s+(.+)/) {
+        $arg = $1;
+        $dir = &'expand(&'property($userno, 'directory') || '.');
+        $conf = "$dir/$arg";
+        &'merge($userno, $conf) if -f $conf;
       } elsif ((($var, $arg) = split(/\s*\:\s*/, $line, 2)) == 2) {
         $arg = &kanji_euc($userno, $arg);
         @key = split(/\./, $var);
