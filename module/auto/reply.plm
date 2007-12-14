@@ -81,10 +81,12 @@ sub ss_privmsg {
 
 sub match {
   local($str, $pattern) = @_;
-  if (&'exist($'kanjilist, 'sjis')) {
-    $str = &'euc_sjis($str);
-    $pattern = &'euc_sjis($pattern);
-  }
+
+  use Encode;
+
+  $str = decode_utf8($str);
+  $pattern = decode_utf8($pattern);
+
   if ($str =~ /$pattern/) {
     return 1;
   } else {
@@ -169,7 +171,7 @@ sub read_data {
     while (defined($line = <FILE>)) {
       $line =~ tr/\r\n//d;
       next unless $line;
-      $line = &code_euc($line, $code) if $code;
+      $line = &'code_utf8($line, $code) if $code;
       $message[$userno] = &'add($message[$userno], $line);
     }
     close(FILE);
@@ -182,7 +184,7 @@ sub write_file {
   ($name, $code) = &filename(&'property($userno, 'file'));
   if ($name && open(FILE, ">$name")) {
     foreach $line (&'array($message[$userno])) {
-      $line = &euc_code($line, $code) if $code;
+      $line = &'utf8_code($line, $code) if $code;
       print FILE $line, "\n";
     }
     close(FILE);
@@ -273,7 +275,7 @@ sub read_file {
           $line =~ tr/\r\n//d;
           next unless $line;
           $line =~ s/\s+$//;
-          $line = &code_euc($line, $code) if $code;
+          $line = &'code_utf8($line, $code) if $code;
           push(@data, $line);
         }
         close(TMP);
@@ -302,124 +304,96 @@ sub filename {
   return (&'expand($name), $code);
 }
 
-sub code_euc {
-  local($line, $list) = @_;
-  foreach $code (split(/\,/, "\L$list\E")) {
-    if ($code eq 'euc') {
-      $line = &'euc_euc($line);
-    } elsif ($code eq 'jis') {
-      $line = &'jis_euc($line);
-    } elsif ($code eq 'sjis') {
-      $line = &'sjis_euc($line);
-    }
-  }
-  return $line;
-}
-
-sub euc_code {
-  local($line, $list) = @_;
-  local($code);
-  $code = (split(/\,/, "\L$list\E"))[0];
-  if ($code eq 'euc') {
-    $line = &'euc_euc($line);
-  } elsif ($code eq 'jis') {
-    $line = &'euc_jis($line);
-  } elsif ($code eq 'sjis') {
-    $line = &'euc_sjis($line);
-  }
-  return $line;
-}
-
 __END__
 
-=head1 ̾��
+=head1 名前
 
-auto/reply.plm - �����ȯ����ȿ��������å�������ȯ������
+auto/reply.plm - 特定の発言に反応したメッセージを発言する
 
-=head1 ����
+=head1 説明
 
-�����ȯ����ȿ�����ơ�������Ф����å�������ȯ�����ޤ���
-��Ĥ�ȯ�����Ф���ʣ���Υ�å���������ꤹ�뤳�Ȥ��Ǥ���
-�����椫�������Ǥɤ줫��ĤΥ�å�������ȯ�����ޤ���
-��å������ϥե�����ǻ��ꤷ���ե�����Υե����ޥåȤ�
-�ʲ��Τ褦�ˤʤäƤ��ޤ���
+特定の発言に反応して、それに対するメッセージを発言します。
+一つの発言に対して複数のメッセージを指定することができ、
+その中からランダムでどれか一つのメッセージを発言します。
+メッセージはファイルで指定し、ファイルのフォーマットは
+以下のようになっています。
 
-    ����Ф�� : ����Ф����� ����Ф󡦤���
-    ���Ϥ�* : ��������Ԥ���
-    *�פ��* : ������? �ϡ�����
+    こんばんわ : こんばんわ〜☆ こんばん・わん〜
+    ごはん* : あたしも行く〜
+    *ぷらむ* : よんだぁ? はーい☆
 
-ȿ���ϰ�Ԥ˰�ĵ��Ҥ���ȿ������ȯ���Ȥ�����Ф����å�������
-��:�פȤ��������1�İʾ�ζ����Ĥ��ƶ��ڤäƻ��ꤷ�ޤ���
-�ޤ���ȯ���ȥ�å������Τ��줾���1�İʾ�ζ���Ƕ��ڤ�ޤ���
-ȿ������ȯ���ˤϥ磻��ɥ����ɤȤ��ơ�*�פ�����Ǥ��ޤ���
+反応は一行に一つ記述し、反応する発言とそれに対するメッセージは
+「:」とその前後に1つ以上の空白をつけて区切って指定します。
+また、発言とメッセージのそれぞれは1つ以上の空白で区切ります。
+反応する発言にはワイルドカードとして「*」が指定できます。
 
-=head1 �ץ��ѥƥ�
+=head1 プロパティ
 
 =over 4
 
-=item auto.reply.file �ե�����̾[;({jis|euc|sjis})]
+=item auto.reply.file ファイル名[;({jis|euc|sjis|utf8})]
 
-ȿ�������å���������¸����ե�����̾����ꤷ�ޤ���
-�ե�����ϻ��ꤷ�����������ɤ���¸����ޤ���
-���������ɤ�ʣ�����ꤷ�����ϡ��ǽ�˻��ꤷ�����������ɤ�
-��¸���졢��ά�������ϡ�jis�פ���ꤷ�����Ȥ�Ʊ���Ǥ���
-�ޤ�����euc�פȡ�sjis�פ�Ʊ���˻��ꤹ�뤳�ȤϤǤ��ޤ���
+反応するメッセージを保存するファイル名を指定します。
+ファイルは指定した漢字コードで保存されます。
+漢字コードを複数指定した場合は、最初に指定した漢字コードで
+保存され、省略した場合は「jis」を指定したことと同じです。
+また、「euc」と「sjis」を同時に指定することはできません。
 
-=item auto.random.alias �ե�����̾[;({jis|euc|sjis})]
+=item auto.random.alias ファイル名[;({jis|euc|sjis|utf8})]
 
-�����ꥢ���򻲾Ȥ���ե��������ꤷ�ޤ���
-���Υե������auto/alias.plm�ǻȤ���Τ�Ʊ����ΤǤ���
-�ե�����ϻ��ꤷ�����������ɤ���¸����Ƥ���ɬ�פ�����ޤ���
+エイリアスを参照するファイルを指定します。
+このファイルはauto/alias.plmで使うものと同じものです。
+ファイルは指定した漢字コードで保存されている必要があります。
 
-=item auto.reply.format* �ե����ޥå�
+=item auto.reply.format* フォーマット
 
-��å�������ȯ������ݤΥե����ޥåȤ���ꤷ�ޤ���
-�ե����ޥåȤ�#(nick)�Τ褦�˻��ꤹ�뤳�Ȥǥ����ꥢ�����
-�б������ͤ��֤������ޤ����ޤ�#(message)�ǥ�å����������Ƥˡ�
-#(nick.now)�Ǹ��ߤΥ˥å��͡���ˡ�#(channel)�ǥ����ͥ�̾��
-���줾���֤������ޤ���
+メッセージを発言する際のフォーマットを指定します。
+フォーマットに#(nick)のように指定することでエイリアス中の
+対応する値で置き換えます。また#(message)でメッセージの内容に、
+#(nick.now)で現在のニックネームに、#(channel)でチャンネル名に
+それぞれ置き換えます。
 
-=item auto.reply.rate ��Ψ
+=item auto.reply.rate 確率
 
-ȯ����ȿ�������Ψ����ꤷ�ޤ���0����ꤹ�������ȿ��������
-100����ꤹ������Ƥ�ȯ����ȿ�����ޤ���
+発言に反応する確率を指定します。0を指定すると全く反応せず、
+100を指定すると全ての発言に反応します。
 
-=item auto.reply.add* ʸ����
+=item auto.reply.add* 文字列
 
-ȿ�������å��������ɲä��뤿���ʸ�������ꤷ�ޤ���
-ʸ����ˤ�ȿ������ȯ���Ȥ�����Ф����å�������
-����Ƕ��ڤäƻ��ꤷ�ޤ���
+反応するメッセージを追加するための文字列を指定します。
+文字列には反応する発言とそれに対するメッセージを
+空白で区切って指定します。
 
-=item auto.reply.remove* ʸ����
+=item auto.reply.remove* 文字列
 
-ȿ�������å������������뤿���ʸ�������ꤷ�ޤ���
-ʸ����ˤ�ȿ������ȯ���Ȥ�����Ф����å�������
-����Ƕ��ڤäƻ��ꤷ�ޤ���
+反応するメッセージを削除するための文字列を指定します。
+文字列には反応する発言とそれに対するメッセージを
+空白で区切って指定します。
 
-=item auto.reply.change* ʸ����
+=item auto.reply.change* 文字列
 
-ȿ�������å��������ѹ����뤿���ʸ�������ꤷ�ޤ���
-ʸ����ˤ�ȿ������ȯ���Ȥ�����Ф����å�������
-����Ƕ��ڤäƻ��ꤷ�ޤ���
+反応するメッセージを変更するための文字列を指定します。
+文字列には反応する発言とそれに対するメッセージを
+空白で区切って指定します。
 
 =back
 
-=head1 ������
+=head1 設定例
 
     + auto/reply.plm
     auto.reply.file: reply.txt;jis
     auto.reply.format: #(name): #(message)
     auto.reply.rate: 100
-    auto.reply.add: ��å������ɲ�
-    auto.reply.remove: ��å��������
-    auto.reply.change: ��å������ѹ�
+    auto.reply.add: メッセージ追加
+    auto.reply.remove: メッセージ削除
+    auto.reply.change: メッセージ変更
 
-��reply.txt�פ˽񤫤줿���Ƥ˴�Ť��ơ�ȯ����ȿ�����Ƥ�����Ф���
-��å�������ȯ�����ޤ���reply.txt��jis�ǽ񤫤�Ƥ���ɬ�פ�����ޤ���
-�ޤ����֥�å������ɲ� ����ˤ��� ����ˤ��ϡ����פΤ褦��ȯ������С�
-������ȿ�����ɲä��뤳�Ȥ��Ǥ��ޤ���
-Ʊ�ͤˡ��֥�å�������� ����ˤ��� ����ˤ��ϡ����פ䡢
-�֥�å������ѹ� ����ˤ��� ����ˤ��������פΤ褦��ȯ�����뤳�Ȥǡ�
-ȿ�������������ѹ����뤳�Ȥ��Ǥ��ޤ���
+「reply.txt」に書かれた内容に基づいて、発言に反応してそれに対する
+メッセージを発言します。reply.txtはjisで書かれている必要があります。
+また、「メッセージ追加 こんにちは こんにちは〜☆」のように発言すれば、
+新たな反応を追加することができます。
+同様に、「メッセージ削除 こんにちは こんにちは〜☆」や、
+「メッセージ変更 こんにちは こんにち・わん〜」のように発言することで、
+反応を削除したり変更することができます。
 
 =cut

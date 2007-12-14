@@ -163,10 +163,12 @@ sub ss_privmsg {
 
 sub match {
   local($str, $pattern) = @_;
-  if (&'exist($'kanjilist, 'sjis')) {
-    $str = &'euc_sjis($str);
-    $pattern = &'euc_sjis($pattern);
-  }
+
+  use Encode;
+
+  $str = decode_utf8($str);
+  $pattern = decode_utf8($pattern);
+
   if ($str =~ /$pattern/) {
     return 1;
   } else {
@@ -556,7 +558,7 @@ sub get_msg {
     while (defined($line = <FILE>)) {
       $line =~ tr/\r\n//d;
       next unless $line;
-      $line = &code_euc($line, $code) if $code;
+      $line = &'code_utf8($line, $code) if $code;
       @data = split(/\s+/, $line, 7);
       if (&check_alias($userno, $prefix, $data[1])) {
         push(@list, $line);
@@ -571,7 +573,7 @@ sub add_msg {
   local($userno, $msg) = @_;
   local($name, $code);
   ($name, $code) = &filename(&'property($userno, 'file'));
-  $msg = &euc_code($msg, $code) if $code;
+  $msg = &'utf8_code($msg, $code) if $code;
   if (open(FILE, ">>$name")) {
     print FILE $msg, "\n";
     close(FILE);
@@ -588,14 +590,14 @@ sub delete_msg {
     while (defined($line = <FILE>)) {
       $line =~ tr/\r\n//d;
       next unless $line;
-      $line = &code_euc($line, $code) if $code;
+      $line = &'code_utf8($line, $code) if $code;
       next if &'exist($list, $line);
       push(@msg, $line);
     }
     close(FILE);
     if (open(FILE, ">$name")) {
       foreach $line (@msg) {
-        $line = &euc_code($line, $code) if $code;
+        $line = &'utf8_code($line, $code) if $code;
         print FILE $line, "\n";
       }
       close(FILE);
@@ -740,7 +742,7 @@ sub read_file {
           $line =~ tr/\r\n//d;
           next unless $line;
           $line =~ s/\s+$//;
-          $line = &code_euc($line, $code) if $code;
+          $line = &'code_utf8($line, $code) if $code;
           push(@data, $line);
         }
         close(TMP);
@@ -769,198 +771,170 @@ sub filename {
   return (&'expand($name), $code);
 }
 
-sub code_euc {
-  local($line, $list) = @_;
-  foreach $code (split(/\,/, "\L$list\E")) {
-    if ($code eq 'euc') {
-      $line = &'euc_euc($line);
-    } elsif ($code eq 'jis') {
-      $line = &'jis_euc($line);
-    } elsif ($code eq 'sjis') {
-      $line = &'sjis_euc($line);
-    }
-  }
-  return $line;
-}
-
-sub euc_code {
-  local($line, $list) = @_;
-  local($code);
-  $code = (split(/\,/, "\L$list\E"))[0];
-  if ($code eq 'euc') {
-    $line = &'euc_euc($line);
-  } elsif ($code eq 'jis') {
-    $line = &'euc_jis($line);
-  } elsif ($code eq 'sjis') {
-    $line = &'euc_sjis($line);
-  }
-  return $line;
-}
-
 __END__
 
-=head1 ̾��
+=head1 名前
 
-auto/package.plm - ���ꤷ���ͤ�DCC�ǥե�������Ϥ���
+auto/package.plm - 指定した人にDCCでファイルを届ける
 
-=head1 ����
+=head1 説明
 
-���ꤷ���ͤ˥�å�������Ĥ���DCC�ǥե�������Ϥ��ޤ���
-DCC�ǥե�����������׵��Ф������ȡ����������ꤹ�뤳�Ȥ�
-�ե�������������뤳�Ȥ��Ǥ��ޤ���
-�ե����뤬�Ϥ��Ƥ��뤫�ɤ����γ�ǧ�ϥ桼���������ͥ��
-���äƤ����Ȥ��ȡ��˥å��͡�����ѹ������Ȥ��˹Ԥ��ޤ���
-���Τ��ᡢƱ�������ͥ������ʤ��桼�����Ф��Ƥ�
-�ե���������뤳�ȤϤǤ��ޤ���
+指定した人にメッセージをつけてDCCでファイルを届けます。
+DCCでファイルの送信要求を出したあと、送り先を指定することで
+ファイルを送信することができます。
+ファイルが届いているかどうかの確認はユーザがチャンネルに
+入ってきたときと、ニックネームを変更したときに行います。
+そのため、同じチャンネルに入らないユーザに対しては
+ファイルを送ることはできません。
 
-=head1 �ץ��ѥƥ�
+=head1 プロパティ
 
 =over 4
 
-=item auto.package.file �ե�����̾[;({jis|euc|sjis})]
+=item auto.package.file ファイル名[;({jis|euc|sjis|utf8})]
 
-������ä��ե������������ξ�����Ǽ����ե��������ꤷ�ޤ���
-�ե�����ϻ��ꤷ�����������ɤ���¸����ޤ���
-���������ɤ�ʣ�����ꤷ�����ϡ��ǽ�˻��ꤷ�����������ɤ�
-��¸���졢��ά�������ϡ�jis�פ���ꤷ�����Ȥ�Ʊ���Ǥ���
-�ޤ�����euc�פȡ�sjis�פ�Ʊ���˻��ꤹ�뤳�ȤϤǤ��ޤ���
+受け取ったファイルや送り先の情報を格納するファイルを指定します。
+ファイルは指定した漢字コードで保存されます。
+漢字コードを複数指定した場合は、最初に指定した漢字コードで
+保存され、省略した場合は「jis」を指定したことと同じです。
+また、「euc」と「sjis」を同時に指定することはできません。
 
-=item auto.package.directory �ǥ��쥯�ȥ�̾
+=item auto.package.directory ディレクトリ名
 
-������ä��ե��������¸����ǥ��쥯�ȥ����ꤷ�ޤ���
-�������������줿�ե�����Ͼä���ޤ���
+受け取ったファイルを保存するディレクトリを指定します。
+正しく送信されたファイルは消されます。
 
-=item auto.package.alias �ե�����̾[;({jis|euc|sjis})]
+=item auto.package.alias ファイル名[;({jis|euc|sjis|utf8})]
 
-�����ꥢ���򻲾Ȥ���ե�����̾����ꤷ�ޤ���
-���Υե������auto/alias.plm�ǻ��Ѥ����Τ�Ʊ����ΤǤ���
-�ե�����ϻ��ꤷ�����������ɤ���¸����Ƥ���ɬ�פ�����ޤ���
+エイリアスを参照するファイル名を指定します。
+このファイルはauto/alias.plmで使用するものと同じものです。
+ファイルは指定した漢字コードで保存されている必要があります。
 
-=item auto.package.get* ʸ����
+=item auto.package.get* 文字列
 
-�ե�����������뤿���ʸ����Ǥ���
-�����ǻ��ꤷ��ʸ�����ȯ������ȡ���å������ȤȤ��
-DCC�ǥե����뤬�����Ƥ��ޤ���
+ファイルを受け取るための文字列です。
+ここで指定した文字列を発言すると、メッセージとともに
+DCCでファイルが送られてきます。
 
-=item auto.package.send* ʸ����
+=item auto.package.send* 文字列
 
-�ե���������뤿���ʸ����Ǥ���DCC�������Ԥ��ξ��֤�
-�����ǻ��ꤷ��ʸ����ȡ������³��������ȥ�å�������ȯ������ȡ�
-���ꤷ��������˥ե�������������ޤ���
+ファイルを送るための文字列です。DCCの送信待ちの状態で
+ここで指定した文字列と、それに続く送り先とメッセージを発言すると、
+指定した送り先にファイルを送信します。
 
-=item auto.package.check* ʸ����
+=item auto.package.check* 文字列
 
-�ե����뤬�Ϥ��Ƥ��뤫�ɤ�����ǧ���뤿���ʸ�������ꤷ�ޤ���
-�����ǻ��ꤷ��ʸ�����Ʊ��ʸ����ȯ�������ȡ�
-���οͤ��Ф�������줿�ե����뤬���뤫�ɤ�����ǧ����
-���η�̤�ȯ�����ޤ���
+ファイルが届いているかどうか確認するための文字列を指定します。
+ここで指定した文字列と同じ文字列が発言されると、
+その人に対して送られたファイルがあるかどうか確認し、
+その結果を発言します。
 
-=item auto.package.date ʸ����
+=item auto.package.date 文字列
 
-auto.package.format�ǻ��ꤹ�뤳�ȤΤǤ����ͤΤ�����
-#(date)���ִ���������դΥե����ޥåȤ���ꤷ�ޤ���
-�ǥե���ȤǤϡ�%m/%d %H:%M�פȤʤäƤ��ޤ���
+auto.package.formatで指定することのできる値のうち、
+#(date)で置換される日付のフォーマットを指定します。
+デフォルトでは「%m/%d %H:%M」となっています。
 
-=item auto.package.format* �ե����ޥå�
+=item auto.package.format* フォーマット
 
-������˥ե����������Ȥ��ˡ��ɤΤ褦�ʷ�����ȯ�����뤫��
-���ꤷ�ޤ����ե����ޥåȤ�#(nick)�Τ褦�˽񤯤��Ȥǡ�
-�ե����������Ȥ�ͤΥ����ꥢ�����б������ͤ��֤������ޤ���
-�ޤ����ե���������ä��ͤΥ����ꥢ����#(from.nick)�Τ褦�ʷ���
-���ִ����뤳�Ȥ��Ǥ��ޤ��������ꥢ���ʳ��ξ���Ȥ��Ƥϡ�
-#(date)�ǥե���������ä����դȻ����#(message)��
-�ե���������Ƥ򤽤줾���֤������ޤ���
-�ޤ����������|�פǶ��ڤä�ʣ�����ꤷ����硢
-�ǽ���������Ƥ����ͤ��֤������ޤ���
+送り先にファイルを送るときに、どのような形式で発言するかを
+指定します。フォーマットに#(nick)のように書くことで、
+ファイルを受けとる人のエイリアスの対応する値で置き換えます。
+また、ファイルを送った人のエイリアスは#(from.nick)のような形式
+で置換することができます。エイリアス以外の情報としては、
+#(date)でファイルを送った日付と時刻を、#(message)で
+ファイルの内容をそれぞれ置き換えます。
+また、括弧内を「|」で区切って複数指定した場合、
+最初に定義されている値で置き換えます。
 
-=item auto.package.accept* �ե����ޥå�
+=item auto.package.accept* フォーマット
 
-�ե�������������������ä��Ȥ��ˡ������ǻ��ꤷ����Τ�
-ȯ�����ޤ����ե����ޥåȤ�#(nick)�Τ褦�˻��ꤹ�뤳�Ȥǡ�
-�ե���������긵�Υ����ꥢ�����б������ͤ��֤������ޤ���
-�ޤ���#(to)�ǥե������������Ȥ��ƻ��ꤷ��̾����
-#(to.nick)�Τ褦�ˡ�to.�פ��դ��뤳�Ȥǡ��ե�������������
-�����ꥢ�����б������ͤ��֤������ޤ���
+ファイルを正しく受け取るったときに、ここで指定したものを
+発言します。フォーマットに#(nick)のように指定することで、
+ファイルの送り元のエイリアスの対応する値で置き換えます。
+また、#(to)でファイルの送り先として指定した名前を、
+#(to.nick)のように「to.」を付けることで、ファイルの送り先の
+エイリアスの対応する値で置き換えます。
 
-=item auto.package.receive* �ե����ޥå�
+=item auto.package.receive* フォーマット
 
-�����ͥ�����äƤ������䡢�˥å��͡�����ѹ��������ˡ�
-���οͤ��Ф����å��������Ϥ��Ƥ���С������ǻ��ꤷ����Τ�
-ȯ�����ޤ����ե����ޥåȤ�#(nick)�Τ褦�˻��ꤹ�뤳�Ȥǡ�
-�ե���������긵�Υ����ꥢ�����б������ͤ��֤������ޤ���
-�ޤ���#(number)���Ϥ��Ƥ���ե���������֤������ޤ���
+チャンネルに入ってきた時や、ニックネームを変更した時に、
+その人に対するメッセージが届いていれば、ここで指定したものを
+発言します。フォーマットに#(nick)のように指定することで、
+ファイルの送り元のエイリアスの対応する値で置き換えます。
+また、#(number)で届いているファイル数に置き換えます。
 
-=item auto.package.norequest* �ե����ޥå�
+=item auto.package.norequest* フォーマット
 
-DCC�������׵��Ф����˥ե�������������Ȥ�������
-�����ǻ��ꤷ����Τ�ȯ�����ޤ���
-�ե����ޥåȤ�#(nick)�Τ褦�˻��ꤹ�뤳�Ȥǡ�
-�ե���������긵�Υ����ꥢ�����б������ͤ��֤������ޤ���
+DCCの送信要求を出さずにファイルを送ろうとした場合に
+ここで指定したものを発言します。
+フォーマットに#(nick)のように指定することで、
+ファイルの送り元のエイリアスの対応する値で置き換えます。
 
-=item auto.package.unknown* �ե����ޥå�
+=item auto.package.unknown* フォーマット
 
-�ե������������꤬�狼��ʤ��Ȥ��ˡ������ǻ��ꤷ����Τ�
-ȯ�����ޤ����ե����ޥåȤ�#(nick)�Τ褦�˻��ꤹ�뤳�Ȥǡ�
-�ե���������긵�Υ����ꥢ�����б������ͤ��֤������ޤ���
-�ޤ���#(to)�ǥե�������������Ȥ�������̾�����֤������ޤ���
+ファイルを送る相手がわからないときに、ここで指定したものを
+発言します。フォーマットに#(nick)のように指定することで、
+ファイルの送り元のエイリアスの対応する値で置き換えます。
+また、#(to)でファイルを送ろうとした相手の名前に置き換えます。
 
-=item auto.package.nothing* �ե����ޥå�
+=item auto.package.nothing* フォーマット
 
-�ե���������������Ȥ��������ե����뤬�Ϥ��Ƥ��ʤ��ä��Ȥ���
-�����ǻ��ꤷ����Τ�ȯ�����ޤ����ե����ޥåȤ�#(nick)�Τ褦��
-���ꤹ�뤳�Ȥǡ������ꥢ�����б������ͤ��֤������ޤ���
+ファイルを受け取ろうとしたが、ファイルが届いていなかったとき、
+ここで指定したものを発言します。フォーマットに#(nick)のように
+指定することで、エイリアスの対応する値で置き換えます。
 
-=item auto.package.exists* �ե����ޥå�
+=item auto.package.exists* フォーマット
 
-�ե����뤬�Ϥ��Ƥ��뤫�ɤ�����ǧ�����Ȥ��ˡ�
-�Ϥ��Ƥ���ե����뤬����С������ǻ��ꤷ����Τ�ȯ�����ޤ���
+ファイルが届いているかどうか確認したときに、
+届いているファイルがあれば、ここで指定したものを発言します。
 
-=item auto.package.geterror* �ե����ޥå�
+=item auto.package.geterror* フォーマット
 
-�桼�����ե������������Ƥ���Ȥ��˥��顼��ȯ��������硢
-�����ǻ��ꤷ����Τ�ȯ�����ޤ����ե����ޥåȤ�#(nick)�Τ褦��
-���ꤹ�뤳�Ȥǡ������ꥢ�����б������ͤ��֤������ޤ���
-�ޤ���#(file)��ž����Υե�����̾���֤������ޤ���
+ユーザがファイルを受信しているときにエラーが発生した場合、
+ここで指定したものを発言します。フォーマットに#(nick)のように
+指定することで、エイリアスの対応する値で置き換えます。
+また、#(file)で転送中のファイル名に置き換えます。
 
-=item auto.package.senderror* �ե����ޥå�
+=item auto.package.senderror* フォーマット
 
-�桼�����ե�������������Ƥ���Ȥ��˥��顼��ȯ��������硢
-�����ǻ��ꤷ����Τ�ȯ�����ޤ����ե����ޥåȤ�#(nick)�Τ褦��
-���ꤹ�뤳�Ȥǡ������ꥢ�����б������ͤ��֤������ޤ���
-�ޤ���#(file)��ž����Υե�����̾���֤������ޤ���
+ユーザがファイルを送信しているときにエラーが発生した場合、
+ここで指定したものを発言します。フォーマットに#(nick)のように
+指定することで、エイリアスの対応する値で置き換えます。
+また、#(file)で転送中のファイル名に置き換えます。
 
 =back
 
-=head1 ������
+=head1 設定例
 
     + auto/package.plm
     auto.package.file: package.txt;jis
     auto.package.directory: DCC
     auto.package.alias: alias.txt;jis,euc
-    auto.package.get: �������ä�
-    auto.package.send: ����
-    auto.package.format: #(from.name|from.nick.now)���󤫤��#(message)��(#(date))
-    auto.package.date: %m��%d��%H��%Mʬ
-    auto.package.accept: �����������ޤ���
-    auto.package.receive: #(number)�Ĥξ����Ϥ��Ƥ��ޤ����־������äơפǤ��Ϥ����ޤ���
-    auto.package.norequest: #(name|nick.now): DCC�׵᤬����ޤ���
-    auto.package.unknown: #(to)����Ȥ����Τ�ï�Ǥ���?
-    auto.package.nothing: #(name|nick)���󰸤ξ�����Ϥ��Ƥ��ޤ���
-    auto.package.geterror: #(nick.now): #(file)�������˼��Ԥ��ޤ���
-    auto.package.senderror: #(nick.now): #(file)�μ����˼��Ԥ��ޤ���
+    auto.package.get: 小包送って
+    auto.package.send: 小包
+    auto.package.format: #(from.name|from.nick.now)さんから「#(message)」(#(date))
+    auto.package.date: %m月%d日%H時%M分
+    auto.package.accept: 小包を受け取りました
+    auto.package.receive: #(number)個の小包が届いています。「小包送って」でお届けします。
+    auto.package.norequest: #(name|nick.now): DCC要求がありません
+    auto.package.unknown: #(to)さんというのは誰ですか?
+    auto.package.nothing: #(name|nick)さん宛の小包は届いていません
+    auto.package.geterror: #(nick.now): #(file)の送信に失敗しました
+    auto.package.senderror: #(nick.now): #(file)の受信に失敗しました
 
-DCC�ǥե�����������׵��Ф������ȡ��־��� pupu �ۤ��ۤ���
-�Τ褦��ȯ������ȡ��֤ۤ��ۤ��פȤ�����å������ȤȤ��
-DCC�����������ե������pupu�Ȥ����˥å��͡���οͤ�����ޤ���
-�ޤ���alias.txt�פ����Ŭ���ʾ������ꤹ�뤳�Ȥˤ�äơ�
-�־��� �פ� �ۤ��ۤ��פΤ褦�ʻȤ�����Ǥ��ޤ���
-�ޤ������ΤȤ�����줿�ե������DCC�Ȥ����ǥ��쥯�ȥ�����
-��¸����ޤ���
+DCCでファイルの送信要求を出したあと、「小包 pupu ほげほげ」
+のように発言すると、「ほげほげ」というメッセージとともに
+DCCで送信したファイルをpupuというニックネームの人に送ります。
+また「alias.txt」の中に適当な情報を指定することによって、
+「小包 ぷぷ ほげほげ」のような使い方もできます。
+また、このとき送られたファイルはDCCというディレクトリの中に
+保存されます。
 
-�ե����뤬�Ϥ��Ƥ���Ȥ��˥����ͥ�����ä��ꡢ�˥å��͡����
-�ѹ�����ȡ��־����Ϥ��Ƥ��ޤ����־������äơפǤ��Ϥ����ޤ���
-�ȸ��ä��Τ餻�ޤ���
-���ΤȤ��־������äơפ�ȯ������ȡ�������̾���ȥ�å�������ȯ�����ơ�
-DCC�ǥե���������äƤ��ޤ���
+ファイルが届いているときにチャンネルに入ったり、ニックネームを
+変更すると、「小包が届いています。「小包送って」でお届けします」
+と言って知らせます。
+このとき「小包送って」と発言すると、送り主の名前とメッセージを発言して、
+DCCでファイルを送ってきます。
 
 =cut

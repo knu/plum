@@ -23,22 +23,22 @@ sub cpss_ping {
 
 __END__
 
-=head1 Ì¾Á°
+=head1 åå‰
 
-ctcp/ping.plm - CTCP PING¤ËÈ¿±þ¤·¤Æ¼õ¤±¼è¤Ã¤¿¥á¥Ã¥»¡¼¥¸¤òÁ÷¤ë
+ctcp/ping.plm - CTCP PINGã«åå¿œã—ã¦å—ã‘å–ã£ãŸãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’é€ã‚‹
 
-=head1 ÀâÌÀ
+=head1 èª¬æ˜Ž
 
-CTCP PING¤¬Á÷¤é¤ì¤Æ¤­¤¿¤È¤­¡¢
-¤½¤ì¤ËÈ¿±þ¤·¤Æ¼õ¤±¼è¤Ã¤¿¥á¥Ã¥»¡¼¥¸¤òÁ÷¤êÊÖ¤·¤Þ¤¹¡£
+CTCP PINGãŒé€ã‚‰ã‚Œã¦ããŸã¨ãã€
+ãã‚Œã«åå¿œã—ã¦å—ã‘å–ã£ãŸãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’é€ã‚Šè¿”ã—ã¾ã™ã€‚
 
-=head1 ¥×¥í¥Ñ¥Æ¥£
+=head1 ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£
 
 =over 4
 
 =back
 
-=head1 ÀßÄêÎã
+=head1 è¨­å®šä¾‹
 
     + ctcp/ping.plm
 

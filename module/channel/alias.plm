@@ -78,23 +78,23 @@ sub convert {
 
 __END__
 
-=head1 ̾��
+=head1 名前
 
-channel/alias.plm - �����ͥ륨���ꥢ�����Ѵ�����
+channel/alias.plm - チャンネルエイリアスを変換する
 
-=head1 ����
+=head1 説明
 
-IRC�Υ��ޥ�ɤ�����Ȥ��ˡ������ͥ륨���ꥢ����Ȥ���褦�ˤ��ޤ���
-�����ͥ�̾�λ��꤬��%�����ͥ�̾�פȤ����������ä����ˡ�
-������#�����ͥ�̾:*.jp�פȤ����������Ѵ���������ޤ���
+IRCのコマンドを送るときに、チャンネルエイリアスを使えるようにします。
+チャンネル名の指定が「%チャンネル名」という形式だった場合に、
+それを「#チャンネル名:*.jp」という形式に変換して送ります。
 
-=head1 �ץ��ѥƥ�
+=head1 プロパティ
 
 =over 4
 
 =back
 
-=head1 ������
+=head1 設定例
 
     + channel/alias.plm
 

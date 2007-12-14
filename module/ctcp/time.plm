@@ -19,21 +19,21 @@ sub cpss_time {
 
 __END__
 
-=head1 Ì¾Á°
+=head1 åå‰
 
-ctcp/time.plm - CTCP TIME¤ËÈ¿±þ¤·¤Æ¸½ºß»þ¹ï¤òÁ÷¤ë
+ctcp/time.plm - CTCP TIMEã«åå¿œã—ã¦ç¾åœ¨æ™‚åˆ»ã‚’é€ã‚‹
 
-=head1 ÀâÌÀ
+=head1 èª¬æ˜Ž
 
-CTCP TIME¤¬Á÷¤é¤ì¤Æ¤­¤¿¤È¤­¡¢¤½¤ì¤ËÈ¿±þ¤·¤Æ¸½ºß»þ¹ï¤òÁ÷¤ê¤Þ¤¹¡£
+CTCP TIMEãŒé€ã‚‰ã‚Œã¦ããŸã¨ãã€ãã‚Œã«åå¿œã—ã¦ç¾åœ¨æ™‚åˆ»ã‚’é€ã‚Šã¾ã™ã€‚
 
-=head1 ¥×¥í¥Ñ¥Æ¥£
+=head1 ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£
 
 =over 4
 
 =back
 
-=head1 ÀßÄêÎã
+=head1 è¨­å®šä¾‹
 
     + ctcp/time.plm
 

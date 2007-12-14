@@ -157,23 +157,23 @@ sub ss_375 {
 
 __END__
 
-=head1 Ì¾Á°
+=head1 åå‰
 
-server/info.plm - ¥¯¥é¥¤¥¢¥ó¥È¤ÎÀÜÂ³»þ¤Ë¥µ¡¼¥Ð¾ðÊó¤òÁ÷¤ë
+server/info.plm - ã‚¯ãƒ©ã‚¤ã‚¢ãƒ³ãƒˆã®æŽ¥ç¶šæ™‚ã«ã‚µãƒ¼ãƒæƒ…å ±ã‚’é€ã‚‹
 
-=head1 ÀâÌÀ
+=head1 èª¬æ˜Ž
 
-¥¯¥é¥¤¥¢¥ó¥È¤òÀÜÂ³¤·¤¿¤È¤­¤Ë¡¢¸½ºßÀÜÂ³¤·¤Æ¤¤¤ë¥µ¡¼¥Ð¤Î¾ðÊó¤òÁ÷¤ê¤Þ¤¹¡£
-¤³¤ì¤é¤Î¾ðÊó¤Ïplum¤¬¥µ¡¼¥Ð¤ËÀÜÂ³¤·¤¿»þ¤ä¡¢
-¥æ¡¼¥¶¤¬ÌÀ¼¨Åª¤Ë¿·¤·¤¤¾ðÊó¤òÌä¤¤¹ç¤ï¤»¤¿¤È¤­¤Ë¹¹¿·¤µ¤ì¤Þ¤¹¡£
+ã‚¯ãƒ©ã‚¤ã‚¢ãƒ³ãƒˆã‚’æŽ¥ç¶šã—ãŸã¨ãã«ã€ç¾åœ¨æŽ¥ç¶šã—ã¦ã„ã‚‹ã‚µãƒ¼ãƒã®æƒ…å ±ã‚’é€ã‚Šã¾ã™ã€‚
+ã“ã‚Œã‚‰ã®æƒ…å ±ã¯plumãŒã‚µãƒ¼ãƒã«æŽ¥ç¶šã—ãŸæ™‚ã‚„ã€
+ãƒ¦ãƒ¼ã‚¶ãŒæ˜Žç¤ºçš„ã«æ–°ã—ã„æƒ…å ±ã‚’å•ã„åˆã‚ã›ãŸã¨ãã«æ›´æ–°ã•ã‚Œã¾ã™ã€‚
 
-=head1 ¥×¥í¥Ñ¥Æ¥£
+=head1 ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£
 
 =over 4
 
 =back
 
-=head1 ÀßÄêÎã
+=head1 è¨­å®šä¾‹
 
     + server/info.plm
 

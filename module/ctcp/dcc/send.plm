@@ -151,26 +151,26 @@ sub dcc_send {
 
 __END__
 
-=head1 ̾��
+=head1 名前
 
-ctcp/dcc/send.plm - DCC SEND�ǥե��������������
+ctcp/dcc/send.plm - DCC SENDでファイルを送信する
 
-=head1 ����
+=head1 説明
 
-���Υ⥸�塼��������ȡ�SEND�Ȥ������ޥ�ɤ��Ȥ���褦�ˤʤꡢ
-���Υ��ޥ�ɤ�Ȥä�DCC�ǥե�������������뤳�Ȥ��Ǥ���褦�ˤʤ�ޤ���
-SEND���ޥ�ɤΥѥ�᡼���ϥ˥å��͡���ȥե�����̾�ǡ�
-�ʲ��Τ褦�˻��Ѥ��ޤ���
+このモジュールを入れると、SENDというコマンドが使えるようになり、
+このコマンドを使ってDCCでファイルを送信することができるようになります。
+SENDコマンドのパラメータはニックネームとファイル名で、
+以下のように使用します。
 
     /SEND nick filename
 
-=head1 �ץ��ѥƥ�
+=head1 プロパティ
 
 =over 4
 
 =back
 
-=head1 ������
+=head1 設定例
 
     + ctcp/dcc/send.plm
 

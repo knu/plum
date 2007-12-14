@@ -21,21 +21,21 @@ sub initialize {
 
 __END__
 
-=head1 ̾��
+=head1 名前
 
-log/error.plm - ���顼������Ȥ�����¸����
+log/error.plm - エラーをログとして保存する
 
-=head1 ����
+=head1 説明
 
-ɸ����Ϥȥ��顼���Ϥ��logerror�פȤ����ե��������¸���ޤ���
+標準出力とエラー出力を「logerror」というファイルに保存します。
 
-=head1 �ץ��ѥƥ�
+=head1 プロパティ
 
 =over 4
 
 =back
 
-=head1 ������
+=head1 設定例
 
     + log/error.plm
 

@@ -306,7 +306,7 @@ sub channellog {
   $header = &'property($userno, 'header');
   $header = $HEADER unless defined($header);
   $header = &'date($header);
-  $msg = &euc_code($msg, $code) if $code;
+  $msg = &'utf8_code($msg, $code) if $code;
   if (!-e $name) {
     if (open(FILE, ">$name")) {
       close(FILE);
@@ -336,85 +336,71 @@ sub filename {
   return (&'expand($name), $code);
 }
 
-sub euc_code {
-  local($line, $list) = @_;
-  local($code);
-  $code = (split(/\,/, "\L$list\E"))[0];
-  if ($code eq 'euc') {
-    $line = &'euc_euc($line);
-  } elsif ($code eq 'jis') {
-    $line = &'euc_jis($line);
-  } elsif ($code eq 'sjis') {
-    $line = &'euc_sjis($line);
-  }
-  return $line;
-}
-
 __END__
 
-=head1 ̾��
+=head1 名前
 
-log/channel.plm - ��å�����������ͥ뤴�ȤΥ����Ȥ�����¸����
+log/channel.plm - メッセージをチャンネルごとのログとして保存する
 
-=head1 ����
+=head1 説明
 
-�����ͥ뤴�Ȥ˥ե��������ꤷ�ƥ�������¸���ޤ���
+チャンネルごとにファイルを指定してログを保存します。
 
-=head1 �ץ��ѥƥ�
+=head1 プロパティ
 
 =over 4
 
-=item log.channel.directory �ǥ��쥯�ȥ�
+=item log.channel.directory ディレクトリ
 
-�������������ǥ��쥯�ȥ����ꤷ�ޤ���
-�ǥ��쥯�ȥ��plum��¹Ԥ����ǥ��쥯�ȥ꤫������Хѥ��ˤʤ�ޤ���
-UNIX�ʤ��~/�פ��~user�פȤ��������Ǥ��ޤ���
+ログを作成するディレクトリを指定します。
+ディレクトリはplumを実行したディレクトリからの相対パスになります。
+UNIXなら「~/」や「~user」という指定もできます。
 
-=item log.channel.file* �ե�����̾[;({jis|euc|sjis})] [(�����ͥ�)]
+=item log.channel.file* ファイル名[;({jis|euc|sjis|utf8})] [(チャンネル)]
 
-�����Υե�����̾����¸��������ͥ����ꤷ�ޤ���
-%�ǤϤ��ޤ�ʸ����������б��������դ��Ѵ�����ޤ���
-�ޤ������ͥ�̾���Ѥ���*����ꤹ�뤳�ȤǼ�ʬ����
-��å��������������¸���뤳�Ȥ��Ǥ��ޤ���
-Ʊ�������ͥ뤬ʣ���Υե�����˻��ꤵ��Ƥ����Ȥ��ϡ�
-�ǽ�˽񤤤��ե�����ˤ�����¸���������ͥ�̾���ά����ȡ�
-�Ĥ�Τ��٤ƤΥ��������Υե��������¸����ޤ���
+ログのファイル名と保存するチャンネルを指定します。
+%ではじまる文字があると対応する日付に変換されます。
+またチャンネル名の変わりに*を指定することで自分宛の
+メッセージをログに保存することができます。
+同じチャンネルが複数のファイルに指定されていたときは、
+最初に書いたファイルにだけ保存し、チャンネル名を省略すると、
+残りのすべてのログがそのファイルに保存されます。
 
-=item log.channel.header �إå�
+=item log.channel.header へッダ
 
-�����˽��Ϥ������Υե����ޥåȤ���ꤷ�ޤ���
-%�ǤϤ��ޤ�ʸ����������б�������֤��Ѵ�����ޤ���
+ログに出力する時刻のフォーマットを指定します。
+%ではじまる文字があると対応する時間に変換されます。
 
-=item log.channel.mode �ե�����⡼��
+=item log.channel.mode ファイルモード
 
-�����Υե�����⡼�ɤ򤳤��ǻ��ꤷ���ͤˤ��ޤ���
+ログのファイルモードをここで指定した値にします。
 
 =item log.channel.command ({invite|join|kick|mode|nick|notice|part|privmsg|quit|topic})
 
-��¸�����å������μ������ꤷ�ޤ���
-�ǥե���ȤǤϡ�notice�װʳ��Τ��٤ƤǤ���
+保存するメッセージの種類を指定します。
+デフォルトでは「notice」以外のすべてです。
 
 =back
 
-=head1 ������
+=head1 設定例
 
     + log/channel.plm
     log.channel.directory: log
-    log.channel.file: log%-8O%m%d;sjis #�ޤɤ�,#�ޤɤ�:*.jp
+    log.channel.file: log%-8O%m%d;sjis #まどか,#まどか:*.jp
 
-��#�ޤɤ��פȡ�#�ޤɤ�:*.jp�פΥ������log/log%m%d�פ���¸���ޤ���
-����ʳ��Υ����ͥ�Υ�������¸���ޤ���
-���ΤȤ��δ��������ɤ�sjis�Ǥ���
-�ޤ��������Υե�����̾������8���ˤ����������դΤ�Τ��Ѥ��ޤ���
+「#まどか」と「#まどか:*.jp」のログを「log/log%m%d」に保存します。
+それ以外のチャンネルのログは保存しません。
+このときの漢字コードはsjisです。
+また、ログのファイル名は毎日8時にその日の日付のものに変わります。
 
     + log/channel.plm
-    log.channel.file: madoka/%m%d #�ޤɤ�,*
+    log.channel.file: madoka/%m%d #まどか,*
     log.channel.file: log%m%d
     log.channel.command: privmsg,notice,topic
 
-��#�ޤɤ��פΥ����ȼ�ʬ���Υ�å��������madoka/log%m%d�פ���¸����
-����ʳ��Υ������log%m%d�פ���¸���ޤ���
-��%m�פȡ�%d�פϤ��줾�츽�ߤη�������Ѵ�����ޤ���
-�ޤ�����privmsg�ס���notice�ס���topic�װʳ��Υ�������¸���ޤ���
+「#まどか」のログと自分宛のメッセージを「madoka/log%m%d」に保存し、
+それ以外のログを「log%m%d」に保存します。
+「%m」と「%d」はそれぞれ現在の月と日に変換されます。
+また、「privmsg」、「notice」、「topic」以外のログは保存しません。
 
 =cut

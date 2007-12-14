@@ -54,39 +54,39 @@ sub check_mask {
 
 __END__
 
-=head1 ̾��
+=head1 名前
 
-ctcp/part.plm - CTCP PART��ȿ�����ƥ����ͥ��ȴ����
+ctcp/part.plm - CTCP PARTに反応してチャンネルを抜ける
 
-=head1 ����
+=head1 説明
 
-CTCP PART�������Ƥ����Ȥ���
-�����ȿ�����ƻ��ꤵ�줿�����ͥ��ȴ���ޤ���
+CTCP PARTが送られてきたとき、
+それに反応して指定されたチャンネルを抜けます。
 
-=head1 �ץ��ѥƥ�
+=head1 プロパティ
 
 =over 4
 
-=item ctcp.part.mask* �桼���ޥ��� [(�����ͥ�̾)]
+=item ctcp.part.mask* ユーザマスク [(チャンネル名)]
 
-CTCP PART�������Ƥ����Ȥ�������礪��ӥ����ͥ뤬
-�����ǻ��ꤵ�줿��Τ˥ޥå������顢���Υ����ͥ��ȴ���ޤ���
+CTCP PARTが送られてきたとき、送り主およびチャンネルが
+ここで指定されたものにマッチしたら、そのチャンネルを抜けます。
 
 =back
 
-=head1 ������
+=head1 設定例
 
     + ctcp/part.plm
-    ctcp.part.mask: *!*@* #�ޤɤ�
+    ctcp.part.mask: *!*@* #まどか
 
 
-��#�ޤɤ��פ�ȴ����褦��CTCP PART�������Ƥ�����硢
-��#�ޤɤ��פ���ȴ���ޤ���
+「#まどか」を抜けるようにCTCP PARTが送られてきた場合、
+「#まどか」から抜けます。
 
     + ctcp/part.plm
     ctcp.part.mask: *!*@*.jp
 
-CTCP PART�������Ƥ����Ȥ�����������ä��ͤ���*!*@*.jp�פ�
-�ޥå������顢���Υ����ͥ��ȴ���ޤ���
+CTCP PARTが送られてきたとき、それを送った人が「*!*@*.jp」に
+マッチしたら、そのチャンネルを抜けます。
 
 =cut

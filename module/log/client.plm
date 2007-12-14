@@ -30,7 +30,7 @@ sub writelog {
   $header = &'property($userno, 'header');
   $header = $HEADER unless defined($header);
   $header = &'date($header);
-  $line = &euc_code($line, $code) if $code;
+  $line = &'utf8_code($line, $code) if $code;
   if (!-e $name) {
     if (open(FILE, ">$name")) {
       close(FILE);
@@ -60,62 +60,48 @@ sub filename {
   return (&'expand($name), $code);
 }
 
-sub euc_code {
-  local($line, $list) = @_;
-  local($code);
-  $code = (split(/\,/, "\L$list\E"))[0];
-  if ($code eq 'euc') {
-    $line = &'euc_euc($line);
-  } elsif ($code eq 'jis') {
-    $line = &'euc_jis($line);
-  } elsif ($code eq 'sjis') {
-    $line = &'euc_sjis($line);
-  }
-  return $line;
-}
-
 __END__
 
-=head1 ̾��
+=head1 名前
 
-log/client.plm - ���饤����Ȥ�������Ϥ�����Ȥ�����¸����
+log/client.plm - クライアントからの入力をログとして保存する
 
-=head1 ����
+=head1 説明
 
-���饤����Ȥ������Ϥ򤹤٤ƥ�������¸���ޤ���
+クライアントから入力をすべてログに保存します。
 
-=head1 �ץ��ѥƥ�
+=head1 プロパティ
 
 =over 4
 
-=item log.client.directory �ǥ��쥯�ȥ�
+=item log.client.directory ディレクトリ
 
-��������¸����ǥ��쥯�ȥ����ꤷ�ޤ���
-�ǥե���ȤǤϥ����ȥǥ��쥯�ȥ����¸���ޤ���
+ログを保存するディレクトリを指定します。
+デフォルトではカレントディレクトリに保存します。
 
-=item log.client.file �ե�����̾
+=item log.client.file ファイル名
 
-�����Υե�����̾����ꤷ�ޤ���
-%�ǤϤ��ޤ�ʸ��������ȡ��б��������դ��Ѵ�����ޤ���
-�ǥե���ȤǤϡ�logclient�פȤ����ե��������¸���ޤ���
+ログのファイル名を指定します。
+%ではじまる文字があると、対応する日付に変換されます。
+デフォルトでは「logclient」というファイルに保存します。
 
-=item log.client.header �إå�
+=item log.client.header へッダ
 
-�����˽��Ϥ������Υե����ޥåȤ���ꤷ�ޤ���
-%�ǤϤ��ޤ�ʸ��������ȡ��б�������֤��Ѵ�����ޤ���
+ログに出力する時刻のフォーマットを指定します。
+%ではじまる文字があると、対応する時間に変換されます。
 
-=item log.client.mode �ե�����⡼��
+=item log.client.mode ファイルモード
 
-�����Υե�����⡼�ɤ���ꤷ�ޤ���
+ログのファイルモードを指定します。
 
 =back
 
-=head1 ������
+=head1 設定例
 
     + log/client.plm
     log.client.file: client%m%d
 
-���饤����Ȥ�������Ϥ��client%m%d�פ���¸���ޤ���
-��%m�פȡ�%d�פϤ��줾�츽�ߤη�������Ѵ�����ޤ���
+クライアントからの入力を「client%m%d」に保存します。
+「%m」と「%d」はそれぞれ現在の月と日に変換されます。
 
 =cut

@@ -122,7 +122,7 @@ sub read_file {
           $line =~ tr/\r\n//d;
           next unless $line;
           $line =~ s/\s+$//;
-          $line = &code_euc($line, $code) if $code;
+          $line = &'code_utf8($line, $code) if $code;
           push(@data, $line);
         }
         close(TMP);
@@ -151,74 +151,60 @@ sub filename {
   return (&'expand($name), $code);
 }
 
-sub code_euc {
-  local($line, $list) = @_;
-  foreach $code (split(/\,/, "\L$list\E")) {
-    if ($code eq 'euc') {
-      $line = &'euc_euc($line);
-    } elsif ($code eq 'jis') {
-      $line = &'jis_euc($line);
-    } elsif ($code eq 'sjis') {
-      $line = &'sjis_euc($line);
-    }
-  }
-  return $line;
-}
-
 __END__
 
-=head1 ̾��
+=head1 名前
 
-auto/answer.plm - �����ȯ����ȿ�������б�����ȯ���򤹤�
+auto/answer.plm - 特定の発言に反応して対応する発言をする
 
-=head1 ����
+=head1 説明
 
-�����ʸ����ȯ�������ȡ�������б�����ʸ�����ȯ�����ޤ���
-���٤Ƥ�ȯ����ȿ�����뤿�ᡢƱ��ȯ�����٤ⷫ���֤���ǽ����
-����Τ����դ��Ʋ�������
+特定の文字列が発言されると、それに対応する文字列を発言します。
+すべての発言に反応するため、同じ発言を何度も繰り返す可能性が
+あるので注意して下さい。
 
-=head1 �ץ��ѥƥ�
+=head1 プロパティ
 
 =over 4
 
-=item auto.answer.alias �ե�����̾[;({jis|euc|sjis})]
+=item auto.answer.alias ファイル名[;({jis|euc|sjis|utf8})]
 
-�桼��̾�Υ����ꥢ�����������ե��������ꤷ�ޤ���
-���Υե������auto/alias.plm�ǻȤ���Τ�Ʊ����ΤǤ���
-�ե�����ϻ��ꤷ�����������ɤ���¸����Ƥ���ɬ�פ�����ޤ���
+ユーザ名のエイリアスを定義するファイルを指定します。
+このファイルはauto/alias.plmで使うものと同じものです。
+ファイルは指定した漢字コードで保存されている必要があります。
 
-=item auto.answer.reply* ʸ���� �ե����ޥå�
+=item auto.answer.reply* 文字列 フォーマット
 
-ȿ������ȯ���ȡ�������Ф����ֻ�����ꤷ�ޤ���ȿ������ȯ���ˤ�
-�����ޤ�뤳�ȤϤǤ��ޤ����ֻ���#(nick)�Τ褦�˽񤯤��Ȥǡ�
-�����ꥢ�����б�����ǡ������֤������뤳�Ȥ��Ǥ��ޤ���
-�ޤ��������ꥢ���ʳ��ˤ�#(nick.now)�Ǹ��ߤΥ˥å��͡���ˡ�
-#(channel)��ȯ���Τ��ä������ͥ�̾���ִ����ޤ���
-�ޤ����������|�פǶ��ڤä�ʣ�����ꤷ����硢
-�ǽ���������Ƥ����ͤ��֤������ޤ���
+反応する発言と、それに対する返事を指定します。反応する発言には
+空白を含めることはできません。返事に#(nick)のように書くことで、
+エイリアスの対応するデータで置き換えることができます。
+また、エイリアス以外にも#(nick.now)で現在のニックネームに、
+#(channel)で発言のあったチャンネル名に置換します。
+また、括弧内を「|」で区切って複数指定した場合、
+最初に定義されている値で置き換えます。
 
 =back
 
-=head1 ������
+=head1 設定例
 
     + auto/answer.plm
     auto.answer.alias: alias.txt
-    auto.answer.reply: ����ˤ��� ����ˤ��ϡ���
-    auto.answer.reply: ����Ф�� #(name|nick|nick.now)���󡢤���Ф�ϡ���
+    auto.answer.reply: こんにちは こんにちは〜☆
+    auto.answer.reply: こんばんは #(name|nick|nick.now)さん、こんばんは〜☆
 
-�֤���ˤ��ϡפȤ���ȯ�������ä��Ȥ��ˡ֤���ˤ��ϡ����פ�ȯ�����ޤ���
-�ޤ����֤���Ф�ϡפȤ���ȯ�������ä��Ȥ��ˡ�
-ȯ�������ͤΥ����ꥢ�����alias.txt�פ��黲�Ȥ��ơ�
-�㤨�С֤פ�व�󡢤���Ф������פΤ褦��ȯ�����ޤ���
+「こんにちは」という発言があったときに「こんにちは〜☆」と発言します。
+また、「こんばんは」という発言があったときに、
+発言した人のエイリアスを「alias.txt」から参照して、
+例えば「ぷらむさん、こんばんわ〜☆」のように発言します。
 
     + auto/answer.plm
-    auto.answer.reply: �ؤ�� ������ǽ�Ⱦ���ǽ�Υإ�פǤ�
-    auto.answer.reply: �ؤ�� �Ǥ󤴤� nick message : nick���˥�å��������Ϥ��ޤ�
-    auto.answer.reply: �ؤ�� ���ŤĤ� nick message : nick���˥ե�������Ϥ��ޤ�
-    auto.answer.reply: ���ŤĤߤؤ�� DCC�����äƤ��鰸��򶵤��Ʋ�������
+    auto.answer.reply: へるぷ 伝言機能と小包機能のヘルプです
+    auto.answer.reply: へるぷ でんごん nick message : nick宛にメッセージを届けます
+    auto.answer.reply: へるぷ こづつみ nick message : nick宛にファイルを届けます
+    auto.answer.reply: こづつみへるぷ DCCを送ってから宛先を教えて下さいね
 
-�֤ؤ�ספ�ȯ������ȡ�3�Ԥˤ錄��إ�ץ�å�������ȯ�����ޤ���
-�ޤ����֤��ŤĤߤؤ�ספ�ȯ������ȡ�
-��DCC��������äƤ��鰸��򶵤��Ʋ������͡פ�ȯ�����ޤ���
+「へるぷ」と発言すると、3行にわたるヘルプメッセージを発言します。
+また、「こづつみへるぷ」と発言すると、
+「DCCを先に送ってから宛先を教えて下さいね」と発言します。
 
 =cut

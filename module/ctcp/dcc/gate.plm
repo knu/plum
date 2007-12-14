@@ -399,34 +399,34 @@ sub check_mask {
 
 __END__
 
-=head1 ̾��
+=head1 名前
 
-ctcp/dcc/gate.plm - CTCP DCC SEND��ȿ������ž������Ѥ�Ԥ�
+ctcp/dcc/gate.plm - CTCP DCC SENDに反応して転送の中継を行う
 
-=head1 ����
+=head1 説明
 
-CTCP DCC SNED�������Ƥ����Ȥ������긵�ȥ��饤����Ȥδ֤�
-�ե����������������Ѥ�Ԥ��ޤ���
+CTCP DCC SNEDが送られてきたとき、送り元とクライアントの間の
+ファイルの送受信の中継を行います。
 
-=head1 �ץ��ѥƥ�
+=head1 プロパティ
 
 =over 4
 
-=item ctcp.dcc.gate.mask* �桼���ޥ��� [(�����ͥ�̾)]
+=item ctcp.dcc.gate.mask* ユーザマスク [(チャンネル名)]
 
-�ե�������������Ƥ����ͤ������ǻ��ꤵ�줿��Τ˥ޥå������顢
-�ե������ž������Ѥ��ޤ���
+ファイルを送信してきた人がここで指定されたものにマッチしたら、
+ファイルの転送を中継します。
 
-=item ctcp.dcc.gate.known �桼������ (�˥å��͡���)
+=item ctcp.dcc.gate.known ユーザ情報 (ニックネーム)
 
-DCC���������Υ桼�����󤬤狼��ʤ�����ˡ�ž����
-��Ѥ��Ƥ������ɤ���Ƚ�ǤǤ��ʤ��Ȥ��������ǻ���桼�������
-���Ȥ���Ƚ�Ǥ��ޤ��������Ǥ�Ƚ�ǤǤ��ʤ��ä���������˼�ʬ��
-�桼������򻲾Ȥ��ޤ���
+DCCを送る相手のユーザ情報がわからないために、転送を
+中継していいかどうか判断できないとき、ここで指定ユーザ情報を
+参照して判断します。ここでも判断できなかった場合は代わりに自分の
+ユーザ情報を参照します。
 
 =back
 
-=head1 ������
+=head1 設定例
 
     + ctcp/dcc/gate.plm
     ctcp.dcc.gate.mask: -*!*@*.nagoya-u.ac.jp
@@ -434,12 +434,12 @@ DCC���������Υ桼�����󤬤狼��ʤ�����ˡ�ž����
     ctcp.dcc.gate.known: plum!plum@agusa.nuie.nagoya-u.ac.jp plum,plum_d
     ctcp.dcc.gate.known: unknown!unknown@unknown.jp
 
-�ե���������äƤ����͡��⤷�����������Ȥ����ͤ�
-��*!*@*.nagoya-u.ac.jp�פ˥ޥå����ʤ���С�ž������Ѥ�Ԥ��ޤ���
-�ޤ����ե�������������Ȥ����ͤΥ桼�����󤬤狼��ʤ��Ȥ���
-���οͤΥ˥å��͡��ब��plum�פ���plum_d�פʤ�С��桼������Ȥ��ơ�
-��plum!plum@agusa.nuie.nagoya-u.ac.jp�פ���Ѥ��ޤ���
-����ʳ��Υ˥å��͡���οͤ��Ф��Ƥϡ�unknown!unknown@unknown.jp�פ�
-���Ѥ��ޤ���
+ファイルを送ってきた人、もしくは送ろうとした人が
+「*!*@*.nagoya-u.ac.jp」にマッチしなければ、転送の中継を行います。
+また、ファイルを送ろうとした人のユーザ情報がわからないとき、
+その人のニックネームが「plum」か「plum_d」ならば、ユーザ情報として、
+「plum!plum@agusa.nuie.nagoya-u.ac.jp」を使用します。
+それ以外のニックネームの人に対しては「unknown!unknown@unknown.jp」を
+使用します。
 
 =cut

@@ -75,33 +75,33 @@ sub check_mask {
 
 __END__
 
-=head1 ̾��
+=head1 名前
 
-channel/join/kick.plm - �����ͥ뤫�饭�å�����Ƥ�����ľ��
+channel/join/kick.plm - チャンネルからキックされても入り直す
 
-=head1 ����
+=head1 説明
 
-�����ͥ뤫�饭�å����줿�Ȥ��ˡ��ƤӤ��Υ����ͥ������ޤ���
+チャンネルからキックされたときに、再びそのチャンネルに入ります。
 
-=head1 �ץ��ѥƥ�
+=head1 プロパティ
 
 =over 4
 
-=item channel.join.kick.mask* �桼���ޥ��� [(�����ͥ�̾)]
+=item channel.join.kick.mask* ユーザマスク [(チャンネル名)]
 
-���å������ͤ������ǻ��ꤷ����Τ˥ޥå������顢
-���å����줿�����ͥ�˺Ƥ�����ޤ���
+キックした人がここで指定したものにマッチしたら、
+キックされたチャンネルに再び入ります。
 
 =back
 
-=head1 ������
+=head1 設定例
 
     + channel/join/kick.plm
-    channel.join.kick.mask: -*!*@* #�ޤɤ�:*.jp
+    channel.join.kick.mask: -*!*@* #まどか:*.jp
     channel.join.kick.mask: *!*@*
 
-��#�ޤɤ�:*.jp�פ��饭�å����줿�Ȥ��ϲ��⤷�ޤ��󤬡�
-����ʳ��Υ����ͥ뤫�饭�å����줿�Ȥ��Ϥ��Υ����ͥ��
-�Ƥ�����ޤ���
+「#まどか:*.jp」からキックされたときは何もしませんが、
+それ以外のチャンネルからキックされたときはそのチャンネルに
+再び入ります。
 
 =cut

@@ -36,37 +36,37 @@ sub cpss_dcc {
 
 __END__
 
-=head1 ̾��
+=head1 名前
 
-ctcp/dcc/forward.plm - CTCP DCC����ꤷ���桼����ž������
+ctcp/dcc/forward.plm - CTCP DCCを指定したユーザに転送する
 
-=head1 ����
+=head1 説明
 
-CTCP DCC�������Ƥ����Ȥ����������ꤷ���桼����ž�����ޤ���
-������ž������Ȥ�������礬�Ѥ�뤿�ᡢž�����줿CTCP DCC��
-����󥻥뤹�뤳�ȤϤǤ��ޤ���
+CTCP DCCが送られてきたとき、それを指定したユーザに転送します。
+ただし転送するときに送り主が変わるため、転送されたCTCP DCCを
+キャンセルすることはできません。
 
-=head1 �ץ��ѥƥ�
+=head1 プロパティ
 
 =over 4
 
-=item ctcp.dcc.forward.nick* (�˥å��͡���)
+=item ctcp.dcc.forward.nick* (ニックネーム)
 
-CTCP DCC��ž������˥å��͡��ࡣ��������֤˸��Ƥ�����
-Ʊ�������ͥ�˻��ꤷ���˥å��͡���Υ桼��������С�
-���Υ桼����ž�����ޤ������ꤷ���˥å��͡���Υ桼����
-���ʤ����ž���ϹԤ��ޤ���
+CTCP DCCを転送するニックネーム。前から順番に見ていき、
+同じチャンネルに指定したニックネームのユーザがいれば、
+そのユーザに転送します。指定したニックネームのユーザが
+いなければ転送は行いません。
 
 =back
 
-=head1 ������
+=head1 設定例
 
     + ctcp/dcc/forward.plm
     ctcp.dcc.forward.nick: pupu_j,pupu_d
     ctcp.dcc.forward.nick: pupu_ppp
 
-CTCP DCC�������Ƥ����Ȥ��ˡ�pupu_j��pupu_d��pupu_ppp��
-�ɤ줫�Υ˥å��͡���Υ桼��������С����Υ桼����CTCP DC
-C��ž�����ޤ���
+CTCP DCCが送られてきたときに、pupu_j、pupu_d、pupu_pppの
+どれかのニックネームのユーザがいれば、そのユーザにCTCP DC
+Cを転送します。
 
 =cut

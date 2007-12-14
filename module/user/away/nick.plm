@@ -35,40 +35,40 @@ sub getaway {
 
 __END__
 
-=head1 ̾��
+=head1 名前
 
-user/away/nick.plm - �˥å��͡�����ѹ�����Ȥ�����б�����AWAY�����ꤹ��
+user/away/nick.plm - ニックネームを変更するとそれに対応するAWAYを設定する
 
-=head1 ����
+=head1 説明
 
-�˥å��͡�����ѹ������Ȥ��ˡ����Υ˥å��͡�����б�����AWAY��
-���ꤵ��Ƥ���С�����AWAY�����ꤷ�ޤ���
-�����Ǥʤ����AWAY����ä��ޤ���
+ニックネームを変更したときに、そのニックネームに対応するAWAYが
+指定されていれば、そのAWAYを設定します。
+そうでなければAWAYを取り消します。
 
-=head1 �ץ��ѥƥ�
+=head1 プロパティ
 
 =over 4
 
-=item user.away.nick.set* (�˥å��͡���) ��å�����
+=item user.away.nick.set* (ニックネーム) メッセージ
 
-�˥å��͡�����б�����AWAY����ꤷ�ޤ���
-�˥å��͡�����ѹ������Ȥ��ˡ�
-���Υ˥å��͡��ब�����ǻ��ꤵ�줿��Τʤ顢
-�б�����AWAY�����ꤷ�ޤ���
-�˥å��͡��ब���ꤵ��Ƥ��ʤ����AWAY����ä��ޤ���
+ニックネームと対応するAWAYを指定します。
+ニックネームを変更したときに、
+そのニックネームがここで指定されたものなら、
+対応するAWAYを設定します。
+ニックネームが指定されていなければAWAYを取り消します。
 
 =back
 
-=head1 ������
+=head1 設定例
 
     + user/away/nick.plm
-    user.away.nick.set: pupu_Zzz �ͤƤޤ�
-    user.away.nick.set: pupu_work,pupu_job �Ż���Ǥ�
+    user.away.nick.set: pupu_Zzz ねてます
+    user.away.nick.set: pupu_work,pupu_job 仕事中です
 
-�˥å��͡�����pupu_Zzz�פ��ѹ�����ȡ�
-�֤ͤƤޤ��פȤ���AWAY�����ꤷ�ޤ���
-�ޤ��˥å��͡�����pupu_work�פ���pupu_job�פ��ѹ�����ȡ�
-�ֻŻ���Ǥ��פȤ���AWAY�����ꤷ�ޤ���
-����ʳ��Υ˥å��͡�����ѹ���������AWAY����ä��ޤ���
+ニックネームを「pupu_Zzz」に変更すると、
+「ねてます」というAWAYを設定します。
+またニックネームを「pupu_work」か「pupu_job」に変更すると、
+「仕事中です」というAWAYを設定します。
+それ以外のニックネームに変更した場合はAWAYを取り消します。
 
 =cut

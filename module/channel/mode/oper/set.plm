@@ -188,51 +188,51 @@ sub check_mask {
 
 __END__
 
-=head1 ̾��
+=head1 名前
 
-channel/mode/oper/set.plm - ����οͤ�����ͥ륪�ڥ졼���ˤ���
+channel/mode/oper/set.plm - 特定の人をチャンネルオペレータにする
 
-=head1 ����
+=head1 説明
 
-�����ͥ�����äƤ����ͤ����ꤵ�줿�ͤʤ顢
-���οͤ�����ͥ륪�ڥ졼���ˤ��ޤ���
-�ºݤˤϥ����ͥ�����äƤ����Ȥ��ˤ����˥����ͥ륪�ڥ졼��
-�ˤ���櫓�ǤϤʤ�����������ԤäƤ�������ͥ륪�ڥ졼���ˤ��ޤ���
+チャンネルに入ってきた人が指定された人なら、
+その人をチャンネルオペレータにします。
+実際にはチャンネルに入ってきたときにすぐにチャンネルオペレータ
+にするわけではなく、一定時間待ってからチャンネルオペレータにします。
 
-=head1 �ץ��ѥƥ�
+=head1 プロパティ
 
 =over 4
 
-=item channel.mode.oper.set.delay �Ԥ�����
+=item channel.mode.oper.set.delay 待ち時間
 
-�����ͥ륪�ڥ졼���ˤ���ޤǤ��Ԥ����֤Ǥ���
-ï���������ͥ�����äƤ���ȡ�
-�����ǻ��ꤵ�줿�ο����������ǥ�����Ȥ���
-���θ�Ǥ��οͤ�����ͥ륪�ڥ졼���ˤ��ޤ���
-�ǥե���ȤǤ�20�ȤʤäƤ��ޤ���
+チャンネルオペレータにするまでの待ち時間です。
+誰かがチャンネルに入ってくると、
+ここで指定されたの数だけ内部でカウントし、
+その後でその人をチャンネルオペレータにします。
+デフォルトでは20となっています。
 
-=item channel.mode.oper.set.mask* �桼���ޥ��� [(�����ͥ�̾)]
+=item channel.mode.oper.set.mask* ユーザマスク [(チャンネル名)]
 
-�����ͥ�����äƤ����ͤ������ǻ��ꤷ����Τ˥ޥå������顢
-���οͤ�����ͥ륪�ڥ졼���ˤ��ޤ���
+チャンネルに入ってきた人がここで指定したものにマッチしたら、
+その人をチャンネルオペレータにします。
 
 =back
 
-=head1 ������
+=head1 設定例
 
     + channel/mode/oper/set.plm
     channel.mode.oper.set.mask: +pupu_j!*@*
     channel.mode.oper.set.mask: +pupu_d!*@*
 
-�����ͥ�����äƤ����ͤ���pupu_j!*@*�פ���pupu_d!*@*�פ�
-�ޥå�������硢���οͤ�����ͥ륪�ڥ졼���ˤ��ޤ���
+チャンネルに入ってきた人が「pupu_j!*@*」か「pupu_d!*@*」に
+マッチした場合、その人をチャンネルオペレータにします。
 
     + channel/mode/oper/set.plm
     channel.mode.oper.set.delay: 0
     channel.mode.oper.set.mask: -*!*@*.com
-    channel.mode.oper.set.mask: +*!*@* %�ޤɤ�,#�פ��
+    channel.mode.oper.set.mask: +*!*@* %まどか,#ぷらむ
 
-��%�ޤɤ��פ���#�פ��פ����äƤ����ͤ���*!*@*.com�פ˥ޥå�
-���ʤ���С����οͤ򤹤��˥����ͥ륪�ڥ졼���ˤ��ޤ���
+「%まどか」か「#ぷらむ」に入ってきた人が「*!*@*.com」にマッチ
+しなければ、その人をすぐにチャンネルオペレータにします。
 
 =cut

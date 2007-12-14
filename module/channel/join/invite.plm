@@ -48,49 +48,49 @@ sub check_mask {
 
 __END__
 
-=head1 ̾��
+=head1 名前
 
-channel/join/invite.plm - ���Ԥ��줿�����ͥ������
+channel/join/invite.plm - 招待されたチャンネルに入る
 
-=head1 ����
+=head1 説明
 
-�����ͥ�˾��Ԥ��줿�Ȥ��ˡ����Υ����ͥ������ޤ���
+チャンネルに招待されたときに、そのチャンネルに入ります。
 
-=head1 �ץ��ѥƥ�
+=head1 プロパティ
 
 =over 4
 
-=item channel.join.invite.mask* �桼���ޥ��� [(�����ͥ�̾)]
+=item channel.join.invite.mask* ユーザマスク [(チャンネル名)]
 
-���Ԥ����͡�����ӥ����ͥ뤬�����ǻ��ꤵ�줿
-��Τ˥ޥå�������硢���Υ����ͥ������ޤ���
+招待した人、およびチャンネルがここで指定された
+ものにマッチした場合、そのチャンネルに入ります。
 
 =back
 
-=head1 ������
+=head1 設定例
 
     + channel/join/invite.plm
-    channel.join.invite.mask: *!*@* #�ޤɤ�:*.jp
-    channel.join.invite.mask: *!*@* #�פ��
+    channel.join.invite.mask: *!*@* #まどか:*.jp
+    channel.join.invite.mask: *!*@* #ぷらむ
 
-���Ԥ��줿�����ͥ뤬��#�ޤɤ�:*.jp�פ���#�פ��פ��ä����ˡ�
-���Υ����ͥ������ޤ���
+招待されたチャンネルが「#まどか:*.jp」か「#ぷらむ」だった場合に、
+そのチャンネルに入ります。
 
     + channel/join/invite.plm
     channel.join.invite.mask: pupu_j!*@*.jp
-    channel.join.invite.mask: pupu_d!*@*.jp %�ޤɤ�
+    channel.join.invite.mask: pupu_d!*@*.jp %まどか
 
-�ޤ������Ԥ����ͤ���pupu_j!*@*.jp�פ˥ޥå�������硢
-���Υ����ͥ������ޤ����ޤ����Ԥ����ͤ���pupu_d!*@**.jp��
-�˥ޥå����������ͥ뤬��%�ޤɤ��פ��ä���硢��%�ޤɤ��פ�
-����ޤ���
+また、招待した人が「pupu_j!*@*.jp」にマッチした場合、
+そのチャンネルに入ります。また招待した人が「pupu_d!*@**.jp」
+にマッチし、チャンネルが「%まどか」だった場合、「%まどか」に
+入ります。
 
     + channel/join/invite.plm
-    channel.join.invite.mask: -*!*@* #�פ��
+    channel.join.invite.mask: -*!*@* #ぷらむ
     channel.join.invite.mask: *!*@*
 
-���Ԥ��줿�����ͥ뤬��#�פ��פ��ä����ϡ�
-��#�פ��פˤ�����ޤ��󡣤���ʳ��Υ����ͥ���ä����ϡ�
-���Υ����ͥ������ޤ���
+招待されたチャンネルが「#ぷらむ」だった場合は、
+「#ぷらむ」には入りません。それ以外のチャンネルだった場合は、
+そのチャンネルに入ります。
 
 =cut

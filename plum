@@ -53,9 +53,6 @@ $SOMAXCONN = eval '&SOMAXCONN';
 $SOL_SOCKET = eval '&SOL_SOCKET';
 $SO_REUSEADDR = eval '&SO_REUSEADDR';
 
-$KANJI = &'add($KANJI, 'euc') if "\241\241\242\242" !~ /\241\242/;
-$KANJI = &'add($KANJI, 'sjis') if "\201\201\202\202" !~ /\201\202/;
-
 $SIG{'HUP'} = 'IGNORE' if &'exist(&'list(keys(%SIG)), 'HUP');
 $SIG{'PIPE'} = 'IGNORE' if &'exist(&'list(keys(%SIG)), 'PIPE');
 
@@ -72,9 +69,6 @@ $'rin = '';
 $'win = '';
 $'rout = '';
 $'wout = '';
-
-$'kanjilist = $KANJI;
-$'kanjilist = '' unless $'kanjilist;
 
 $sockethandle = '*';
 
@@ -261,7 +255,7 @@ sub 'merge {
         $conf = "$dir/$arg";
         &'merge($userno, $conf) if -f $conf;
       } elsif ((($var, $arg) = split(/\s*\:\s*/, $line, 2)) == 2) {
-        $arg = &kanji_euc($userno, $arg);
+        $arg = &kanji_utf8($userno, $arg);
         @key = split(/\./, $var);
         $property{$userno, @key} = &'add($property{$userno, @key}, $arg);
       }
@@ -336,16 +330,21 @@ sub userno {
   return 0;
 }
 
-sub kanji_euc {
+sub kanji_utf8 {
   local($userno, $line) = @_;
   local($code);
+
+  use Encode;
+
   $code = (reverse(&'property($userno, 'kanji')))[0] || '';
   if ($code eq 'euc') {
-    $line = &'euc_euc($line);
+    $line = &'euc_utf8($line);
   } elsif ($code eq 'jis') {
-    $line = &'jis_euc($line);
+    $line = &'jis_utf8($line);
   } elsif ($code eq 'sjis') {
-    $line = &'sjis_euc($line);
+    $line = &'sjis_utf8($line);
+  } elsif ($code eq 'utf8') {
+    $line = &'utf8_utf8($line);
   }
   return $line;
 }
@@ -1040,6 +1039,15 @@ sub 'euc_sjis {
   return $sjis;
 }
 
+sub 'euc_utf8 {
+  local($str) = @_;
+
+  use Encode;
+  Encode::from_to($str, 'EUC-JP', 'utf8');
+
+  return $str;
+}
+
 sub 'jis_euc {
   local($jis) = @_;
   local($euc, $kanji, $i);
@@ -1197,6 +1205,17 @@ sub 'jis_sjis {
   return $sjis;
 }
 
+sub 'jis_utf8 {
+  local($str) = @_;
+
+  $str = &'jis_euc($str);
+
+  use Encode;
+  Encode::from_to($str, 'EUC-JP', 'utf8');
+
+  return $str;
+}
+
 sub 'sjis_euc {
   local($sjis) = @_;
   local($euc, $c, $n1, $n2, $i);
@@ -1272,6 +1291,80 @@ sub 'sjis_jis {
 sub 'sjis_sjis {
   local($sjis) = @_;
   return $sjis;
+}
+
+sub 'sjis_utf8 {
+  local($str) = @_;
+
+  use Encode;
+  Encode::from_to($str, 'Shift_JIS', 'utf8');
+
+  return $str;
+}
+
+sub 'utf8_utf8 {
+  local($str) = @_;
+
+  return $str;
+}
+
+sub 'utf8_euc {
+  local($str) = @_;
+
+  use Encode;
+  Encode::from_to($str, 'utf8', 'EUC-JP');
+
+  return $str;
+}
+
+sub 'utf8_jis {
+  local($str) = @_;
+
+  $str = &'utf8_euc($str);
+  $str = &'euc_jis($str);
+
+  return $str;
+}
+
+sub 'utf8_sjis {
+  local($str) = @_;
+
+  use Encode;
+  Encode::from_to($str, 'utf8', 'Shift_JIS');
+
+  return $str;
+}
+
+sub 'code_utf8 {
+  local($line, $list) = @_;
+  foreach $code (split(/,/, lc($list))) {
+    if ($code eq 'euc') {
+      $line = &'euc_utf8($line);
+    } elsif ($code eq 'jis') {
+      $line = &'jis_utf8($line);
+    } elsif ($code eq 'sjis') {
+      $line = &'sjis_utf8($line);
+    } elsif ($code eq 'utf8') {
+      $line = &'utf8_utf8($line);
+    }
+  }
+  return $line;
+}
+
+sub 'utf8_code {
+  local($line, $list) = @_;
+  local($code);
+  $code = (split(/,/, lc($list)))[0];
+  if ($code eq 'euc') {
+    $line = &'utf8_euc($line);
+  } elsif ($code eq 'jis') {
+    $line = &'utf8_jis($line);
+  } elsif ($code eq 'sjis') {
+    $line = &'utf8_sjis($line);
+  } elsif ($code eq 'utf8') {
+    $line = &'utf8_utf8($line);
+  }
+  return $line;
 }
 
 sub 'add {

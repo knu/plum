@@ -31,25 +31,25 @@ sub main_loop {
 
 __END__
 
-=head1 ̾��
+=head1 名前
 
-sys/conf/update.plm - plum.conf���ѹ������ȼ�ưŪ���ɤ߹���ľ��
+sys/conf/update.plm - plum.confが変更されると自動的に読み込み直す
 
-=head1 ����
+=head1 説明
 
-������֤��Ȥ�plum.conf���ѹ�����Ƥ��ʤ���������å�����
-�ѹ�����Ƥ���Ф�����ɤ߹���ǥ⥸�塼��ȥץ��ѥƥ��κ������
-�Ԥ��ޤ���
+一定時間ごとにplum.confが変更されていないかをチェックし、
+変更されていればそれを読み込んでモジュールとプロパティの再設定を
+行います。
 
 =over 4
 
-=head1 �ץ��ѥƥ�
+=head1 プロパティ
 
 =over 4
 
 =back
 
-=head1 ������
+=head1 設定例
 
     + sys/conf/update.plm
 

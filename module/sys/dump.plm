@@ -9,7 +9,6 @@ sub initialize {
   print 'PLUM         : ', $plum'NAME, ' ', $plum'VERSION, "\n";
   print 'PERL         : ', $^X, ' ', sprintf('%g', $]), "\n";
   print 'ARGV         : ', join(' ', @ARGV), "\n";
-  print 'KANJI        : ', join(' ', &'array($plum'KANJI)), "\n";
   print 'PROTO        : ', $plum'PROTO || '', "\n";
   print 'SOCKET       : ', $plum'SOCKET, "\n";
   print 'AF_INET      : ', defined($plum'AF_INET) ? $plum'AF_INET : '', "\n";
@@ -32,22 +31,22 @@ sub initialize {
 
 __END__
 
-=head1 Ì¾Á°
+=head1 åå‰
 
-sys/dump.plm - plum¤¬ÆâÉô¤Ç»ÈÍÑ¤¹¤ë¾ğÊó¤òÉ½¼¨¤¹¤ë
+sys/dump.plm - plumãŒå†…éƒ¨ã§ä½¿ç”¨ã™ã‚‹æƒ…å ±ã‚’è¡¨ç¤ºã™ã‚‹
 
-=head1 ÀâÌÀ
+=head1 èª¬æ˜
 
-plum¤¬ÆâÉô¤Ç»ÈÍÑ¤¹¤ë³Æ¼ï¤ÎÊÑ¿ô¤Î¾ğÊó¤Ê¤É¤òÉ½¼¨¤·¤Ş¤¹¡£
-¤³¤Î¥â¥¸¥å¡¼¥ë¤òÁÈ¤ß¹ş¤à¤È¡¢plum¼«¿È¤Î¼Â¹Ô¤Ï¹Ô¤Ê¤ï¤ì¤Ş¤»¤ó¡£
+plumãŒå†…éƒ¨ã§ä½¿ç”¨ã™ã‚‹å„ç¨®ã®å¤‰æ•°ã®æƒ…å ±ãªã©ã‚’è¡¨ç¤ºã—ã¾ã™ã€‚
+ã“ã®ãƒ¢ã‚¸ãƒ¥ãƒ¼ãƒ«ã‚’çµ„ã¿è¾¼ã‚€ã¨ã€plumè‡ªèº«ã®å®Ÿè¡Œã¯è¡Œãªã‚ã‚Œã¾ã›ã‚“ã€‚
 
-=head1 ¥×¥í¥Ñ¥Æ¥£
+=head1 ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£
 
 =over 4
 
 =back
 
-=head1 ÀßÄêÎã
+=head1 è¨­å®šä¾‹
 
     + sys/dump.plm
 

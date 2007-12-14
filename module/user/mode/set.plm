@@ -18,29 +18,29 @@ sub server_open {
 
 __END__
 
-=head1 ̾��
+=head1 名前
 
-user/mode/set.plm - �����Ф���³�����Ȥ��˥桼���⡼�ɤ����ꤹ��
+user/mode/set.plm - サーバに接続したときにユーザモードを設定する
 
-=head1 ����
+=head1 説明
 
-�����Ф���³�����Ȥ��ˡ����ꤵ�줿�桼���⡼�ɤ����ꤷ�ޤ���
+サーバに接続したときに、指定されたユーザモードを設定します。
 
-=head1 �ץ��ѥƥ�
+=head1 プロパティ
 
 =over 4
 
-=item user.mode.set.mode �⡼��
+=item user.mode.set.mode モード
 
-���ꤹ��桼���⡼�ɤ���ꤷ�ޤ���
+設定するユーザモードを指定します。
 
 =back
 
-=head1 ������
+=head1 設定例
 
     + usr/mode/set.plm
     user.mode.set.mode: +i
 
-�����Ф���³�����Ȥ��ˡ��桼���⡼�ɤȤ��ơ�+i�פ����ꤷ�ޤ���
+サーバと接続したときに、ユーザモードとして「+i」を設定します。
 
 =cut

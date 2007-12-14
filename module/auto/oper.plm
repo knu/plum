@@ -174,7 +174,7 @@ sub read_file {
           $line =~ tr/\r\n//d;
           next unless $line;
           $line =~ s/\s+$//;
-          $line = &code_euc($line, $code) if $code;
+          $line = &'code_utf8($line, $code) if $code;
           push(@data, $line);
         }
         close(TMP);
@@ -203,138 +203,124 @@ sub filename {
   return (&'expand($name), $code);
 }
 
-sub code_euc {
-  local($line, $list) = @_;
-  foreach $code (split(/\,/, "\L$list\E")) {
-    if ($code eq 'euc') {
-      $line = &'euc_euc($line);
-    } elsif ($code eq 'jis') {
-      $line = &'jis_euc($line);
-    } elsif ($code eq 'sjis') {
-      $line = &'sjis_euc($line);
-    }
-  }
-  return $line;
-}
-
 __END__
 
-=head1 ̾��
+=head1 名前
 
-auto/oper.plm - �����ȯ���򤷤��ͤ�����ͥ륪�ڥ졼���ˤ���
+auto/oper.plm - 特定の発言をした人をチャンネルオペレータにする
 
-=head1 ����
+=head1 説明
 
-�����ʸ�����ȯ�������ͤ�����ͥ륪�ڥ졼���ˤ��ޤ���
-���餫����ͳ�ǥ����ͥ륪�ڥ졼���ˤǤ��ʤ��Ǥ��ʤ����ϡ�
-���줾�����ͳ�˱�����ʸ�����ȯ�����ޤ���
+特定の文字列を発言した人をチャンネルオペレータにします。
+何らかの理由でチャンネルオペレータにできないできない場合は、
+それぞれの理由に応じた文字列を発言します。
 
-=head1 �ץ��ѥƥ�
+=head1 プロパティ
 
 =over 4
 
-=item auto.oper.alias �ե�����̾[;({jis|euc|sjis})]
+=item auto.oper.alias ファイル名[;({jis|euc|sjis|utf8})]
 
-�桼���Υ����ꥢ���򻲾Ȥ��뤿��Υե��������ꤷ�ޤ���
-�����ǻ��ꤹ��ե������auto/alias.plm�ǻȤ���Τ�
-Ʊ�������Τ�ΤǤ���
+ユーザのエイリアスを参照するためのファイルを指定します。
+ここで指定するファイルはauto/alias.plmで使うものと
+同じ形式のものです。
 
-=item auto.oper.request* ʸ����
+=item auto.oper.request* 文字列
 
-�����ͥ륪�ڥ졼�����׵᤹��ʸ�������ꤷ�ޤ���
-�����ǻ��ꤷ��ʸ�����ȯ�������ͤ�����ͥ륪�ڥ졼���ˤ��ޤ���
+チャンネルオペレータを要求する文字列を指定します。
+ここで指定した文字列を発言した人をチャンネルオペレータにします。
 
-=item auto.oper.mask* {+|-}�桼���ޥ��� [(�����ͥ�̾)]
+=item auto.oper.mask* {+|-}ユーザマスク [(チャンネル名)]
 
-�����ͥ륪�ڥ졼�����׵ᤷ���ͤ��������ǻ��ꤷ���ޥ�����
-�ޥå����ʤ��ä����ϡ�auto.oper.deny�ǻ��ꤷ��ʸ�����ȯ������
-�����ͥ륪�ڥ졼���ˤϤ��ޤ���
+チャンネルオペレータを要求した人が、ここで指定したマスクに
+マッチしなかった場合は、auto.oper.denyで指定した文字列を発言し、
+チャンネルオペレータにはしません。
 
-=item auto.oper.message* �ե����ޥå�
+=item auto.oper.message* フォーマット
 
-�����ͥ륪�ڥ졼�����׵ᤷ���ͤ�ºݤ˥����ͥ륪�ڥ졼��
-�ˤ���Ȥ��������ǻ��ꤷ����Τ�ȯ���������οͤ�����ͥ�
-���ڥ졼���ˤ��ޤ���ʸ�������#(nick)�Τ褦�˽񤯤��Ȥǡ�
-�����ꥢ�����б������ͤ��֤������ޤ���
-�ޤ���#(name|nick)�Τ褦�ˡ�|�פǶ��ڤäƽ񤯤ȡ�
-�ޤ�name���ͤ��ִ����褦�Ȥ���name���������Ƥ��ʤ����
-nick���ִ����ޤ��������ꥢ��������ꤵ��Ƥ����ΰʳ��Ǥϡ�
-#(nick.now)�Ǹ��ߤΥ˥å��͡���ˡ�#(channel)��ȯ���Τ��ä�
-�����ͥ�ˤ��줾���ִ�����ޤ���
+チャンネルオペレータを要求した人を実際にチャンネルオペレータ
+にするとき、ここで指定したものを発言し、その人をチャンネル
+オペレータにします。文字列中に#(nick)のように書くことで、
+エイリアスの対応する値で置き換えます。
+また、#(name|nick)のように「|」で区切って書くと、
+まずnameの値で置換しようとし、nameが定義されていなければ
+nickで置換します。エイリアス中に設定されているもの以外では、
+#(nick.now)で現在のニックネームに、#(channel)で発言のあった
+チャンネルにそれぞれ置換されます。
 
-=item auto.oper.deny* �ե����ޥå�
+=item auto.oper.deny* フォーマット
 
-�����ͥ륪�ڥ졼�����׵ᤷ���ͤ�auto.oper.mask�ǻ��ꤷ����Τ�
-�ޥå����ʤ��ä���硢�����ǻ��ꤷ����Τ�ȯ�����ޤ���
-#(nick)�Τ褦�˽񤯤��Ȥǡ������ꥢ������б������ͤ�
-�֤������ޤ���
+チャンネルオペレータを要求した人がauto.oper.maskで指定したものに
+マッチしなかった場合、ここで指定したものを発言します。
+#(nick)のように書くことで、エイリアス中の対応する値で
+置き換えます。
 
-=item auto.oper.oper* �ե����ޥå�
+=item auto.oper.oper* フォーマット
 
-�����ͥ륪�ڥ졼�����׵ᤷ���ͤ����Ǥ˥����ͥ륪�ڥ졼�����ä�
-��硢�����ǻ��ꤷ����Τ�ȯ�����ޤ���
-#(nick)�Τ褦�˽񤯤��Ȥǡ������ꥢ������б������ͤ�
-�֤������ޤ���
+チャンネルオペレータを要求した人がすでにチャンネルオペレータだった
+場合、ここで指定したものを発言します。
+#(nick)のように書くことで、エイリアス中の対応する値で
+置き換えます。
 
-=item auto.oper.notoper* �ե����ޥå�
+=item auto.oper.notoper* フォーマット
 
-�����ͥ륪�ڥ졼�����׵ᤵ�줿�Ȥ��ˡ�
-��ʬ�������ͥ륪�ڥ졼���Ǥʤ�����ˤ��οͤ�����ͥ륪�ڥ졼����
-�Ǥ��ʤ���硢�����ǻ��ꤷ����Τ�ȯ�����ޤ���
-#(nick)�Τ褦�˽񤯤��Ȥǡ������ꥢ������б������ͤ�
-�֤������ޤ���
+チャンネルオペレータを要求されたときに、
+自分がチャンネルオペレータでないためにその人をチャンネルオペレータに
+できない場合、ここで指定したものを発言します。
+#(nick)のように書くことで、エイリアス中の対応する値で
+置き換えます。
 
-=item auto.oper.private* �ե����ޥå�
+=item auto.oper.private* フォーマット
 
-�����ͥ륪�ڥ졼�����׵᤬�����ͥ���Ф��ƤǤϤʤ���
-��ʬ���Ф��Ƥ��줿��硢�����ǻ��ꤷ����Τ�ȯ�����ޤ���
-#(nick)�Τ褦�˽񤯤��Ȥǡ������ꥢ������б������ͤ�
-�֤������ޤ���
+チャンネルオペレータの要求がチャンネルに対してではなく、
+自分に対してされた場合、ここで指定したものを発言します。
+#(nick)のように書くことで、エイリアス中の対応する値で
+置き換えます。
 
-=item auto.oper.out* �ե����ޥå�
+=item auto.oper.out* フォーマット
 
-�����ͥ륪�ڥ졼�����׵᤬�����ͥ�γ�����ȯ�����줿��硢
-�����ǻ��ꤷ����Τ�ȯ�����ޤ���
-#(nick)�Τ褦�˽񤯤��Ȥǡ������ꥢ������б������ͤ�
-�֤������ޤ���
+チャンネルオペレータの要求がチャンネルの外から発言された場合、
+ここで指定したものを発言します。
+#(nick)のように書くことで、エイリアス中の対応する値で
+置き換えます。
 
 =back
 
-=head1 ������
+=head1 設定例
 
     + auto/oper.plm
     auto.oper.alias: alias.txt;euc
-    auto.oper.request: �פ��ʤ��
+    auto.oper.request: ぷらむなると
     auto.oper.mask: +*!*@*
-    auto.oper.message: �ϡ�����
-    auto.oper.deny: �ʤ�ȤϤ������ޤ���
-    auto.oper.oper: #(name|nick.now)����Ϥ⤦�ʤ�Ȼ��äƤޤ��衣
-    auto.oper.notoper: �����ʤ������ʤ�Ȼ��äƤʤ���Ǥ���
-    auto.oper.private: �ʤ�Ȥ��ۤ��������ͥ�Ǹ��äƤ��������͡�
-    auto.oper.out: ���á��ɤ��ˤ����Ǥ���?
+    auto.oper.message: は〜い☆
+    auto.oper.deny: なるとはあげられませんわ。
+    auto.oper.oper: #(name|nick.now)さんはもうなると持ってますよ。
+    auto.oper.notoper: ごめんなさい。なると持ってないんです。
+    auto.oper.private: なるとがほしいチャンネルで言ってくださいね。
+    auto.oper.out: えっ、どこにいるんですか?
 
-�֤פ��ʤ�ȡפ�ȯ�������ͤ�����ͥ륪�ڥ졼���ˤ��ޤ���
-���٤ƤΥ桼��������ͥ륪�ڥ졼���ˤ��뤳�Ȥ���Ĥ��Ƥ���Τǡ�
-ï���ɤΥ����ͥ���׵ᤷ�Ƥ��Ƥ⡢���οͤ�����ͥ륪�ڥ졼����
-���ޤ������餫����ͳ�ǥ����ͥ륪�ڥ졼���ˤǤ��ʤ��Ȥ��ϡ�
-���줾�����ͳ�˱�������å�������ȯ�����ޤ���
+「ぷらむなると」と発言した人をチャンネルオペレータにします。
+すべてのユーザをチャンネルオペレータにすることを許可しているので、
+誰がどのチャンネルで要求してきても、その人をチャンネルオペレータに
+します。何らかの理由でチャンネルオペレータにできないときは、
+それぞれの理由に応じたメッセージを発言します。
 
     + auto/oper.plm
-    auto.oper.request: �ʤ��
-    auto.oper.request: �ʤ�Ȥ���
-    auto.oper.request: �ʤ�Ȥ�������
-    auto.oper.request: �ʤ�Ȥ��礦����
+    auto.oper.request: なると
+    auto.oper.request: なるとくれ
+    auto.oper.request: なるとください
+    auto.oper.request: なるとちょうだい
     auto.oper.mask: -*!*@*.com
-    auto.oper.mask: +*!*@* #�ޤɤ�:*.jp
+    auto.oper.mask: +*!*@* #まどか:*.jp
     auto.oper.mask: +*!*@*.jp
 
-�����ͥ륪�ڥ졼�����׵᤬4���ढ����Ǥ���
-���Τ����Τɤ줫��ȯ�������ͤ�����ͥ륪�ڥ졼���ˤ��ޤ���
-�ޤ��������ͥ륪�ڥ졼�����׵ᤷ�Ƥ����桼�����ǧ����
-��*!*@*.com�פ˥ޥå�����ͤϥ��ڥ졼���ˤϤ��ޤ���
-�ޤ�����#�ޤɤ�:*.jp�פǤϤ���ʳ��Τ��٤Ƥοͤ�
-�����ͥ륪�ڥ졼���ˤ��ޤ�������¾�Υ����ͥ�Ǥϡ�*!*@*.jp�פ�
-�ޥå�����ͤ���������ͥ륪�ڥ졼���ˤ��ޤ���
-���餫����ͳ�ǥ����ͥ륪�ڥ졼���ˤǤ��ʤ��Ȥ��Ƥⲿ��ȯ�����ޤ���
+チャンネルオペレータの要求が4種類ある例です。
+このうちのどれかを発言した人をチャンネルオペレータにします。
+また、チャンネルオペレータを要求してきたユーザを確認し、
+「*!*@*.com」にマッチする人はオペレータにはしません。
+また、「#まどか:*.jp」ではそれ以外のすべての人を
+チャンネルオペレータにします。その他のチャンネルでは「*!*@*.jp」に
+マッチする人だけをチャンネルオペレータにします。
+何らかの理由でチャンネルオペレータにできないとしても何も発言しません。
 
 =cut

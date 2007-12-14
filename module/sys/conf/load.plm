@@ -16,25 +16,25 @@ sub cs_load {
 
 __END__
 
-=head1 ̾��
+=head1 名前
 
-sys/conf/load.plm - plum.conf���ɤ߹���ľ��
+sys/conf/load.plm - plum.confを読み込み直す
 
-=head1 ����
+=head1 説明
 
-load�Ȥ������ޥ�ɤ��ɲä��ޤ���load���ޥ�ɤˤϰ����Ϥ���ޤ���
-���Υ��ޥ�ɤ�¹Ԥ���ȡ�plum.conf���ɤ߹���ǡ�
-�⥸�塼��ȥץ��ѥƥ��κ������Ԥ��ޤ���
+loadというコマンドを追加します。loadコマンドには引数はありません。
+このコマンドを実行すると、plum.confを読み込んで、
+モジュールとプロパティの再設定を行います。
 
 =over 4
 
-=head1 �ץ��ѥƥ�
+=head1 プロパティ
 
 =over 4
 
 =back
 
-=head1 ������
+=head1 設定例
 
     + sys/conf/load.plm
 

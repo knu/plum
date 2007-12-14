@@ -27,31 +27,31 @@ sub main_loop {
 
 __END__
 
-=head1 ̾��
+=head1 名前
 
-server/timeout.plm - ����������Ϥ��ʤ������ФȤ���³�����Ǥ���
+server/timeout.plm - 一定時間入力がないサーバとの接続を切断する
 
-=head1 ����
+=head1 説明
 
-������֤δ֡������Ф�������Ϥ������ʤ��ä���硢
-���Υ����ФȤ���³�����Ǥ��ޤ���
+一定時間の間、サーバからの入力が全くなかった場合、
+そのサーバとの接続を切断します。
 
-=head1 �ץ��ѥƥ�
+=head1 プロパティ
 
 =over 4
 
-=item server.timeout.limit �����ॢ���Ȼ���
+=item server.timeout.limit タイムアウト時間
 
-�����Ф�������Ϥ������ǻ��ꤵ�줿���ְʾ�ʤ��ä����ϡ�
-�����ФȤ���³�����Ǥ��ޤ����ǥե���ȤǤ�30ʬ�ˤʤäƤ��ޤ���
+サーバからの入力がここで指定された時間以上なかった場合は、
+サーバとの接続を切断します。デフォルトでは30分になっています。
 
 =back
 
-=head1 ������
+=head1 設定例
 
     + server/timeout.plm
     server.timeout.limit: 1200
 
-20ʬ�ʾ奵���Ф�������Ϥ��ʤ��ä���硢�����ФȤ���³�����Ǥ��ޤ���
+20分以上サーバからの入力がなかった場合、サーバとの接続を切断します。
 
 =cut

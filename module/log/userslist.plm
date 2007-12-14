@@ -102,29 +102,29 @@ sub do_write_userslist {
 
 __END__
 
-=head1 Ì¾Á°
+=head1 åå‰
 
-log/userslist.plm - ¥Á¥ã¥ó¥Í¥ë¤Î»²²Ã¼Ô¥ê¥¹¥È¤ò¥Õ¥¡¥¤¥ë¤ËÊİÂ¸¤¹¤ë
+log/userslist.plm - ãƒãƒ£ãƒ³ãƒãƒ«ã®å‚åŠ è€…ãƒªã‚¹ãƒˆã‚’ãƒ•ã‚¡ã‚¤ãƒ«ã«ä¿å­˜ã™ã‚‹
 
-=head1 ÀâÌÀ
+=head1 èª¬æ˜
 
-¥Á¥ã¥ó¥Í¥ë¤Î»²²Ã¼Ô¥ê¥¹¥È¤ò¥Õ¥¡¥¤¥ë¤ËÊİÂ¸¤·¤Ş¤¹¡£
+ãƒãƒ£ãƒ³ãƒãƒ«ã®å‚åŠ è€…ãƒªã‚¹ãƒˆã‚’ãƒ•ã‚¡ã‚¤ãƒ«ã«ä¿å­˜ã—ã¾ã™ã€‚
 
-=head1 ¥×¥í¥Ñ¥Æ¥£
+=head1 ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£
 
 =over 4
 
-=item log.userslist.file* ¥Á¥ã¥ó¥Í¥ë ¥Õ¥¡¥¤¥ëÌ¾
+=item log.userslist.file* ãƒãƒ£ãƒ³ãƒãƒ« ãƒ•ã‚¡ã‚¤ãƒ«å
 
-»ØÄê¤·¤¿¥Á¥ã¥ó¥Í¥ë¤Î»²²Ã¼Ô¥ê¥¹¥È¤òÊİÂ¸¤¹¤ë¥Õ¥¡¥¤¥ëÌ¾¤ò»ØÄê¤·¤Ş¤¹¡£
+æŒ‡å®šã—ãŸãƒãƒ£ãƒ³ãƒãƒ«ã®å‚åŠ è€…ãƒªã‚¹ãƒˆã‚’ä¿å­˜ã™ã‚‹ãƒ•ã‚¡ã‚¤ãƒ«åã‚’æŒ‡å®šã—ã¾ã™ã€‚
 
 =back
 
-=head1 ÀßÄêÎã
+=head1 è¨­å®šä¾‹
 
     + log/userslist.plm
     log.userslist.file: #somechannel log/somechannel.userslist
 
-#somechannel ¤Î»²²Ã¼Ô¥ê¥¹¥È¤ò log/somechannel.userslist ¤ËÊİÂ¸¤·¤Ş¤¹¡£
+#somechannel ã®å‚åŠ è€…ãƒªã‚¹ãƒˆã‚’ log/somechannel.userslist ã«ä¿å­˜ã—ã¾ã™ã€‚
 
 =cut

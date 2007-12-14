@@ -160,82 +160,82 @@ sub ss_mode {
 
 __END__
 
-=head1 ̾��
+=head1 名前
 
-channel/join/connect.plm - �����Ф���³�����Ȥ��˻��ꤷ�������ͥ������
+channel/join/connect.plm - サーバに接続したときに指定したチャンネルに入る
 
-=head1 ����
+=head1 説明
 
-�����Ф���³�����Ȥ��ˡ����ꤷ�������ͥ������ޤ���
-�����ФȤ���³���ڤ�ƺƤ���³��ľ�����Ȥ��ϡ�
-���ꤷ�������ͥ�Ȥϴط��ʤ���
-��³���ڤ���������äƤ��������ͥ������ޤ���
+サーバに接続したときに、指定したチャンネルに入ります。
+サーバとの接続が切れて再び接続し直したときは、
+指定したチャンネルとは関係なく、
+接続が切れる前に入っていたチャンネルに入ります。
 
-=head1 �ץ��ѥƥ�
+=head1 プロパティ
 
 =over 4
 
-=item channel.join.connect.nickserv* (��å�����)
+=item channel.join.connect.nickserv* (メッセージ)
 
-�����Ф���³�����Ȥ��� nickserv �������å���������ꤷ�ޤ���
-��å������ϥ����ͥ���������������ޤ���
+サーバに接続したときに nickserv に送るメッセージを指定します。
+メッセージはチャンネルに入る前に送られます。
 
-=item channel.join.connect.operserv* (��å�����)
+=item channel.join.connect.operserv* (メッセージ)
 
-�����Ф���³�����Ȥ��� operserv �������å���������ꤷ�ޤ���
-��å������ϥ����ͥ���������������ޤ���
+サーバに接続したときに operserv に送るメッセージを指定します。
+メッセージはチャンネルに入る前に送られます。
 
-=item channel.join.connect.channel* (�����ͥ�) (����)
+=item channel.join.connect.channel* (チャンネル) (キー)
 
-�����Ф���³�����Ȥ�����������ͥ����ꤷ�ޤ���
-�����ͥ�Υ��������ꤵ��Ƥ���Ȥ��ϡ����Υ�����Ȥ��ޤ���
+サーバに接続したときに入るチャンネルを指定します。
+チャンネルのキーが指定されているときは、そのキーを使います。
 
-=item channel.join.connect.chanserv* (��å�����)
+=item channel.join.connect.chanserv* (メッセージ)
 
-�����ͥ�����ä�ľ��� chanserv �������å���������ꤷ�ޤ���
+チャンネルに入った直後に chanserv に送るメッセージを指定します。
 
-=item channel.join.connect.keyfile* (�ե�����̾)
+=item channel.join.connect.keyfile* (ファイル名)
 
-�����ͥ�ȥ������Ф��ɤ߹��ߡ��ޤ��������ѹ�(mode +k)�ˤ������ä�
-��¸����ե��������ꤷ�ޤ����ե�����η����ϡ��Ԥ��Ȥ˥��ڡ�����
-���ڤäƥ����ͥ�̾�ȥ������¤٤���ΤǤ���
+チャンネルとキーの対を読み込み、またキーの変更(mode +k)にしたがって
+保存するファイルを指定します。ファイルの形式は、行ごとにスペースで
+区切ってチャンネル名とキーを並べたものです。
 
-ʣ�����ꤷ����硢���٤ƤΥե����뤫������ͥ�̾�ȥ������Ф�
-�ɤ߹��ߤޤ������ǽ�˻��ꤷ���ե�����Τߤ������оݤˤʤ�ޤ���
+複数指定した場合、すべてのファイルからチャンネル名とキーの対を
+読み込みますが、最初に指定したファイルのみが更新対象になります。
 
-(����)
-�����ե����뤬�ɤ߹��ޤ��Τϥ⥸�塼�뤬�����ɤ��줿�Ȥ�
-�ΤߤǤ�����³��˥����ե������񤭴����Ƥ��������֤ˤ�
-ȿ�Ǥ���ޤ���
+(注意)
+キーファイルが読み込まれるのはモジュールがロードされたとき
+のみです。接続中にキーファイルを書き換えても内部状態には
+反映されません。
 
 =back
 
-=head1 ������
+=head1 設定例
 
     + channel/join/connect.plm
-    channel.join.connect.channel: #�ޤɤ� mdk
+    channel.join.connect.channel: #まどか mdk
 
-�����Ф���³�����Ȥ��ˡ���#�ޤɤ��פˡ�mdk�פȤ�������������ޤ���
+サーバに接続したときに、「#まどか」に「mdk」というキーで入ります。
 
     + channel/join/connect.plm
-    channel.join.connect.channel: #�ޤɤ�:*.jp,#�פ��:*.jp
-    channel.join.connect.channel: #�פ��
+    channel.join.connect.channel: #まどか:*.jp,#ぷらむ:*.jp
+    channel.join.connect.channel: #ぷらむ
 
-�����Ф���³�����Ȥ��ˡ���#�ޤɤ�:*.jp�ס���#�פ��:*.jp�ס�
-��#�פ��פ�3�ĤΥ����ͥ������ޤ���
+サーバに接続したときに、「#まどか:*.jp」、「#ぷらむ:*.jp」、
+「#ぷらむ」の3つのチャンネルに入ります。
 
     + channel/join/connect.plm
     channel.join.connect.nickserv: identify foobar
     channel.join.connect.channel: #somechannel
     channel.join.connect.chanserv: op #somechannel
 
-nickserv �����ӥ�����Ͽ���줿�˥å���ǧ�ڤ��� #somechannel �����ä��塢
-chanserv �� op ���׵ᤷ�ޤ���
+nickserv サービスに登録されたニックを認証し、 #somechannel に入った後、
+chanserv に op を要求します。
 
     + channel/join/connect.plm
     channel.join.connect.keyfile: plum.key
 
-�ե����� plum.key ��������ͥ�ȥ������Ф��ɤ߹��ߡ��ޤ��ѹ���
-��������¸���ޤ���
+ファイル plum.key からチャンネルとキーの対を読み込み、また変更に
+応じて保存します。
 
 =cut

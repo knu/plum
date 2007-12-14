@@ -18,22 +18,22 @@ sub sp_whois {
 
 __END__
 
-=head1 ̾��
+=head1 名前
 
-user/idle.plm - WHOIS��¹Ԥ����Ȥ��˥桼����IDLE���֤�ɽ������
+user/idle.plm - WHOISを実行したときにユーザのIDLE時間を表示する
 
-=head1 ����
+=head1 説明
 
-WHOIS���ޥ�ɤǥ桼���ξ���򸫤�Ȥ��ˡ����Υ桼����IDLE���֤�
-ɬ��ɽ�������褦�ˤ��ޤ���
+WHOISコマンドでユーザの情報を見るときに、そのユーザのIDLE時間が
+必ず表示されるようにします。
 
-=head1 �ץ��ѥƥ�
+=head1 プロパティ
 
 =over 4
 
 =back
 
-=head1 ������
+=head1 設定例
 
     + user/idle.plm
 

@@ -22,23 +22,23 @@ sub cs_show {
 
 __END__
 
-=head1 ̾��
+=head1 名前
 
-sys/show.plm - Ǥ�դ�perl��ʸ��¹Ԥ��Ʒ�̤򥯥饤����Ȥ�����
+sys/show.plm - 任意のperlの文を実行して結果をクライアントに送る
 
-=head1 ����
+=head1 説明
 
-show�Ȥ������ޥ�ɤ��ɲä��ޤ���
-show���ޥ�ɤΰ�����1�Ĥǡ�Ǥ�դ�perl��ʸ����ꤷ�ޤ���
-����ʸ��plum�ˤ�äƼ¹Ԥ��졢���η�̤�NOTICE�ǥ��饤����Ȥ�����ޤ���
+showというコマンドを追加します。
+showコマンドの引数は1つで、任意のperlの文を指定します。
+この文はplumによって実行され、その結果をNOTICEでクライアントに送ります。
 
-=head1 �ץ��ѥƥ�
+=head1 プロパティ
 
 =over 4
 
 =back
 
-=head1 ������
+=head1 設定例
 
     + sys/show.plm
 

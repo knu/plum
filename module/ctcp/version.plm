@@ -26,21 +26,21 @@ sub cpss_version {
 
 __END__
 
-=head1 Ì¾Á°
+=head1 åå‰
 
-ctcp/version.plm - CTCP VERSION¤ËÈ¿±þ¤·¤Æ¥Ð¡¼¥¸¥ç¥ó¾ðÊó¤òÁ÷¤ë
+ctcp/version.plm - CTCP VERSIONã«åå¿œã—ã¦ãƒãƒ¼ã‚¸ãƒ§ãƒ³æƒ…å ±ã‚’é€ã‚‹
 
-=head1 ÀâÌÀ
+=head1 èª¬æ˜Ž
 
-CTCP VERSION¤¬Á÷¤é¤ì¤Æ¤­¤¿¤È¤­¡¢¤½¤ì¤ËÈ¿±þ¤·¤Æ¥Ð¡¼¥¸¥ç¥ó¾ðÊó¤òÁ÷¤ê¤Þ¤¹¡£
+CTCP VERSIONãŒé€ã‚‰ã‚Œã¦ããŸã¨ãã€ãã‚Œã«åå¿œã—ã¦ãƒãƒ¼ã‚¸ãƒ§ãƒ³æƒ…å ±ã‚’é€ã‚Šã¾ã™ã€‚
 
-=head1 ¥×¥í¥Ñ¥Æ¥£
+=head1 ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£
 
 =over 4
 
 =back
 
-=head1 ÀßÄêÎã
+=head1 è¨­å®šä¾‹
 
     + ctcp/version.plm
 

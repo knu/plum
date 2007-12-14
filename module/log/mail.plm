@@ -112,7 +112,7 @@ sub send {
     while (defined($line = <FILE>)) {
       $line =~ s/[\r\n]+//;
       $line = '..=' if $line eq '.';
-      $line = &code_jis($line, $code);
+      $line = &'code_jis($line, $code);
       print $socket $line, "\r\n";
     }
     close(FILE);
@@ -130,6 +130,8 @@ sub code_jis {
       $line = &'jis_jis($line);
     } elsif ($code eq 'sjis') {
       $line = &'sjis_jis($line);
+    } elsif ($code eq 'utf8') {
+      $line = &'utf8_jis($line);
     }
   }
   return $line;
@@ -137,44 +139,44 @@ sub code_jis {
 
 __END__
 
-=head1 ̾��
+=head1 名前
 
-log/mail.plm - �����ե��������ꤷ�����ɥ쥹�إ᡼�����������
+log/mail.plm - ログファイルを指定したアドレスへメールで送信する
 
-=head1 ����
+=head1 説明
 
-�����ե��������ꤷ�����ɥ쥹�إ᡼����������ޤ���
+ログファイルを指定したアドレスへメールで送信します。
 
-=head1 �ץ��ѥƥ�
+=head1 プロパティ
 
 =over 4
 
-=item log.mail.from ���ɥ쥹
+=item log.mail.from アドレス
 
-�������Ȥ��ƻ��Ѥ��륢�ɥ쥹����ꤷ�ޤ���
-�᡼������������顼�ˤʤä��Ȥ��ϡ������ǻ��ꤷ�����ɥ쥹��
-���顼�Υ᡼�뤬�����ޤ���
+送信元として使用するアドレスを指定します。
+メールの送信がエラーになったときは、ここで指定したアドレスへ
+エラーのメールが送られます。
 
-=item log.mail.smtpserver �ۥ���̾[;�ݡ����ֹ�]
+=item log.mail.smtpserver ホスト名[;ポート番号]
 
-���Ѥ���SMTP�����Ф���ꤷ�ޤ���
-�����Ф���³�Ǥ��ʤ��Ȥ��������˼��Ԥ����Ȥ��ϲ��⤷�ޤ���
+使用するSMTPサーバを指定します。
+サーバに接続できないときや送信に失敗したときは何もしません。
 
-=item log.mail.directory �ǥ��쥯�ȥ�̾
+=item log.mail.directory ディレクトリ名
 
-�����ե������¸�ߤ���ǥ��쥯�ȥ����ꤷ�ޤ���
-�ǥ��쥯�ȥ��plum��¹Ԥ����ǥ��쥯�ȥ꤫������Хѥ��ˤʤ�ޤ���
-UNIX�ʤ��~/�פ��~user�פȤ��������Ǥ��ޤ���
+ログファイルの存在するディレクトリを指定します。
+ディレクトリはplumを実行したディレクトリからの相対パスになります。
+UNIXなら「~/」や「~user」という指定もできます。
 
-=item log.mail.file* �ե�����̾[;({jis|euc|sjis})] (���ɥ쥹)
+=item log.mail.file* ファイル名[;({jis|euc|sjis|utf8})] (アドレス)
 
-��������ե�����Ȥ�������륢�ɥ쥹����ꤷ�ޤ���
-�ե�����̾��%�ǻϤޤ�ʸ��������ȡ��б��������դ��Ѵ����졢
-����̾�����Ѥ�뤿�Ӥ˥᡼��ǥե�������������ޤ���
+送信するファイルとそれを送るアドレスを指定します。
+ファイル名に%で始まる文字があると、対応する日付に変換され、
+その名前が変わるたびにメールでファイルを送信します。
 
 =back
 
-=head1 ������
+=head1 設定例
 
     + log/mail.plm
     log.mail.from: plum@plum.or.jp
@@ -182,14 +184,14 @@ UNIX�ʤ��~/�פ��~user�פȤ��������Ǥ��ޤ���
     log.mail.file: log%m%d hogehoge@plum.gr.jp
     log.mail.file: plum%m;euc hoehoe@plum.gr.jp,hogehoge@plum.or.jp
 
-��plum@plum.or.jp�פ��������Ȥ��ơ�������᡼����������ޤ���
-���ΤȤ���SMTP�����ФȤ��ơ�mail.plum.or.jp�פΥݡ��ȡ�25�פ�
-���Ѥ��ޤ�����������ե������2�Ĥǡ���hogehoge@plum.gr.jp�װ���
-��log%m%d�פ򡢡�hoehoe@plum.gr.jp�פȡ�hogehoge@plum.or.jp�װ���
-��plum%m�פ��������ޤ���
-log%m%d��plum%m�Ϥ��줾�����դ�Ÿ�����졢�ե���������դ�
-�Ѥ�ä��Ȥ��˥᡼����������ޤ������Τ��ᡢlog%m%d��1��1��
-plum%m��1���1����������ޤ���
+「plum@plum.or.jp」を送信元として、ログをメールで送信します。
+このとき、SMTPサーバとして「mail.plum.or.jp」のポート「25」を
+使用します。送信するファイルは2つで、「hogehoge@plum.gr.jp」宛に
+「log%m%d」を、「hoehoe@plum.gr.jp」と「hogehoge@plum.or.jp」宛に
+「plum%m」を送信します。
+log%m%dとplum%mはそれぞれ日付が展開され、ファイルの日付が
+変わったときにメールで送信します。そのため、log%m%dは1日1回、
+plum%mは1月に1回送信されます。
 
 =cut
 

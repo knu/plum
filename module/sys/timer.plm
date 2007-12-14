@@ -33,48 +33,48 @@ sub main_loop {
 }
 __END__
 
-=head1 ̾��
+=head1 名前
 
-sys/timer.plm - ���ꤵ�줿���֤˻��ꤵ�줿���ޥ�ɤ�¹Ԥ���
+sys/timer.plm - 指定された時間に指定されたコマンドを実行する
 
-=head1 ����
+=head1 説明
 
-���ꤵ�줿���֤ˤʤ�Ȼ��ꤵ�줿���ޥ�ɤ�¹Ԥ��ޤ���
+指定された時間になると指定されたコマンドを実行します。
 
-=head1 �ץ��ѥƥ�
+=head1 プロパティ
 
 =over 4
 
-=item sys.timer.exec* ���� ���� ���ޥ��
+=item sys.timer.exec* 日付 時間 コマンド
 
-���ޥ�ɤ�¹Ԥ������ա����֤ȼºݤΥ��ޥ�ɤ���ꤷ�ޤ���
-���ա����֡����ޥ�ɤϤ��줾�����Ƕ��ڤ�ޤ���
-���դ�1970/01/01�����֤�00:00:00�Υե����ޥåȤǡ�
-���줾��磻��ɥ����ɤȤ���*��?������Ǥ��ޤ���
-���ޥ�ɤˤ�perl��ʸ�ǤϤʤ���
-�¹ԥե�����䥹����ץȤ���ꤷ�Ʋ�������
-�ޤ������֤λ���Ϥ������٤�������äƻ��ꤹ��褦�ˤ��Ʋ�������
-00:00:00�Τ褦�˸�̩�˻��ꤹ��ȡ��¹Ԥ���뤳�ȤϤޤ�����ޤ���
+コマンドを実行する日付、時間と実際のコマンドを指定します。
+日付、時間、コマンドはそれぞれ空白で区切ります。
+日付は1970/01/01、時間は00:00:00のフォーマットで、
+それぞれワイルドカードとして*と?が指定できます。
+コマンドにはperlの文ではなく、
+実行ファイルやスクリプトを指定して下さい。
+また、時間の指定はある程度の幅を持って指定するようにして下さい。
+00:00:00のように厳密に指定すると、実行されることはまずありません。
 
 =back
 
-=head1 ������
+=head1 設定例
 
     + sys/timer.plm
     sys.timer.exec: */01/01 *:*:* echo 'A happy new year' | mail hasegawa
 
-��ǯ1��1���ˤʤ�ȡ���echo 'A happy new year' | mail hasegawa��
-�Ȥ������ޥ�ɤ�¹Ԥ��ޤ���
-����ϡ�A Happy new year�פȤ����񤫤줿�᡼���hasegawa��������ޤ���
+毎年1月1日になると、「echo 'A happy new year' | mail hasegawa」
+というコマンドを実行します。
+これは「A Happy new year」とだけ書かれたメールをhasegawa宛に送ります。
 
     + sys/timer.plm
     sys.timer.exec: */*/* 00:*:* logmail
 
-����0���ˤʤ�ȡ���logmail�פȤ������ޥ�ɤ�¹Ԥ��ޤ���
+毎日0時になると、「logmail」というコマンドを実行します。
 
     + sys/timer.plm
     sys.timer.exec: */*/* *:*:* echo start plum
 
-��ư���˰�������echo start plum�פȤ������ޥ�ɤ�¹Ԥ��ޤ���
+起動時に一回だけ「echo start plum」というコマンドを実行します。
 
 =cut

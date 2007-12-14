@@ -22,30 +22,30 @@ sub cpss_userinfo {
 
 __END__
 
-=head1 Ì¾Á°
+=head1 åå‰
 
-ctcp/userinfo.plm - CTCP USERINFO¤ËÈ¿±þ¤·¤Æ¥æ¡¼¥¶¾ðÊó¤òÁ÷¤ë
+ctcp/userinfo.plm - CTCP USERINFOã«åå¿œã—ã¦ãƒ¦ãƒ¼ã‚¶æƒ…å ±ã‚’é€ã‚‹
 
-=head1 ÀâÌÀ
+=head1 èª¬æ˜Ž
 
-CTCP USERINFO¤¬Á÷¤é¤ì¤Æ¤­¤¿¤È¤­¡¢¤½¤ì¤ËÈ¿±þ¤·¤Æ¥æ¡¼¥¶¾ðÊó¤òÁ÷¤ê¤Þ¤¹¡£
+CTCP USERINFOãŒé€ã‚‰ã‚Œã¦ããŸã¨ãã€ãã‚Œã«åå¿œã—ã¦ãƒ¦ãƒ¼ã‚¶æƒ…å ±ã‚’é€ã‚Šã¾ã™ã€‚
 
-=head1 ¥×¥í¥Ñ¥Æ¥£
+=head1 ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£
 
 =over 4
 
-=item ctcp.userinfo.info ¥æ¡¼¥¶¾ðÊó
+=item ctcp.userinfo.info ãƒ¦ãƒ¼ã‚¶æƒ…å ±
 
-¥æ¡¼¥¶¾ðÊó¤òÀßÄê¤·¤Þ¤¹¡£Ê¸»ú¿ô¤ä»ÈÍÑ¤Ç¤­¤ëÊ¸»ú¤ÎÀ©¸Â¤Ï¤¢¤ê¤Þ¤»¤ó¡£
+ãƒ¦ãƒ¼ã‚¶æƒ…å ±ã‚’è¨­å®šã—ã¾ã™ã€‚æ–‡å­—æ•°ã‚„ä½¿ç”¨ã§ãã‚‹æ–‡å­—ã®åˆ¶é™ã¯ã‚ã‚Šã¾ã›ã‚“ã€‚
 
 =back
 
-=head1 ÀßÄêÎã
+=head1 è¨­å®šä¾‹
 
     + ctcp/userinfo.plm
-    ctcp.userinfo.info: ¤Ê¤¤¤·¤ç
+    ctcp.userinfo.info: ãªã„ã—ã‚‡
 
-CTCP USERINFO¤¬Á÷¤é¤ì¤Æ¤­¤¿¤È¤­¤Ë¡¢¡Ö¤Ê¤¤¤·¤ç¡×¤È¤¤¤¦
-¥æ¡¼¥¶¾ðÊó¤òÁ÷¤ê¤Þ¤¹¡£
+CTCP USERINFOãŒé€ã‚‰ã‚Œã¦ããŸã¨ãã«ã€ã€Œãªã„ã—ã‚‡ã€ã¨ã„ã†
+ãƒ¦ãƒ¼ã‚¶æƒ…å ±ã‚’é€ã‚Šã¾ã™ã€‚
 
 =cut

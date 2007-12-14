@@ -13,11 +13,13 @@ sub server_read {
   foreach $kanji (&'property($'userno[$serverno], 'input')) {
     foreach $code (split(/\,/, "\L$kanji\E")) {
       if ($code eq 'euc') {
-        $line = &'euc_euc($line);
+        $line = &'euc_utf8($line);
       } elsif ($code eq 'jis') {
-        $line = &'jis_euc($line);
+        $line = &'jis_utf8($line);
       } elsif ($code eq 'sjis') {
-        $line = &'sjis_euc($line);
+        $line = &'sjis_utf8($line);
+      } elsif ($code eq 'utf8') {
+        $line = &'utf8_utf8($line);
       }
     }
   }
@@ -31,11 +33,13 @@ sub server_write {
   if ($kanji) {
     $code = (split(/\,/, "\L$kanji\E"))[0];
     if ($kanji eq 'euc') {
-      $line = &'euc_euc($line);
+      $line = &'utf8_euc($line);
     } elsif ($kanji eq 'jis') {
-      $line = &'euc_jis($line);
+      $line = &'utf8_jis($line);
     } elsif ($kanji eq 'sjis') {
-      $line = &'euc_sjis($line);
+      $line = &'utf8_sjis($line);
+    } elsif ($kanji eq 'utf8') {
+      $line = &'utf8_utf8($line);
     }
   }
   return $line;
@@ -43,37 +47,37 @@ sub server_write {
 
 __END__
 
-=head1 Ì¾Á°
+=head1 åå‰
 
-server/kanji.plm - ¥µ¡¼¥Ğ¤È¤ÎÆş½ĞÎÏ¤Ç´Á»ú¥³¡¼¥É¤òÊÑ´¹¤¹¤ë
+server/kanji.plm - ã‚µãƒ¼ãƒã¨ã®å…¥å‡ºåŠ›ã§æ¼¢å­—ã‚³ãƒ¼ãƒ‰ã‚’å¤‰æ›ã™ã‚‹
 
-=head1 ÀâÌÀ
+=head1 èª¬æ˜
 
-¥µ¡¼¥Ğ¤«¤éJIS°Ê³°¤ÇÆşÎÏ¤µ¤ì¤¿´Á»ú¥³¡¼¥É¤òJIS¤ËÊÑ´¹¤·¤Ş¤¹¡£
-¤Ş¤¿¥µ¡¼¥Ğ¤ËÂĞ¤·¤Æ½ĞÎÏ¤¹¤ë´Á»ú¥³¡¼¥É¤ò»ØÄê¤·¤¿¤â¤Î¤Ë¤·¤Ş¤¹¡£
+ã‚µãƒ¼ãƒã‹ã‚‰JISä»¥å¤–ã§å…¥åŠ›ã•ã‚ŒãŸæ¼¢å­—ã‚³ãƒ¼ãƒ‰ã‚’JISã«å¤‰æ›ã—ã¾ã™ã€‚
+ã¾ãŸã‚µãƒ¼ãƒã«å¯¾ã—ã¦å‡ºåŠ›ã™ã‚‹æ¼¢å­—ã‚³ãƒ¼ãƒ‰ã‚’æŒ‡å®šã—ãŸã‚‚ã®ã«ã—ã¾ã™ã€‚
 
-=head1 ¥×¥í¥Ñ¥Æ¥£
+=head1 ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£
 
 =over 4
 
-=item server.kanji.input* ({jis|euc|sjis})
+=item server.kanji.input* ({jis|euc|sjis|utf8})
 
-¥µ¡¼¥Ğ¤«¤é¤ÎÆşÎÏ¤¬»ØÄê¤·¤¿´Á»ú¥³¡¼¥É¤Î¤â¤Î¤Ç¤¢¤ì¤Ğ¡¢
-¤½¤ì¤òjis¤ËÊÑ´¹¤·¤Ş¤¹¡£euc¤Èsjis¤ÏÆ±»ş¤Ë»ØÄê¤Ç¤­¤Ş¤»¤ó¡£
+ã‚µãƒ¼ãƒã‹ã‚‰ã®å…¥åŠ›ãŒæŒ‡å®šã—ãŸæ¼¢å­—ã‚³ãƒ¼ãƒ‰ã®ã‚‚ã®ã§ã‚ã‚Œã°ã€
+ãã‚Œã‚’jisã«å¤‰æ›ã—ã¾ã™ã€‚eucã¨sjisã¯åŒæ™‚ã«æŒ‡å®šã§ãã¾ã›ã‚“ã€‚
 
-=item server.kanji.output {jis|euc|sjis}
+=item server.kanji.output {jis|euc|sjis|utf8}
 
-¥µ¡¼¥Ğ¤Ë½ĞÎÏ¤¹¤ë´Á»ú¥³¡¼¥É¤ò»ØÄê¤·¤¿¤â¤Î¤Ë¤·¤Ş¤¹¡£
+ã‚µãƒ¼ãƒã«å‡ºåŠ›ã™ã‚‹æ¼¢å­—ã‚³ãƒ¼ãƒ‰ã‚’æŒ‡å®šã—ãŸã‚‚ã®ã«ã—ã¾ã™ã€‚
 
 =back
 
-=head1 ÀßÄêÎã
+=head1 è¨­å®šä¾‹
 
     + server/kanji.plm
     server.kanji.input: sjis,jis
     server.kanji.output: sjis
 
-¥µ¡¼¥Ğ¤«¤é¤ÎÆşÎÏ¤¬sjis¤À¤Ã¤¿¤È¤­¤Ë¡¢¤½¤ì¤òjis¤ËÊÑ´¹¤·¤Ş¤¹¡£
-¤Ş¤¿¥µ¡¼¥Ğ¤ËÂĞ¤¹¤ë½ĞÎÏ¤òsjis¤Ë¤·¤Ş¤¹¡£
+ã‚µãƒ¼ãƒã‹ã‚‰ã®å…¥åŠ›ãŒsjisã ã£ãŸã¨ãã«ã€ãã‚Œã‚’jisã«å¤‰æ›ã—ã¾ã™ã€‚
+ã¾ãŸã‚µãƒ¼ãƒã«å¯¾ã™ã‚‹å‡ºåŠ›ã‚’sjisã«ã—ã¾ã™ã€‚
 
 =cut

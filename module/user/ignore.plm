@@ -78,42 +78,42 @@ sub maskcommand {
 
 __END__
 
-=head1 ̾��
+=head1 名前
 
-user/ignore.plm - ���ꤷ���桼����ȯ����̵�뤹��
+user/ignore.plm - 指定したユーザの発言を無視する
 
-=head1 ����
+=head1 説明
 
-���ꤷ���桼����ȯ���򥯥饤����Ȥ�����ʤ��褦�ˤ��ޤ���
+指定したユーザの発言をクライアントに送らないようにします。
 
-=head1 �ץ��ѥƥ�
+=head1 プロパティ
 
 =over 4
 
-=item user.ignore.mask* �桼���ޥ��� [(�����ͥ�̾)]
+=item user.ignore.mask* ユーザマスク [(チャンネル名)]
 
-ȯ�������ͤ������ǻ��ꤷ����Τ˥ޥå�������硢
-���οͤ�ȯ����̵�뤷�����饤����Ȥ�����ʤ��褦�ˤ��ޤ���
+発言した人がここで指定したものにマッチした場合、
+その人の発言を無視し、クライアントに送らないようにします。
 
 =item user.ignore.command* ({privmsg|notice})
 
-̵�뤹���å������μ������ꤷ�ޤ���
-�ǥե���ȤǤ�PRIVMSG��NOTICE��ξ����̵�뤷�ޤ���
+無視するメッセージの種類を指定します。
+デフォルトではPRIVMSGとNOTICEの両方を無視します。
 
 =back
 
-=head1 ������
+=head1 設定例
 
     + user/ignore.plm
     user.ignore.mask: -*!*@*.jp
     user.ignore.mask: *!*@*
 
-��*!*@*.jp�פ˥ޥå����ʤ��ͤ�ȯ���򤹤٤�̵�뤷�ޤ���
+「*!*@*.jp」にマッチしない人の発言をすべて無視します。
 
     + user/ignore.plm
     user.ignore.mask: dummy!*@*
     user.ignore.command: privmsg
 
-��dummy�פȤ����˥å��͡���Υ桼���Ρ�PRIVMSG�Ǥ�ȯ����̵�뤷�ޤ���
+「dummy」というニックネームのユーザの、PRIVMSGでの発言を無視します。
 
 =cut

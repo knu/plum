@@ -53,23 +53,23 @@ sub ss_quit {
 
 __END__
 
-=head1 ̾��
+=head1 名前
 
-channel/mode/oper/get.plm - �����ͥ륪�ڥ졼������������
+channel/mode/oper/get.plm - チャンネルオペレータを復帰する
 
-=head1 ����
+=head1 説明
 
-�����ͥ�˼�ʬ�������ʤ��ˤ⤫����餺����ʬ�������ͥ�
-���ڥ졼���ǤϤʤ���硢���٥����ͥ��ȴ���ƺƤ�
-����ľ�����Ȥˤ�äơ������ͥ륪�ڥ졼���ˤʤ�ޤ���
+チャンネルに自分しかいないにもかかわらず、自分がチャンネル
+オペレータではない場合、一度チャンネルを抜けて再び
+入り直すことによって、チャンネルオペレータになります。
 
-=head1 �ץ��ѥƥ�
+=head1 プロパティ
 
 =over 4
 
 =back
 
-=head1 ������
+=head1 設定例
 
     + channel/mode/oper/get.plm
 

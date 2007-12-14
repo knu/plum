@@ -16,22 +16,22 @@ sub cpss_comment {
 
 __END__
 
-=head1 Ì¾Á°
+=head1 åå‰
 
-ctcp/comment.plm - CTCP COMMENT¤ËÈ¿±þ¤·¤Æ¥á¥Ã¥»¡¼¥¸¤ò¼õ¤±¼è¤ë
+ctcp/comment.plm - CTCP COMMENTã«åå¿œã—ã¦ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’å—ã‘å–ã‚‹
 
-=head1 ÀâÌÀ
+=head1 èª¬æ˜Ž
 
-CTCP COMMENT¤¬Á÷¤é¤ì¤Æ¤­¤¿¤È¤­¡¢
-¤½¤ì¤ËÈ¿±þ¤·¤Æ¥³¥á¥ó¥È¤ò¼õ¤±¼è¤ê¤Þ¤¹¡£
+CTCP COMMENTãŒé€ã‚‰ã‚Œã¦ããŸã¨ãã€
+ãã‚Œã«åå¿œã—ã¦ã‚³ãƒ¡ãƒ³ãƒˆã‚’å—ã‘å–ã‚Šã¾ã™ã€‚
 
-=head1 ¥×¥í¥Ñ¥Æ¥£
+=head1 ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£
 
 =over 4
 
 =back
 
-=head1 ÀßÄêÎã
+=head1 è¨­å®šä¾‹
 
    + ctcp/comment.plm
 

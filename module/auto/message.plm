@@ -102,10 +102,12 @@ sub ss_privmsg {
 
 sub match {
   local($str, $pattern) = @_;
-  if (&'exist($'kanjilist, 'sjis')) {
-    $str = &'euc_sjis($str);
-    $pattern = &'euc_sjis($pattern);
-  }
+
+  use Encode;
+
+  $str = decode_utf8($str);
+  $pattern = decode_utf8($pattern);
+
   if ($str =~ /$pattern/) {
     return 1;
   } else {
@@ -254,7 +256,7 @@ sub get_msg {
     while (defined($line = <FILE>)) {
       $line =~ tr/\r\n//d;
       next unless $line;
-      $line = &code_euc($line, $code) if $code;
+      $line = &'code_utf8($line, $code) if $code;
       @data = split(/\s+/, $line, 5);
       if (&check_alias($userno, $prefix, $data[1])) {
         push(@list, $line);
@@ -269,7 +271,7 @@ sub add_msg {
   local($userno, $msg) = @_;
   local($name, $code);
   ($name, $code) = &filename(&'property($userno, 'file'));
-  $msg = &euc_code($msg, $code) if $code;
+  $msg = &'utf8_code($msg, $code) if $code;
   if (open(FILE, ">>$name")) {
     print FILE $msg, "\n";
     close(FILE);
@@ -286,14 +288,14 @@ sub delete_msg {
     while (defined($line = <FILE>)) {
       $line =~ tr/\r\n//d;
       next unless $line;
-      $line = &code_euc($line, $code) if $code;
+      $line = &'code_utf8($line, $code) if $code;
       next if &'exist($list, $line);
       push(@msg, $line);
     }
     close(FILE);
     if (open(FILE, ">$name")) {
       foreach $line (@msg) {
-        $line = &euc_code($line, $code) if $code;
+        $line = &'utf8_code($line, $code) if $code;
         print FILE $line, "\n";
       }
       close(FILE);
@@ -438,7 +440,7 @@ sub read_file {
           $line =~ tr/\r\n//d;
           next unless $line;
           $line =~ s/\s+$//;
-          $line = &code_euc($line, $code) if $code;
+          $line = &'code_utf8($line, $code) if $code;
           push(@data, $line);
         }
         close(TMP);
@@ -467,177 +469,149 @@ sub filename {
   return (&'expand($name), $code);
 }
 
-sub code_euc {
-  local($line, $list) = @_;
-  foreach $code (split(/\,/, "\L$list\E")) {
-    if ($code eq 'euc') {
-      $line = &'euc_euc($line);
-    } elsif ($code eq 'jis') {
-      $line = &'jis_euc($line);
-    } elsif ($code eq 'sjis') {
-      $line = &'sjis_euc($line);
-    }
-  }
-  return $line;
-}
-
-sub euc_code {
-  local($line, $list) = @_;
-  local($code);
-  $code = (split(/\,/, "\L$list\E"))[0];
-  if ($code eq 'euc') {
-    $line = &'euc_euc($line);
-  } elsif ($code eq 'jis') {
-    $line = &'euc_jis($line);
-  } elsif ($code eq 'sjis') {
-    $line = &'euc_sjis($line);
-  }
-  return $line;
-}
-
 __END__
 
-=head1 ̾��
+=head1 名前
 
-auto/message.plm - �桼���֤ǥ�å���������������Ԥ���褦�ˤ���
+auto/message.plm - ユーザ間でメッセージの送受信を行えるようにする
 
-=head1 ����
+=head1 説明
 
-�桼���֤���ߤ˥�å������Τ��Ȥ꤬�Ǥ���褦�ˤ��ޤ���
-��å����������뤿���ȯ��������ȡ�����������ȥ�å����������Ƥ�
-�ե��������¸���ޤ����桼���������ͥ�����äƤ����ꡢ�˥å��͡����
-�ѹ������Ȥ��ʤɤˡ����Υ桼�����Υ�å��������ʤ����ɤ�����ǧ����
-��å�����������С���å����������뤳�Ȥ������ޤ���
-��å�������������ϴ���Ū�˥˥å��͡���ǻ��ꤹ��ɬ�פ�����ޤ�����
-�����ꥢ���򻲾Ȥ��뤳�ȤǴ�����ޤ��̾����Ȥ����Ȥ�Ǥ��ޤ���
-��å�����������Ȥ뤿���ȯ��������ȡ��ե�������椫�餽�Υ桼����
-�Ф�������줿��å�������ȯ�������ե��������¸���줿��å�������
-������ޤ������ä���å���������꤬�����Ȥä����ɤ�����ǧ������ˡ��
-����ޤ��󡣤ޤ����������ä���å��������ѹ��������뤳�ȤϤǤ��ޤ���
+ユーザ間で相互にメッセージのやりとりができるようにします。
+メッセージを送るための発言があると、その送り先とメッセージの内容を
+ファイルに保存します。ユーザがチャンネルに入ってきたり、ニックネームを
+変更したときなどに、そのユーザ宛のメッセージがないかどうか確認し、
+メッセージがあれば、メッセージがあることを伝えます。
+メッセージの送り先は基本的にニックネームで指定する必要がありますが、
+エイリアスを参照することで漢字を含んだ名前を使うこともできます。
+メッセージを受けとるための発言があると、ファイルの中からそのユーザに
+対して送られたメッセージを発言し、ファイルに保存されたメッセージを
+削除します。送ったメッセージを相手が受けとったかどうか確認する方法は
+ありません。また、一度送ったメッセージは変更や削除することはできません。
 
-=head1 �ץ��ѥƥ�
+=head1 プロパティ
 
 =over 4
 
-=item auto.message.file �ե�����̾[;({jis|euc|sjis})]
+=item auto.message.file ファイル名[;({jis|euc|sjis|utf8})]
 
-��å��������Ǽ����ե��������ꤷ�ޤ������Υե���������̤�
-�ƥ����ȥե�����ǡ���ԤˤĤ���ĤΥ�å���������¸����ޤ���
-���������ɤϥǥե���ȤǤ�jis����¸����ޤ���������ʳ���
-���������ɤ���¸���������ϡ��ե�����̾�θ�˥��ߥ������
-���ڤäƴ��������ɤ���ꤷ�ޤ���
+メッセージを格納するファイルを指定します。このファイルは普通の
+テキストファイルで、一行につき一つのメッセージが保存されます。
+漢字コードはデフォルトではjisで保存されますが、それ以外の
+漢字コードで保存したい場合は、ファイル名の後にセミコロンで
+区切って漢字コードを指定します。
 
-=item auto.message.alias �ե�����̾[;({jis|euc|sjis})]
+=item auto.message.alias ファイル名[;({jis|euc|sjis|utf8})]
 
-�����ꥢ���򻲾Ȥ���ե��������ꤷ�ޤ���
-Ŭ�ڤ˥����ꥢ�������ꤷ�Ƥ������Ȥǡ�������˥˥å��͡������
-�ǤϤʤ���Ǥ�դ�̾������ꤹ�뤳�Ȥ��Ǥ��ޤ���
-�ޤ������긵��̾����˥å��͡���ǤϤʤ��������ꥢ���Ȥ���
-�������Ƥ���̾����Ȥ��ޤ���
-���Υե������auto/alias.plm�ǰ�����ե������Ʊ�������Ǥ���
-�ե�����δ��������ɤ�jis�ʳ��ξ��ϡ����δ��������ɤ�
-���ꤹ��ɬ�פ�����ޤ���
+エイリアスを参照するファイルを指定します。
+適切にエイリアスを設定しておくことで、送り先にニックネームだけ
+ではなく、任意の名前を指定することができます。
+また、送り元の名前もニックネームではなく、エイリアスとして
+定義されている名前を使います。
+このファイルはauto/alias.plmで扱えるファイルと同じ形式です。
+ファイルの漢字コードがjis以外の場合は、その漢字コードを
+指定する必要があります。
 
-=item auto.message.get* ʸ����
+=item auto.message.get* 文字列
 
-��å�����������Ȥ뤿���ʸ�������ꤷ�ޤ���
-�����ǻ��ꤷ��ʸ�����Ʊ��ʸ����ȯ�������ȡ�
-���οͤ��Ф�������줿��å�������ե������椫��
-��������ȯ�����ޤ���
+メッセージを受けとるための文字列を指定します。
+ここで指定した文字列と同じ文字列が発言されると、
+その人に対して送られたメッセージをファイル中から
+検索して発言します。
 
-=item auto.message.send* ʸ����
+=item auto.message.send* 文字列
 
-��å����������뤿���ʸ�������ꤷ�ޤ���
-�����ǻ��ꤷ��ʸ�����³����������Υ˥å��͡��फ̾����
-��å����������Ƥ����Ƕ��ڤä�ȯ�����뤳�Ȥˤ�ꡢ
-���Υ�å�������ե��������¸���ޤ���
+メッセージを送るための文字列を指定します。
+ここで指定した文字列に続けて送り先のニックネームか名前と
+メッセージの内容を空白で区切って発言することにより、
+そのメッセージをファイルに保存します。
 
-=item auto.message.check* ʸ����
+=item auto.message.check* 文字列
 
-��å��������Ϥ��Ƥ��뤫�ɤ�����ǧ���뤿���ʸ�������ꤷ�ޤ���
-�����ǻ��ꤷ��ʸ�����Ʊ��ʸ����ȯ�������ȡ�
-���οͤ��Ф�������줿��å����������뤫�ɤ�����ǧ����
-���η�̤�ȯ�����ޤ���
+メッセージが届いているかどうか確認するための文字列を指定します。
+ここで指定した文字列と同じ文字列が発言されると、
+その人に対して送られたメッセージがあるかどうか確認し、
+その結果を発言します。
 
-=item auto.message.date ʸ����
+=item auto.message.date 文字列
 
-auto.message.format�ǻ��ꤹ�뤳�ȤΤǤ����ͤΤ�����
-#(date)���ִ���������դΥե����ޥåȤ���ꤷ�ޤ���
-�ǥե���ȤǤϡ�%m/%d %H:%M�פȤʤäƤ��ޤ���
+auto.message.formatで指定することのできる値のうち、
+#(date)で置換される日付のフォーマットを指定します。
+デフォルトでは「%m/%d %H:%M」となっています。
 
-=item auto.message.format* �ե����ޥå�
+=item auto.message.format* フォーマット
 
-������˥�å�����������Ȥ��ˡ��ɤΤ褦�ʷ�����ȯ�����뤫��
-���ꤷ�ޤ����ե����ޥåȤ�#(nick)�Τ褦�˽񤯤��Ȥǡ�
-��å�����������Ȥ�ͤΥ����ꥢ�����б������ͤ��֤������ޤ���
-�ޤ�����å����������ä��ͤΥ����ꥢ����#(from.nick)�Τ褦�ʷ���
-���ִ����뤳�Ȥ��Ǥ��ޤ��������ꥢ���ʳ��ξ���Ȥ��Ƥϡ�
-#(date)�ǥ�å����������ä����դȻ����#(message)��
-��å����������Ƥ򤽤줾���֤������ޤ���
-�ޤ����������|�פǶ��ڤä�ʣ�����ꤷ����硢
-�ǽ���������Ƥ����ͤ��֤������ޤ���
+送り先にメッセージを送るときに、どのような形式で発言するかを
+指定します。フォーマットに#(nick)のように書くことで、
+メッセージを受けとる人のエイリアスの対応する値で置き換えます。
+また、メッセージを送った人のエイリアスは#(from.nick)のような形式
+で置換することができます。エイリアス以外の情報としては、
+#(date)でメッセージを送った日付と時刻を、#(message)で
+メッセージの内容をそれぞれ置き換えます。
+また、括弧内を「|」で区切って複数指定した場合、
+最初に定義されている値で置き換えます。
 
-=item auto.message.accept* �ե����ޥå�
+=item auto.message.accept* フォーマット
 
-��å�������������������ä��Ȥ��ˡ������ǻ��ꤷ����Τ�
-ȯ�����ޤ����ե����ޥåȤ�#(nick)�Τ褦�˻��ꤹ�뤳�Ȥǡ�
-��å����������긵�Υ����ꥢ�����б������ͤ��֤������ޤ���
-�ޤ���#(to)�ǥ�å�������������Ȥ��ƻ��ꤷ��̾����
-#(to.nick)�Τ褦�ˡ�to.�פ��դ��뤳�Ȥǡ���å��������������
-�����ꥢ�����б������ͤ��֤������ޤ���
+メッセージを正しく受け取ったときに、ここで指定したものを
+発言します。フォーマットに#(nick)のように指定することで、
+メッセージの送り元のエイリアスの対応する値で置き換えます。
+また、#(to)でメッセージの送り先として指定した名前を、
+#(to.nick)のように「to.」を付けることで、メッセージの送り先の
+エイリアスの対応する値で置き換えます。
 
-=item auto.message.unknown* �ե����ޥå�
+=item auto.message.unknown* フォーマット
 
-��å�������������꤬�狼��ʤ��Ȥ��ˡ������ǻ��ꤷ����Τ�
-ȯ�����ޤ����ե����ޥåȤ�#(nick)�Τ褦�˻��ꤹ�뤳�Ȥǡ�
-��å����������긵�Υ����ꥢ�����б������ͤ��֤������ޤ���
-�ޤ���#(to)�ǥ�å��������������Ȥ�������̾�����֤������ޤ���
+メッセージを送る相手がわからないときに、ここで指定したものを
+発言します。フォーマットに#(nick)のように指定することで、
+メッセージの送り元のエイリアスの対応する値で置き換えます。
+また、#(to)でメッセージを送ろうとした相手の名前に置き換えます。
 
-=item auto.message.receive* �ե����ޥå�
+=item auto.message.receive* フォーマット
 
-�����ͥ�����äƤ������䡢�˥å��͡�����ѹ��������ˡ�
-���οͤ��Ф����å��������Ϥ��Ƥ���С������ǻ��ꤷ����Τ�
-ȯ�����ޤ����ե����ޥåȤ�#(nick)�Τ褦�˻��ꤹ�뤳�Ȥǡ�
-��å����������긵�Υ����ꥢ�����б������ͤ��֤������ޤ���
-�ޤ���#(number)���Ϥ��Ƥ����å������ο����֤������ޤ���
+チャンネルに入ってきた時や、ニックネームを変更した時に、
+その人に対するメッセージが届いていれば、ここで指定したものを
+発言します。フォーマットに#(nick)のように指定することで、
+メッセージの送り元のエイリアスの対応する値で置き換えます。
+また、#(number)で届いているメッセージの数に置き換えます。
 
-=item auto.message.nothing* �ե����ޥå�
+=item auto.message.nothing* フォーマット
 
-��å����������������Ȥ���������å�������
-�Ϥ��Ƥ��ʤ��ä��Ȥ��������ǻ��ꤷ����Τ�ȯ�����ޤ���
-�ե����ޥåȤ�#(nick)�Τ褦�˻��ꤹ�뤳�Ȥǡ�
-�����ꥢ�����б������ͤ��֤������ޤ���
+メッセージを受け取ろうとしたが、メッセージが
+届いていなかったとき、ここで指定したものを発言します。
+フォーマットに#(nick)のように指定することで、
+エイリアスの対応する値で置き換えます。
 
-=item auto.message.exists* �ե����ޥå�
+=item auto.message.exists* フォーマット
 
-��å��������Ϥ��Ƥ��뤫�ɤ�����ǧ�����Ȥ��ˡ�
-�Ϥ��Ƥ����å�����������С������ǻ��ꤷ����Τ�ȯ�����ޤ���
+メッセージが届いているかどうか確認したときに、
+届いているメッセージがあれば、ここで指定したものを発言します。
 
 =back
 
-=head1 ������
+=head1 設定例
 
     + auto/message.plm
     auto.message.file: message.txt;jis
     auto.message.alias: alias.txt;jis,euc
-    auto.message.get: ����������
-    auto.message.send: ����
-    auto.message.check: ��������?
-    auto.message.format: #(from.name|from.nick.now)���󤫤顢��#(message)��
-    auto.message.accept: #(to)����ؤ�������Ф��ޤ���
-    auto.message.unknown: #(to)����Ȥ����Τ�ï�Ǥ���?
-    auto.message.receive: #(number)�Ĥ��������Ϥ��Ƥ��ޤ��������������ơפǤ��������ޤ���
-    auto.message.nothing: #(name|nick.now)����ؤ������Ϥ���ޤ���
-    auto.message.exists: #(name|nick.now): #(number)�Ĥ�����������ޤ���
+    auto.message.get: 伝言教えて
+    auto.message.send: 伝言
+    auto.message.check: 伝言ある?
+    auto.message.format: #(from.name|from.nick.now)さんから、「#(message)」
+    auto.message.accept: #(to)さんへの伝言を覚えました
+    auto.message.unknown: #(to)さんというのは誰ですか?
+    auto.message.receive: #(number)個の伝言が届いています。「伝言教えて」でお伝えします。
+    auto.message.nothing: #(name|nick.now)さんへの伝言はありません
+    auto.message.exists: #(name|nick.now): #(number)個の伝言があります。
 
-������ pupu_j �ۤ��ۤ��פΤ褦��ȯ������ȡ�
-��pupu_j�פȤ����˥å��͡���οͤˡ֤ۤ��ۤ��פȤ�����å�������
-�����ޤ����ޤ���alias.txt�פ˻��ꤵ��Ƥ���̾����Ȥäơ�
-������ �פ� �ۤ��ۤ��פΤ褦�ˤ��ƥ�å������������뤳�Ȥ�Ǥ��ޤ���
+「伝言 pupu_j ほえほえ」のように発言すると、
+「pupu_j」というニックネームの人に「ほえほえ」というメッセージを
+伝えます。また「alias.txt」に指定されている名前を使って、
+「伝言 ぷぷ ほえほえ」のようにしてメッセージを伝えることもできます。
 
-��å��������Ϥ��Ƥ���Ȥ��ˡ������ͥ�����ä��ꡢ
-�˥å��͡�����ѹ�����ȡ����������Ϥ��Ƥ��ޤ��������������ơפǸ����ޤ���
-�ȸ��ä��Τ餻�ޤ�����å��������Ϥ��Ƥ���Ȥ��ˡ�
-�����������ơפ�ȯ������ȡ��Ϥ��Ƥ����å�������ʹ�����Ȥ��Ǥ��ޤ���
+メッセージが届いているときに、チャンネルに入ったり、
+ニックネームを変更すると、「伝言が届いています。「伝言教えて」で見られます」
+と言って知らせます。メッセージが届いているときに、
+「伝言教えて」と発言すると、届いているメッセージを聞くことができます。
 
 =cut

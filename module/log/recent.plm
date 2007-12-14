@@ -230,42 +230,42 @@ sub writelog {
 
 __END__
 
-=head1 ̾��
+=head1 名前
 
-log/recent.plm - ���饤����Ȥ���³�����Ȥ��˺Ƕ�Υ�å�����������
+log/recent.plm - クライアントを接続したときに最近のメッセージを送る
 
-=head1 ����
+=head1 説明
 
-�Ƕ�Υ�å���������ꤷ����������¸���Ƥ�����
-���饤����Ȥ���³�����Ȥ��ˡ����������ޤ���
+最近のメッセージを指定した数だけ保存しておき、
+クライアントを接続したときに、それを送ります。
 
-=head1 �ץ��ѥƥ�
+=head1 プロパティ
 
 =over 4
 
-=item log.recent.header �إå�
+=item log.recent.header へッダ
 
-�����λ���Υե����ޥåȤ���ꤷ�ޤ���
-%�ǤϤ��ޤ�ʸ��������ȡ��б�������֤��Ѵ�����ޤ���
+ログの時刻のフォーマットを指定します。
+%ではじまる文字があると、対応する時間に変換されます。
 
-=item log.recent.line �Կ�
+=item log.recent.line 行数
 
-������Ĥ��Կ�����ꤷ�ޤ����ǥե���ȤǤ�50�ԤǤ���
+ログを残す行数を指定します。デフォルトでは50行です。
 
 =item log.recent.command ({invite|join|kick|mode|nick|notice|part|privmsg|quit|topic})
 
-��¸�����å������μ������ꤷ�ޤ���
-�ǥե���ȤǤϡ�privmsg�פ����Ǥ���
+保存するメッセージの種類を指定します。
+デフォルトでは「privmsg」だけです。
 
 =back
 
-=head1 ������
+=head1 設定例
 
     log.recent.header: %H%M%S
     log.recent.command: notice,privmsg,topic
 
-�إå����%H%M%S�פˤ��������μ�����notice�ס���privmsg�ס���topic��
-��3����ˤ��ޤ���
-��%H�ס���%M�ס���%S�פϤ��줾�츽�ߤλ���ʬ���ä��Ѵ�����ޤ���
+へッダを「%H%M%S」にし、ログの種類を「notice」、「privmsg」、「topic」
+の3種類にします。
+「%H」、「%M」、「%S」はそれぞれ現在の時、分、秒に変換されます。
 
 =cut

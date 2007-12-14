@@ -36,39 +36,12 @@ sub check_topic {
   $userno = $'userno[$sno];
   $limit = &'property($userno, 'limit');
   $limit = $LIMIT unless defined($limit);
-  $topic = &'euc_jis($topic);
-  if (length($topic) > $limit) {
-    $topic_s = substr($topic, 0, $limit);
-    $jis0 = rindex($topic_s, "\e(B");
-    $jis1 = rindex($topic_s, "\e\$B");
-    $jis2 = rindex($topic_s, "\e\(I");
-    $jis3 = rindex($topic_s, "\e\$(D");
-    $limit2 = $limit - 9;
-    $limit3 = $limit - 10;
-    if ($jis0 > $jis1 && $jis0 > $jis2 && $jis0 > $jis3) {
-      $jis0 = rindex($topic, "\e");
-      $topic = substr($topic, 0, $jis0);
-    } elsif ( $jis1 > $limit2 || $jis2 > $limit2 || $jis3 > $limit3) {
-      $jis0 = rindex($topic_s, "\e");
-      $topic = substr($topic, 0, $jis0);
-    } else {
-      if ($jis1 > $jis2 || $jis1 > $jis3) {
-        $offset = $jis1 + 3 + (int(($limit - $jis1 - 6) / 2) * 2);
-        $topic = substr($topic, 0, $offset);
-        $topic .= "\e(B";
-      } elsif ($jis2 > $jis1 || $jis2 > $jis3) {
-        $offset = $jis2 + 3 + (int(($limit - $jis2 - 6) / 2) * 2);
-        $topic = substr($topic, 0, $offset);
-        $topic .= "\e(B";
-      } elsif ($jis3 > $jis1 || $jis3 > $jis2) {
-        $offset = $jis3 + 4 + (int(($limit - $jis3 - 7) / 2) * 2);
-        $topic = substr($topic, 0, $offset);
-        $topic .= "\e(B";
-      } else {
-        $topic = substr($topic, 0, $limit);
-      }
-    }
-  }
-  $topic = &'jis_euc($topic);
+
+  use Encode;
+
+  $topic = decode_utf8($topic);
+  $topic = substr($topic, 0, $limit);
+  $topic = encode_utf8($topic);
+
   return $topic;
 }

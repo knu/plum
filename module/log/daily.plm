@@ -214,7 +214,7 @@ sub writelog {
   $header = &'property($userno, 'header');
   $header = $HEADER unless defined($header);
   $header = &'date($header);
-  $msg = &euc_code($msg, $code) if $code;
+  $msg = &'utf8_code($msg, $code) if $code;
   if (!-e $name) {
     if (open(FILE, ">$name")) {
       close(FILE);
@@ -244,84 +244,70 @@ sub filename {
   return (&'expand($name), $code);
 }
 
-sub euc_code {
-  local($line, $list) = @_;
-  local($code);
-  $code = (split(/\,/, "\L$list\E"))[0];
-  if ($code eq 'euc') {
-    $line = &'euc_euc($line);
-  } elsif ($code eq 'jis') {
-    $line = &'euc_jis($line);
-  } elsif ($code eq 'sjis') {
-    $line = &'euc_sjis($line);
-  }
-  return $line;
-}
-
 __END__
 
-=head1 ̾��
+=head1 名前
 
-log/daily.plm - ��å��������������¸����
+log/daily.plm - メッセージをログに保存する
 
-=head1 ����
+=head1 説明
 
-��������ꤷ���ե��������¸���ޤ���
+ログを指定したファイルに保存します。
 
-=head1 �ץ��ѥƥ�
+=head1 プロパティ
 
 =over 4
 
-=item log.daily.directory �ǥ��쥯�ȥ�
+=item log.daily.directory ディレクトリ
 
-�������������ǥ��쥯�ȥ����ꤷ�ޤ���
-�ǥ��쥯�ȥ��plum��¹Ԥ����ǥ��쥯�ȥ꤫������Хѥ��ˤʤ�ޤ���
-UNIX�ʤ��~/�פ��~user�פȤ��������Ǥ��ޤ���
+ログを作成するディレクトリを指定します。
+ディレクトリはplumを実行したディレクトリからの相対パスになります。
+UNIXなら「~/」や「~user」という指定もできます。
 
-=item log.daily.file �ե�����̾[;({jis|euc|sjis})]
+=item log.daily.file ファイル名[;({jis|euc|sjis|utf8})]
 
-��������¸����ե��������ꤷ�ޤ���
-%�ǤϤ��ޤ�ʸ����������б��������դ��Ѵ�����ޤ���
-�ǥե���ȤǤϡ�log%m%d�פǤ���
-�ե�����̾�θ����¸������������ɤ���ꤹ�뤳�Ȥ��Ǥ��ޤ���
-���������ɤ�ʣ�����ꤷ�����Ϻǽ�˻��ꤷ�����������ɤ���¸���졢
-��ά�������ϡ�jis�פ���ꤷ�����Ȥ�Ʊ���ˤʤ�ޤ���
-�ޤ���euc�פȡ�sjis�פ�Ʊ���˻��ꤹ�뤳�ȤϤǤ��ޤ���
+ログを保存するファイルを指定します。
+%ではじまる文字があると対応する日付に変換されます。
+デフォルトでは「log%m%d」です。
+ファイル名の後に保存する漢字コードを指定することができます。
+漢字コードを複数指定した場合は最初に指定した漢字コードで保存され、
+省略した場合は「jis」を指定したことと同じになります。
+また「euc」と「sjis」を同時に指定することはできません。
 
-=item log.daily.header �إå�
+=item log.daily.header へッダ
 
-�����˽��Ϥ������Υե����ޥåȤ���ꤷ�ޤ���
-%�ǤϤ��ޤ�ʸ����������б�������֤��Ѵ�����ޤ���
-�ǥե���ȤǤϡ�%H:%M�פǤ���
+ログに出力する時刻のフォーマットを指定します。
+%ではじまる文字があると対応する時間に変換されます。
+デフォルトでは「%H:%M」です。
 
-=item log.daily.mode �ե�����⡼��
+=item log.daily.mode ファイルモード
 
-�����Υե�����⡼�ɤ򤳤��ǻ��ꤷ���ͤˤ��ޤ���
+ログのファイルモードをここで指定した値にします。
 
 =item log.daily.command ({invite|join|kick|mode|nick|notice|part|privmsg|quit|topic})
 
-��¸�����å������μ������ꤷ�ޤ���
-�ǥե���ȤǤϡ�notice�װʳ��Τ��٤ƤǤ���
+保存するメッセージの種類を指定します。
+デフォルトでは「notice」以外のすべてです。
 
 =back
 
-=head1 ������
+=head1 設定例
 
     + log/daily.plm
     log.daily.file: log/log%y%m%d;euc
 
-�������log/log%y%m%d�פ���¸���ޤ����ޤ��������δ��������ɤ�
-euc�ˤ��ޤ�����%y�ס���%m�ס���%d�פϤ��줾�츽�ߤ�ǯ�������
-�Ѵ�����ޤ���
+ログを「log/log%y%m%d」に保存します。また、ログの漢字コードを
+eucにします。「%y」、「%m」、「%d」はそれぞれ現在の年、月、日に
+変換されます。
 
     + log/daily.plm
     log.daily.file: log%+1O%m%d
     log.daily.command: privmsg,topic,join,part,kick,nick
 
-��¸����������privmsg�ס���topic�ס���join�ס���part�ס���kick�ס�
-��nick�פ�6����ˤ��ޤ���
-�����Υե�����ϥ����ȥǥ��쥯�ȥ�Ρ�log%m%d�פˤʤ�ޤ���
-��%m�ס���%d�פϤ��줾�츽�ߤ�ǯ��������Ѵ�����ޤ���
-�����ե�����Υե�����̾������23�������������դΤ�Τ��Ѥ��ޤ���
+保存するログを「privmsg」、「topic」、「join」、「part」、「kick」、
+「nick」の6種類にします。
+ログのファイルはカレントディレクトリの「log%m%d」になります。
+「%m」、「%d」はそれぞれ現在の年、月、日に変換されます。
+ログファイルのファイル名は毎日23時に翌日の日付のものに変わります。
 
 =cut

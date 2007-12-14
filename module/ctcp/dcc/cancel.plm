@@ -27,22 +27,22 @@ sub cpss_dcc {
 
 __END__
 
-=head1 ̾��
+=head1 名前
 
-ctcp/dcc/cancel.plm - DCC CHAT�򥭥�󥻥뤹��
+ctcp/dcc/cancel.plm - DCC CHATをキャンセルする
 
-=head1 ����
+=head1 説明
 
-DCC CHAT�Υꥯ�����Ȥ������Ȥ��ˡ�����򥭥�󥻥뤷�ޤ���
-DCC CHAT�ʳ���DCC�ˤĤ��Ƥϲ��⤷�ޤ���
+DCC CHATのリクエストがきたときに、それをキャンセルします。
+DCC CHAT以外のDCCについては何もしません。
 
-=head1 �ץ��ѥƥ�
+=head1 プロパティ
 
 =over 4
 
 =back
 
-=head1 ������
+=head1 設定例
 
     + ctcp/dcc/cancel.plm
 

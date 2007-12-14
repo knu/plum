@@ -346,7 +346,7 @@ sub read_file {
           $line =~ tr/\r\n//d;
           next unless $line;
           $line =~ s/\s+$//;
-          $line = &code_euc($line, $code) if $code;
+          $line = &'code_utf8($line, $code) if $code;
           push(@data, $line);
         }
         close(TMP);
@@ -394,7 +394,7 @@ sub write_file {
   if (open(TMP, ">$name")) {
     foreach $line (@data) {
       push(@list, $line) if $line;
-      $line = &euc_code($line, $code) if $code;
+      $line = &'utf8_code($line, $code) if $code;
       print TMP $line, "\n";
     }
     close(TMP);
@@ -417,157 +417,129 @@ sub filename {
   return (&'expand($name), $code);
 }
 
-sub code_euc {
-  local($line, $list) = @_;
-  foreach $code (split(/\,/, "\L$list\E")) {
-    if ($code eq 'euc') {
-      $line = &'euc_euc($line);
-    } elsif ($code eq 'jis') {
-      $line = &'jis_euc($line);
-    } elsif ($code eq 'sjis') {
-      $line = &'sjis_euc($line);
-    }
-  }
-  return $line;
-}
-
-sub euc_code {
-  local($line, $list) = @_;
-  local($code);
-  $code = (split(/\,/, "\L$list\E"))[0];
-  if ($code eq 'euc') {
-    $line = &'euc_euc($line);
-  } elsif ($code eq 'jis') {
-    $line = &'euc_jis($line);
-  } elsif ($code eq 'sjis') {
-    $line = &'euc_sjis($line);
-  }
-  return $line;
-}
-
 __END__
 
-=head1 ̾��
+=head1 名前
 
-auto/alias.plm - �桼�������ꥢ������δ���
+auto/alias.plm - ユーザエイリアス情報の管理
 
-=head1 ����
+=head1 説明
 
-�桼��̾�Υ����ꥢ�����ɲá��������ǧ��Ԥ��ޤ���
-�����ꥢ�����ɲá�����ϼ�ʬ�ξ�����Ф��Ƥ����Ԥ����ȤϤǤ��ޤ���
-�����ꥢ���ϴ���Ū��nick��name��user��3�ĤΥե�����ɤ���ʤäƤ��ꡢ
-���줾��˥å��͡��ࡢ̾�����桼���ޥ�����ɽ���ޤ���
-�ºݤ˥桼�����̤��뤿��ˤ�user�����Ѥ���ޤ���
+ユーザ名のエイリアスの追加、削除、確認を行います。
+エイリアスの追加、削除は自分の情報に対してしか行うことはできません。
+エイリアスは基本的にnick、name、userの3つのフィールドからなっており、
+それぞれニックネーム、名前、ユーザマスクを表します。
+実際にユーザを識別するためにはuserが使用されます。
 
-�ޤ��������ꥢ���ե��������Ǥϡ��ǡ����ϥ桼�����Ȥ�
-nick��name��user�ν��֤���¸����Ƥ��ޤ���
-���줾��Υǡ�����ʣ�����ꤹ�뤳�Ȥ��Ǥ���nick�ϡ�,�פǡ�
-name�϶���ǡ�user��1�Ԥ�1�Ĥ��Ĥ��줾����ڤ�ޤ���
-�ºݤΥե�������Υǡ����ϰʲ��Τ褦�ˤʤäƤ��ޤ���
+また、エイリアスファイルの中では、データはユーザごとに
+nick、name、userの順番で保存されています。
+それぞれのデータは複数指定することができ、nickは「,」で、
+nameは空白で、userは1行に1つずつそれぞれ区切ります。
+実際のファイル中のデータは以下のようになっています。
 
     nick: plum,plum_j,plum-j
-    name: �פ�� �פ������
+    name: ぷらむ ぷらむちゃん
     user: *!plum@*.plum.org
     user: plum*!*plum@*.plum.com
 
     nick: plum_
-    name: �פ��(��)
+    name: ぷらむ(偽)
     user: *!*plum@*.plum.org
 
-=head1 �ץ��ѥƥ�
+=head1 プロパティ
 
 =over 4
 
-=item auto.alias.file �ե�����̾[;({jis|euc|sjis})]
+=item auto.alias.file ファイル名[;({jis|euc|sjis|utf8})]
 
-�����ꥢ������¸����ե�����̾����ꤷ�ޤ���
-�ե�����̾�θ�˴��������ɤ���ꤹ�뤳�Ȥ��Ǥ��ޤ���
-���������ɤ�ʣ�����ꤷ�����Ϻǽ�˻��ꤷ�����������ɤ���¸���졢
-��ά�������ϡ�jis�פ���ꤷ�����Ȥ�Ʊ���ˤʤ�ޤ���
-�ޤ���euc�פȡ�sjis�פ�Ʊ���˻��ꤹ�뤳�ȤϤǤ��ޤ���
+エイリアスを保存するファイル名を指定します。
+ファイル名の後に漢字コードを指定することができます。
+漢字コードを複数指定した場合は最初に指定した漢字コードで保存され、
+省略した場合は「jis」を指定したことと同じになります。
+また「euc」と「sjis」を同時に指定することはできません。
 
-=item auto.alias.readonly* (������)
+=item auto.alias.readonly* (タイプ)
 
-�ѹ����뤳�ȤΤǤ��ʤ������פ���ꤷ�ޤ���
+変更することのできないタイプを指定します。
 
-=item auto.alias.invisible* (������)
+=item auto.alias.invisible* (タイプ)
 
-���뤳�ȤΤǤ��ʤ������פ���ꤷ�ޤ���
+見ることのできないタイプを指定します。
 
-=item auto.alias.private* (������)
+=item auto.alias.private* (タイプ)
 
-�ܿͤˤ������뤳�ȤΤǤ��ʤ������פ���ꤷ�ޤ���
+本人にしか見ることのできないタイプを指定します。
 
-=item auto.alias.scalar* (������)
+=item auto.alias.scalar* (タイプ)
 
-�ͤ��Ĥ������ꤹ�뤳�Ȥ��Ǥ��ʤ������פ���ꤷ�ޤ���
+値を一つしか設定することができないタイプを指定します。
 
-=item auto.alias.get* ʸ����
+=item auto.alias.get* 文字列
 
-�����ꥢ�����ǧ���뤿��Υ�å������Ǥ���
-���Υ�å�������Ʊ��ʸ�����ȯ���򤹤�ȡ�
-��ʬ�����ꤵ��Ƥ��륨���ꥢ�����ǧ���뤳�Ȥ��Ǥ��ޤ���
-�ޤ��������Ȥ��ƥ����ꥢ���Υ����פȥǡ�������ꤹ��ȡ�
-����˥ޥå�����ͤΥ����ꥢ�����ǧ�Ǥ��ޤ���
+エイリアスを確認するためのメッセージです。
+このメッセージと同じ文字列を発言をすると、
+自分に設定されているエイリアスを確認することができます。
+また、引数としてエイリアスのタイプとデータを指定すると、
+それにマッチする人のエイリアスを確認できます。
 
-=item auto.alias.add* ʸ����
+=item auto.alias.add* 文字列
 
-�����ꥢ�����ɲä��뤿��Υ�å������Ǥ���
-���Υ�å������˰����Ȥ��ƥ����ꥢ���Υ����פȥǡ�������ꤹ��ȡ�
-��ʬ�Υ����ꥢ���˻��ꤷ���ǡ������ɲä��ޤ���
+エイリアスを追加するためのメッセージです。
+このメッセージに引数としてエイリアスのタイプとデータを指定すると、
+自分のエイリアスに指定したデータを追加します。
 
-=item auto.alias.remove* ʸ����
+=item auto.alias.remove* 文字列
 
-�����ꥢ���������뤿��Υ�å������Ǥ���
-���Υ�å������˰����Ȥ��ƥ����ꥢ���Υ����פȥǡ�������ꤹ��ȡ�
-��ʬ�Υ����ꥢ���Τ����ǻ��ꤷ���ǡ����������ޤ���
-nick���Ф���ǡ�����������ȡ������ꥢ�����Τ�Τ��������ޤ���
+エイリアスを削除するためのメッセージです。
+このメッセージに引数としてエイリアスのタイプとデータを指定すると、
+自分のエイリアスのうちで指定したデータを削除します。
+nickに対するデータを削除すると、エイリアスそのものが削除されます。
 
-=item auto.alias.change* ʸ����
+=item auto.alias.change* 文字列
 
-�����ꥢ�����ѹ����뤿��Υ�å������Ǥ���
-���Υ�å������˰����Ȥ��ƥ����ꥢ���Υ����ס��Ť��ǡ�����
-�������ǡ�������ꤹ��ȡ���ʬ�Υ����ꥢ���Τ�����
-���ꤷ�������פθŤ��ǡ����򿷤����ǡ������ѹ����ޤ���
-�������ǡ��������Ǥ�¸�ߤ��뤫�ɤ����ϳ�ǧ���Ƥ��ʤ��Τǡ�
-Ʊ���ǡ�����2�ĤǤ��ʤ��褦�ˤ��Ƥ���������
+エイリアスを変更するためのメッセージです。
+このメッセージに引数としてエイリアスのタイプ、古いデータ、
+新しいデータを指定すると、自分のエイリアスのうちで
+指定したタイプの古いデータを新しいデータに変更します。
+新しいデータがすでに存在するかどうかは確認していないので、
+同じデータが2つできないようにしてください。
 
 =back
 
-=head1 ������
+=head1 設定例
 
     + auto/alias.plm
     auto.alias.file: alias.txt;jis,euc
-    auto.alias.get: �����ꥢ��
-    auto.alias.add: �����ꥢ���ɲ�
-    auto.alias.remove: �����ꥢ�����
-    auto.alias.change: �����ꥢ���ѹ�
+    auto.alias.get: エイリアス
+    auto.alias.add: エイリアス追加
+    auto.alias.remove: エイリアス削除
+    auto.alias.change: エイリアス変更
 
-�֥����ꥢ���פȤ���ȯ��������ȡ�ȯ�������ͤΥ����ꥢ����ȯ�����ޤ���
-�����ꥢ���ϡ�alias.txt�פȤ����ե����뤫���ɤ߹��ߤޤ���
-alias.txt�ϴ��������ɤ���jis�פ���euc�פǽ񤫤�Ƥ���
-ɬ�פ�����ޤ�����IRC�夫�饨���ꥢ�����ѹ���Ԥä�����
-jis����¸����ޤ����ޤ����֥����ꥢ�� name �פ��פΤ褦��ȯ������ȡ�
-�����פ���name�פǡ��ǡ������֤פ��פȤ����ͤΥ����ꥢ�����֤��ޤ���
+「エイリアス」という発言があると、発言した人のエイリアスを発言します。
+エイリアスは「alias.txt」というファイルから読み込みます。
+alias.txtは漢字コードが「jis」か「euc」で書かれている
+必要がありますが、IRC上からエイリアスの変更を行った場合は
+jisで保存されます。また、「エイリアス name ぷらむ」のように発言すると、
+タイプが「name」で、データが「ぷらむ」という人のエイリアスを返します。
 
-�����ꥢ�����ɲä��뤿��ˤϡ֥����ꥢ���ɲ� user *!*plum@*.plum.gr.jp��
-�Τ褦��ȯ�����ޤ���
-���ξ��Ǥϥ����פ���user�פǡ��ǡ�������*!*plum@*.plum.gr.jp��
-�Ȥ��������ꥢ����ȯ�������ͤΥ����ꥢ�����ɲä��ޤ���
+エイリアスを追加するためには「エイリアス追加 user *!*plum@*.plum.gr.jp」
+のように発言します。
+この場合ではタイプが「user」で、データが「*!*plum@*.plum.gr.jp」
+というエイリアスを、発言した人のエイリアスに追加します。
 
-�����ꥢ���������뤿��ˤϡ֥����ꥢ����� name �פ�������
-�Τ褦��ȯ�����ޤ���
-���ξ��Ǥϥ����פ���name�פǡ��ǡ������֤פ������פȤ���
-�����ꥢ������ȯ�������ͤΥ����ꥢ����¸�ߤ���С�����������ޤ���
-���ꤷ���ǡ�����ȯ�������ͤΥ����ꥢ����¸�ߤ��ʤ�����̵�뤵��ޤ���
-�ޤ��������פ���nick�פΥǡ����򤹤٤ƺ���������ϡ�
-���οͤΥ����ꥢ�������ƺ������ޤ���
+エイリアスを削除するためには「エイリアス削除 name ぷらむちゃん」
+のように発言します。
+この場合ではタイプが「name」で、データが「ぷらむちゃん」という
+エイリアスが、発言した人のエイリアスに存在すれば、それを削除します。
+指定したデータが発言した人のエイリアスに存在しない場合は無視されます。
+また、タイプが「nick」のデータをすべて削除した場合は、
+その人のエイリアスは全て削除されます。
 
-�����ꥢ�����ѹ����뤿��ˤϡ�
-�֥����ꥢ���ѹ� name �פ��(��) �פ��(��)�פΤ褦��ȯ�����ޤ���
-���ξ��Ǥϥ����פ���name�פǡ��ǡ������֤פ��(��)�פȤ���
-�����ꥢ������ȯ�������ͤΥ����ꥢ����¸�ߤ���С������֤פ��(��)��
-���ѹ����ޤ������ꤷ���ǡ�����ȯ�������ͤΥ����ꥢ����¸�ߤ��ʤ�����
-̵�뤵��ޤ���
+エイリアスを変更するためには、
+「エイリアス変更 name ぷらむ(偽) ぷらむ(仮)」のように発言します。
+この場合ではタイプが「name」で、データが「ぷらむ(偽)」という
+エイリアスが、発言した人のエイリアスに存在すれば、それを「ぷらむ(仮)」
+に変更します。指定したデータが発言した人のエイリアスに存在しない場合は
+無視されます。
 
 =cut

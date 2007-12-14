@@ -47,22 +47,22 @@ sub main_loop {
 
 __END__
 
-=head1 ̾��
+=head1 名前
 
-sys/module/update.plm - �⥸�塼�뤬�ѹ������ȼ�ưŪ���Ȥ߹���ľ��
+sys/module/update.plm - モジュールが変更されると自動的に組み込み直す
 
-=head1 ����
+=head1 説明
 
-������֤��Ȥ��Ȥ߹�����⥸�塼�뤬�ѹ�����Ƥ��ʤ���������å�����
-�ѹ�����Ƥ���Ф�����Ȥ߹���ľ���ޤ���
+一定時間ごとに組み込んだモジュールが変更されていないかをチェックし、
+変更されていればそれを組み込み直します。
 
-=head1 �ץ��ѥƥ�
+=head1 プロパティ
 
 =over 4
 
 =back
 
-=head1 ������
+=head1 設定例
 
     + sys/module/update.plm
 
