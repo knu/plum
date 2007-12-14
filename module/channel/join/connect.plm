@@ -6,6 +6,7 @@ package channel_join_connect;
 $_ = 'channel_join_connect';
 
 sub initialize {
+  $DIRECTORY = '.';
 }
 
 sub server_open {
@@ -15,6 +16,18 @@ sub server_open {
   if (!defined($joinlist[$userno])) {
     $joinlist[$userno] = '';
     $keylist = '';
+    local(%tbl, $_, $dir, $file);
+    $dir = &'expand(&'property($userno, 'directory') || $DIRECTORY);
+    foreach $i (&'property($userno, 'keyfile')) {
+      $file = "$dir/$i";
+      open(H, "< $i") || next;
+      while (<H>) {
+        chomp;
+        ($chan, $key) = split(' ', $_, 2);
+        $tbl{$chan} = $key unless defined $tbl{$chan};
+      }
+      close(H);
+    }
     foreach $channel (&'property($userno, 'channel')) {
       ($chan, $key) = split(/\s+/, $channel, 2);
       @chan = split(/\,/, $chan);
@@ -23,8 +36,9 @@ sub server_open {
         $name = &'real($chan[$i]);
         next unless $name;
         $joinlist[$userno] = &'add($joinlist[$userno], $name);
-        if ($key[$i] && !$keyword{$userno, $name}) {
-          $keyword{$userno, $name} = $key[$i];
+        $key = $key[$i] || $tbl{$name};
+        if ($key && !$keyword{$userno, $name}) {
+          $keyword{$userno, $name} = $key;
         }
         $keylist = &'add($keylist, $keyword{$userno, $name} || '');
       }
@@ -94,11 +108,39 @@ sub ss_mode {
       } elsif ($char eq 'I') {
         shift(@modes);
       } elsif ($char eq 'k') {
+        local($userno, $key, $dir);
+        $userno = $'userno[$serverno];
         if ($flag eq '+') {
-          $keyword{$'userno[$serverno], $chan} = shift(@modes);
+          $key = $keyword{$userno, $chan} = shift(@modes);
         } else {
-          delete $keyword{$'userno[$serverno], $chan};
+          $key = '';
+          delete $keyword{$userno, $chan};
           shift(@modes);
+        }
+        local($file) = &'property($userno, 'keyfile');
+        $dir = &'expand(&'property($userno, 'directory') || $DIRECTORY);
+        $file = "$dir/$file";
+        if ($file) {
+          if (open(H, "+< $file")) {
+            local(@lines, $_);
+            while (<H>) {
+              chomp;
+              local($c, $k) = split(' ', $_, 2);
+              if ($c eq $chan) {
+                $k = $key;
+                $key = '';
+              }
+              push(@lines, "$c $k\n") if $k ne '';
+            }
+            seek(H, 0, 0);
+            print H @lines;
+            print H "$chan $key\n" if $key ne '';
+            truncate(H, tell(H));
+            close(H);
+          } elsif ($key ne '' && open(H, "> $file")) {
+            print H "$chan $key\n";
+            close(H);
+          }
         }
       } elsif ($char eq 'l') {
         if ($flag eq '+') {
@@ -152,6 +194,20 @@ channel/join/connect.plm - サーバに接続したときに指定したチャンネルに入る
 
 チャンネルに入った直後に chanserv に送るメッセージを指定します。
 
+=item channel.join.connect.keyfile* (ファイル名)
+
+チャンネルとキーの対を読み込み、またキーの変更(mode +k)にしたがって
+保存するファイルを指定します。ファイルの形式は、行ごとにスペースで
+区切ってチャンネル名とキーを並べたものです。
+
+複数指定した場合、すべてのファイルからチャンネル名とキーの対を
+読み込みますが、最初に指定したファイルのみが更新対象になります。
+
+(注意)
+キーファイルが読み込まれるのはモジュールがロードされたとき
+のみです。接続中にキーファイルを書き換えても内部状態には
+反映されません。
+
 =back
 
 =head1 設定例
@@ -175,5 +231,11 @@ channel/join/connect.plm - サーバに接続したときに指定したチャンネルに入る
 
 nickserv サービスに登録されたニックを認証し、 #somechannel に入った後、
 chanserv に op を要求します。
+
+    + channel/join/connect.plm
+    channel.join.connect.keyfile: plum.key
+
+ファイル plum.key からチャンネルとキーの対を読み込み、また変更に
+応じて保存します。
 
 =cut
