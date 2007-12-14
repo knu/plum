@@ -1,0 +1,130 @@
+# $Id$
+
+package log_userslist;
+
+sub initialize {
+  $DIRECTORY = '.';
+}
+
+$_ = 'log_userslist';
+
+sub ss_join {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($chan) = (split(/\cG/, $params[0]));
+
+  &write_userslist($serverno, $chan);
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_part {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($chan) = ($params[0]);
+
+  &write_userslist($serverno, $chan);
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_kick {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($chan) = ($params[0]);
+
+  &write_userslist($serverno, $chan);
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_mode {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($chan) = ($params[0]);
+
+  &write_userslist($serverno, $chan);
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_nick {
+  local($serverno, $prefix, $cmd, @params) = @_;
+
+  &write_userslist($serverno, '*');
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_quit {
+  local($serverno, $prefix, $cmd, @params) = @_;
+
+  &write_userslist($serverno, '*');
+  return ($prefix, $cmd, @params);
+}
+
+sub ss_366 {
+  local($serverno, $prefix, $cmd, @params) = @_;
+  local($chan) = ($params[2]);
+
+  &write_userslist($serverno, $chan);
+  return ($prefix, $cmd, @params);
+}
+
+sub write_userslist {
+  local($serverno, $chan) = @_;
+  local($userno, $allchan, $vchan, $rchan, $conf, $name);
+  $userno = $'userno[$serverno];
+  $allchan = ($chan eq '*');
+
+  if ($allchan || &'channel($chan)) {
+    foreach $conf (&'property($userno, 'file')) {
+      ($file, $vchan) = split(/\s+/, $conf);
+      $rchan = &'real($vchan);
+
+      if ($allchan || $rchan eq $chan) {
+        &do_write_userslist($serverno, $file, $'nameslist{$serverno, $rchan});
+        last unless $allchan;
+      }
+    }
+  }
+}
+
+sub do_write_userslist {
+  local($serverno, $file, $userslist) = @_;
+  local($userno, $dir, $name, $mode, $nick);
+  $userno = $'userno[$serverno];
+  $name = $file;
+  if ($file !~ /^[\\\/]/) {
+    $dir = &'expand(&'property($userno, 'directory') || $DIRECTORY);
+    $name = "$dir/$file";
+  }
+  $mode = &'property($userno, 'mode') if !-e $name;
+  if (open(FILE, ">$name")) {
+    foreach $nick (&'array($userslist)) {
+      print FILE $nick, "\n";
+    }
+    close(FILE);
+  }
+  chmod(oct($mode), $name) if defined($mode);
+}
+
+__END__
+
+=head1 名前
+
+log/userslist.plm - チャンネルの参加者リストをファイルに保存する
+
+=head1 説明
+
+チャンネルの参加者リストをファイルに保存します。
+
+=head1 プロパティ
+
+=over 4
+
+=item log.userslist.file* チャンネル ファイル名
+
+指定したチャンネルの参加者リストを保存するファイル名を指定します。
+
+=back
+
+=head1 設定例
+
+    + log/userslist.plm
+    log.userslist.file: #somechannel log/somechannel.userslist
+
+#somechannel の参加者リストを log/somechannel.userslist に保存します。
+
+=cut
