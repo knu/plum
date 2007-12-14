@@ -1008,35 +1008,12 @@ sub 'euc_jis {
 }
 
 sub 'euc_sjis {
-  local($euc) = @_;
-  local($sjis, $c, $n1, $n2, $i);
-  $sjis = '';
-  $euc = &'euc_euc($euc);
-  for ($i = 0; $i < length($euc); $i++) {
-    $c = substr($euc, $i, 1);
-    $n1 = ord($c);
-    if ($n1 >= 0241) {
-      $i++;
-      $n2 = ord(substr($euc, $i, 1));
-      if (($n1 & 01) == 0) {
-        $n2 -= 03;
-      } else {
-        $n2 -= 0141;
-      }
-      $n2++ if $n2 >= 0177;
-      $n1 = ((($n1 - 0241) >> 1) + 0241) ^ 040;
-      $sjis .= pack('CC', $n1, $n2);
-    } elsif ($n1 == 0216) {
-      $i++;
-      $sjis .= substr($euc, $i, 1);
-    } elsif ($n1 == 0217) {
-      $i += 2;
-      $sjis .= "\201\254";
-    } else {
-      $sjis .= $c;
-    }
-  }
-  return $sjis;
+  local($str) = @_;
+
+  use Encode;
+  Encode::from_to($str, 'EUC-JP', 'Shift_JIS');
+
+  return $str;
 }
 
 sub 'euc_utf8 {
@@ -1217,32 +1194,12 @@ sub 'jis_utf8 {
 }
 
 sub 'sjis_euc {
-  local($sjis) = @_;
-  local($euc, $c, $n1, $n2, $i);
-  $euc = '';
-  $sjis = &'sjis_sjis($sjis);
-  for ($i = 0; $i < length($sjis); $i++) {
-    $c = substr($sjis, $i, 1);
-    $n1 = ord($c);
-    if ($n1 >= 0240 && $n1 <= 0337) {
-      $euc .= "\216$c";
-    } elsif ($n1 >= 0201) {
-      $i++;
-      $n2 = ord(substr($sjis, $i, 1));
-      $n2-- if $n2 > 0177;
-      if ($n2 >= 0236) {
-        $n1 = ((($n1 ^ 040) - 0241) << 1) + 0242;
-        $n2 += 03;
-      } else {
-        $n1 = ((($n1 ^ 040) - 0241) << 1) + 0241;
-        $n2 += 0141;
-      }
-      $euc .= pack('CC', $n1, $n2);
-    } else {
-      $euc .= $c;
-    }
-  }
-  return $euc;
+  local($str) = @_;
+
+  use Encode;
+  Encode::from_to($str, 'Shift_JIS', 'EUC-JP');
+
+  return $str;
 }
 
 sub 'sjis_jis {
