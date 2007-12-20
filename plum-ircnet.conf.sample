@@ -1,0 +1,154 @@
+#
+# Configuration sample for IRCnet-JP network
+#
+# usage:
+#     $ cp plum-ircnet.conf.sample plum-ircnet.conf
+#     (edit plum-ircent.conf)
+#     $ plum ircnet
+#
+
+########################################################################
+# Environment and process
+
+# Working directory (modules/ must be there)
+plum.directory: ~/plum
+
+# Run as daemon
++ sys/background.plm
+
+# IP address/port to listen on
+plum.client: *;16667 p4zzw0rd
+
+# Use JIS based client to connect to plum 
+- client/kanji.plm
+# client.kanji.input: jis
+# client.kanji.output: jis
+
+# Automatically reload configuration file when updated
++ sys/conf/update.plm
+
+# Automatically reload module files when updated
++ sys/module/update.plm
+
+# Add support for "LOAD" command
++ sys/conf/load.plm
+
+# Automatically send server information to client on connection
++ server/info.plm
+
+# Automatically send recent chat log to client on connection
++ log/recent.plm
+log.recent.header: %H:%M
+log.recent.line: 50
+log.recent.command: privmsg,notice,topic
+
+########################################################################
+# Server
+
+# Server list
+# cf. http://www.ircnet.jp/server-list.html
+plum.server: irc.tokyo.wide.ad.jp;6660,6661,6662,6663,6664,6665,6666,6668,6669
+plum.server: irc.fujisawa.wide.ad.jp;6660,6661,6662,6663,6664,6665,6666,6668,6669
+plum.server: irc.nara.wide.ad.jp;6660,6661,6662,6663,6664,6665,6666,6668,6669
+plum.server: irc6.nara.wide.ad.jp;6667
+plum.server: irc.huie.hokudai.ac.jp;6667
+plum.server: irc.media.kyoto-u.ac.jp;6660,6661,6662,6663,6664,6665,6666,6668,6669 *****
+
++ server/timeout.plm
+# server.timeout.limit: 1800
+
+# IRCnet Japan uses JIS (iso-2022-jp) as standard encoding
++ server/kanji.plm
+server.kanji.input: jis
+server.kanji.output: jis
+
+########################################################################
+# User and channel
+
+# User information
+plum.nick: ircuser
+plum.user: ircuser
+plum.name: IRC User
+
+# AWAY and NICK settings
++ user/nick/client.plm
+user.nick.client.stay: ircuser
+user.nick.client.away: ircuser_away
++ user/away/client.plm
+user.away.client.set: Will be back later
+
+# Set user mode
+- user/mode/set.plm
+user.mode.set.mode: +i
+
+# Join some channels by default
++ channel/join/connect.plm
+#channel.join.connect.channel: #MyChan
+#channel.join.connect.channel: %SomeChan
+#channel.join.connect.channel: %PrivChan p4zzw0rd
+
+# Re-join channel when kicked
++ channel/join/kick.plm
+channel.join.kick.mask: +*!*@*
+
+# Get channel op when possible
++ channel/mode/oper/get.plm
+
+# Set channel modes
++ channel/mode/set.plm
+#channel.mode.set.mode: #MyChan +nt
+
+# Automatically give channel op to some users
+- channel/mode/oper/set.plm
+#channel.mode.oper.set.delay: 5
+#channel.mode.oper.set.mask: +*!*@*.example.org
+
+# Keep channel logs
+- log/channel.plm
+log.channel.directory: log/ircnet
+log.channel.file: MyChan.%-8O%Y.%m.%d #MyChan
+log.channel.command: privmsg,join,part,kick,invite,mode,nick,quit,topic,notice
+
+# Keep client logs
+- log/client.plm
+log.client.directory: log/ircnet
+log.client.file: .client.%-8O%Y.%m.%d
+
+# Keep daily logs
+- log/daily.plm
+log.daily.directory: log/ircnet
+log.daily.file: daily.%-8O%Y.%m.%d
+log.daily.command: privmsg,join,part,kick,invite,mode,nick,quit,topic
+
+########################################################################
+# CTCP
+
+# Respond to CTCP commands
++ ctcp/clientinfo.plm
++ ctcp/comment.plm
++ ctcp/echo.plm
+- ctcp/finger.plm
++ ctcp/ping.plm
++ ctcp/time.plm
+- ctcp/userinfo.plm
+ctcp.userinfo.info: IRC User
++ ctcp/version.plm
+
+# Deny DCC chat requests
+- ctcp/dcc/cancel.plm
+
+# Pass DCC requests to client
++ ctcp/dcc/client.plm
+
+# Proxy DCC SEND requests to client
++ ctcp/dcc/gate.plm
+ctcp.dcc.gate.mask: *!*@*
+# ctcp.dcc.gate.known: 
+
+# Add support for the "SEND" command
++ ctcp/dcc/send.plm
+
+# NAT DCC requests
+- ctcp/dcc/nat.plm
+#ctcp.dcc.nat.mapping: 192.168.1.1 xxx.yyy.zzz.www
+#ctcp.dcc.nat.private: 192.168.1.0 192.168.1.255
