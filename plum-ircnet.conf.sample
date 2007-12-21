@@ -1,20 +1,23 @@
 #
-# Configuration sample for IRCnet-JP network
+# Configuration sample for the IRCnet-JP network
 #
 # usage:
 #     $ cp plum-ircnet.conf.sample plum-ircnet.conf
-#     (edit plum-ircent.conf)
+#     (edit plum-ircnet.conf)
 #     $ plum ircnet
 #
 
 ########################################################################
 # Environment and process
 
-# Working directory (modules/ must be there)
+# Working directory (module/ must be there)
 plum.directory: ~/plum
 
 # Run as daemon
 + sys/background.plm
+
+# Multicast mode (nicks and channels are suffixed with @ircnet)
++ sys/multicast.plm
 
 # IP address/port to listen on
 plum.client: *;16667 p4zzw0rd
