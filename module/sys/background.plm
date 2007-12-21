@@ -3,14 +3,34 @@
 
 package sys_background;
 
+use POSIX qw(setsid _exit);
+
 $_ = 'sys_background';
 
 sub initialize {
-  $PID = 'plum.pid';
-  exit if fork();
-  if (open(PID, ">$PID")) {
+  print $plum'NAME, ' ', $plum'VERSION, "\n";
+
+  if (fork()) {
+    wait();
+    _exit(0);
+  }
+
+  open(STDIN, '/dev/null') or die "$!";
+  open(STDOUT, '>/dev/null');
+
+  if (fork()) {
+    _exit(0);
+  }
+
+  setsid();
+  open STDERR, '>&STDOUT' or die "$!";
+
+  my $pidfile = $ENV{PIDFILE} || 'plum.pid';
+
+  if (open(PID, ">$pidfile")) {
     print PID $$, "\n";
     close(PID);
+    $SIG{'TERM'} = sub { eval { unlink($pidfile) } };
   }
 }
 
