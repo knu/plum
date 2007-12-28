@@ -6,7 +6,6 @@ package log_channel;
 $_ = 'log_channel';
 
 sub initialize {
-  $DIRECTORY = '.';
   $HEADER = '%H:%M';
   $COMMAND = &'list('privmsg', 'join', 'part', 'kick' ,'invite', 'mode', 'nick', 'quit', 'topic');
 }
@@ -298,10 +297,7 @@ sub channellog {
   local($userno, $dir, $idx, $name, $code, $header, $mode);
   $userno = $'userno[$fileno];
   ($name, $code) = &filename($file);
-  if ($name !~ /^[\\\/]/) {
-    $dir = &'expand(&'property($userno, 'directory') || $DIRECTORY);
-    $name = "$dir/$name";
-  }
+  $name = &'abspath($userno, &'property($userno, 'directory'), $name);
   $name = &'date($name);
   $header = &'property($userno, 'header');
   $header = $HEADER unless defined($header);

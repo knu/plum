@@ -6,7 +6,6 @@ package log_daily;
 $_ = 'log_daily';
 
 sub initialize {
-  $DIRECTORY = '.';
   $FILE = '%m%d.log';
   $HEADER = '%H:%M';
   $COMMAND = &'list('privmsg', 'join', 'part', 'kick' ,'invite', 'mode', 'nick', 'quit', 'topic');
@@ -206,10 +205,7 @@ sub writelog {
   $userno = $'userno[$fileno];
   $file = &'property($userno, 'file') || $FILE;
   ($name, $code) = &filename($file);
-  if ($name !~ /^[\\\/]/) {
-    $dir = &'expand(&'property($userno, 'directory') || $DIRECTORY);
-    $name = "$dir/$name";
-  }
+  $name = &'abspath($userno, &'property($userno, 'directory'), $name);
   $name = &'date($name);
   $header = &'property($userno, 'header');
   $header = $HEADER unless defined($header);

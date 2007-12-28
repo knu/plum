@@ -3,7 +3,6 @@
 package log_userslist;
 
 sub initialize {
-  $DIRECTORY = '.';
 }
 
 $_ = 'log_userslist';
@@ -85,11 +84,7 @@ sub do_write_userslist {
   local($serverno, $file, $userslist) = @_;
   local($userno, $dir, $name, $mode, $nick);
   $userno = $'userno[$serverno];
-  $name = $file;
-  if ($file !~ /^[\\\/]/) {
-    $dir = &'expand(&'property($userno, 'directory') || $DIRECTORY);
-    $name = "$dir/$file";
-  }
+  $name = &'abspath($userno, &'property($userno, 'directory'), $file);
   $mode = &'property($userno, 'mode') if !-e $name;
   if (open(FILE, ">$name")) {
     foreach $nick (&'array($userslist)) {

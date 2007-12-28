@@ -6,7 +6,6 @@ package log_server;
 $_ = 'log_server';
 
 sub initialize {
-  $DIRECTORY = '.';
   $FILE = 'server.log';
   $HEADER = '%H:%M';
 }
@@ -22,10 +21,7 @@ sub writelog {
   local($file, $dir, $name, $code, $header, $mode);
   $file = &'property($userno, 'file') || $FILE;
   ($name, $code) = &filename($file);
-  if ($name !~ /^[\\\/]/) {
-    $dir = &'expand(&'property($userno, 'directory') || $DIRECTORY);
-    $name = "$dir/$name";
-  }
+  $name = &'abspath($userno, &'property($userno, 'directory'), $name);
   $name = &'date($name);
   $header = &'property($userno, 'header');
   $header = $HEADER unless defined($header);

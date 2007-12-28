@@ -6,7 +6,6 @@ package log_mail;
 $_ = 'log_mail';
 
 sub initialize {
-  $DIRECTORY = '.';
   $HOST = 'localhost';
   $PROTO = getprotobyname('tcp');
   $PORT = getservbyname('smtp', $PROTO) || 25;
@@ -26,11 +25,7 @@ sub main_loop {
       $name = $file;
       $code = '';
     }
-    $name = &'expand($name);
-    if ($name !~ /^[\\\/]/) {
-      $dir = &'expand(&'property($userno, 'directory') || $DIRECTORY);
-      $name = "$dir/$name";
-    }
+    $name = &'abspath($userno, &'property($userno, 'directory'), $name);
     $new = &'date($name);
     if ($filename{$name} && $new ne $filename{$name}) {
       if ($filename{$name} && -r $filename{$name}) {

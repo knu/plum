@@ -7,7 +7,6 @@ $_ = 'ctcp_dcc_get';
 
 sub initialize {
   $BUFFER = 65536;
-  $DIRECTORY = '.';
   $CLIENTINFO = 'DCC';
   $TIMEOUT = 3600;
 }
@@ -75,7 +74,7 @@ sub dcc_open {
   $nick = &'prefix($prefix);
   @params = split(/\s+/, $msg);
   if ("\L$params[0]\E" eq 'send') {
-    $dir = &'expand(&'property($userno, 'directory') || $DIRECTORY);
+    $dir = &'abspath($userno, &'property($userno, 'directory'));
     $name = "$dir/" . &newfile($dir, $params[1]);
     if (open(FILE, ">$name")) {
       close(FILE);

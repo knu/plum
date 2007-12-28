@@ -6,7 +6,6 @@ package channel_join_connect;
 $_ = 'channel_join_connect';
 
 sub initialize {
-  $DIRECTORY = '.';
 }
 
 sub server_open {
@@ -17,7 +16,7 @@ sub server_open {
     $joinlist[$userno] = '';
     $keylist = '';
     local(%tbl, $_, $dir, $file);
-    $dir = &'expand(&'property($userno, 'directory') || $DIRECTORY);
+    $dir = &'abspath($userno, &'property($userno, 'directory'));
     foreach $i (&'property($userno, 'keyfile')) {
       $file = "$dir/$i";
       open(H, "< $i") || next;
@@ -108,7 +107,7 @@ sub ss_mode {
       } elsif ($char eq 'I') {
         shift(@modes);
       } elsif ($char eq 'k') {
-        local($userno, $key, $dir);
+        local($userno, $key);
         $userno = $'userno[$serverno];
         if ($flag eq '+') {
           $key = $keyword{$userno, $chan} = shift(@modes);
@@ -118,8 +117,7 @@ sub ss_mode {
           shift(@modes);
         }
         local($file) = &'property($userno, 'keyfile');
-        $dir = &'expand(&'property($userno, 'directory') || $DIRECTORY);
-        $file = "$dir/$file";
+        $file = &'abspath($userno, &'property($userno, 'directory'), $file);
         if ($file) {
           if (open(H, "+< $file")) {
             local(@lines, $_);

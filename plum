@@ -250,9 +250,7 @@ sub 'merge {
           $'modulelist[$userno] = &'remove($'modulelist[$userno], $pkg);
         }
       } elsif ($line =~ /^\.\s+(.+)/) {
-        $arg = $1;
-        $dir = &'expand(&'property($userno, 'directory') || '.');
-        $conf = "$dir/$arg";
+        $conf = &'abspath($userno, $1);
         &'merge($userno, $conf) if -f $conf;
       } elsif ((($var, $arg) = split(/\s*\:\s*/, $line, 2)) == 2) {
         $arg = &kanji_utf8($userno, $arg);
@@ -317,6 +315,35 @@ sub 'property {
       return undef;
     }
   }
+}
+
+sub 'abspath {
+  local($userno, @paths) = @_;
+
+  my $dir = &'property($userno, 'directory');
+  unshift(@paths, $dir) if $dir ne '';
+
+  use Cwd;
+  unshift(@paths, cwd);
+
+  my $abspath;
+
+  while (@paths) {
+      my $path = pop(@paths);
+
+      next if $path eq '';
+
+      if ($abspath eq '') {
+          $abspath = &'expand($path);
+      } else {
+          $abspath = &'expand($path) . '/' . $abspath;
+      }
+
+      return $abspath if $abspath =~ /^\//;
+  }
+
+  # NOTREACHED
+  return '.';
 }
 
 sub userno {

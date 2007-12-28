@@ -7,7 +7,6 @@ $_ = 'auto_package';
 
 sub initialize {
   $BUFFER = 65536;
-  $DIRECTORY = '.';
   $CLIENTINFO = 'DCC';
   $TIMEOUT = 3600;
   $INTERVAL = 3600;
@@ -442,7 +441,7 @@ sub send {
       @params = split(/\s+/, $arg[2]);
       $sno = &'socket('S');
       if (&'connect($sno, $params[2], $params[3])) {
-        $dir = &'expand(&'property($userno, 'directory') || $DIRECTORY);
+        $dir = &'abspath($userno, &'property($userno, 'directory'));
         $name = "$dir/" . &newfile($dir, $params[1]);
         $dcclist[$serverno] = &'remove($dcclist[$serverno], $dcc);
         $info[$sno] = join(' ', time(), $who, $prefix, $chan, $params[1], $name, $text);

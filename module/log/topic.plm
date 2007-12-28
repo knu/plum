@@ -3,7 +3,6 @@
 package log_topic;
 
 sub initialize {
-  $DIRECTORY = '.';
 }
 
 $_ = 'log_topic';
@@ -64,10 +63,7 @@ sub do_write_topic {
   local(*FILE);
   $userno = $'userno[$serverno];
   ($name, $code) = &filename($file);
-  if ($name !~ /^[\\\/]/) {
-    $dir = &'expand(&'property($userno, 'directory') || $DIRECTORY);
-    $name = "$dir/$name";
-  }
+  $name = &'abspath($userno, &'property($userno, 'directory'), $name);
   $topic = &'utf8_code($topic, $code) if $code;
   $mode = &'property($userno, 'mode') if !-e $name;
   if (open(FILE, "> $name")) {
