@@ -21,6 +21,8 @@ plum.directory: ~/plum
 
 # IP address/port to listen on
 plum.client: *;16668 p4zzw0rd
+# To listen on IPv6 address(es), specify the port number negated
+plum.client: *;-16668 p4zzw0rd
 
 # Use JIS based client to connect to plum 
 - client/kanji.plm
